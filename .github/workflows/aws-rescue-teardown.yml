@@ -6,15 +6,20 @@ on:
       incident_run_id:
         description: Failed bounded-lab run to remove
         required: true
-        default: "31791499897"
+        default: "31807122381"
       incident_source_commit:
         description: Full source SHA used by the failed run
         required: true
-        default: "e1772d27ab77e81cb2cb2f5c6dac2f8a339178e5"
+        default: "a3e757bdb141b73c9394b4d4316b5786d9a677ca"
       confirm_destroy:
         description: Type DESTROY to authorize incident cleanup
         required: true
         default: ""
+  push:
+    branches:
+      - main
+    paths:
+      - .github/atlas-lab-authorizations/rescue-31807122381.json
 
 permissions:
   id-token: write
@@ -26,6 +31,11 @@ concurrency:
 
 jobs:
   rescue:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+      startsWith(github.event.head_commit.message,
+      'Rescue Atlas run 31807122381'))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -33,8 +43,9 @@ jobs:
       TF_INPUT: "false"
       AWS_REGION: ${{ vars.AWS_REGION }}
       TF_DIR: infra/atlas
-      INCIDENT_RUN_ID: ${{ inputs.incident_run_id }}
-      INCIDENT_SOURCE_COMMIT: ${{ inputs.incident_source_commit }}
+      INCIDENT_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.incident_run_id || '31807122381' }}
+      INCIDENT_SOURCE_COMMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.incident_source_commit || 'a3e757bdb141b73c9394b4d4316b5786d9a677ca' }}
+      CONFIRM_DESTROY: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_destroy || 'DESTROY' }}
       EVIDENCE_DIR: evidence/aws/rescue-${{ github.run_id }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -44,22 +55,46 @@ jobs:
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
         with:
           terraform_version: 1.11.4
+          terraform_wrapper: false
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
           role-session-name: atlasretail-rescue-${{ github.run_id }}
       - name: Validate incident and hard safety bounds
-        env:
-          CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
         run: |
           set -euo pipefail
           test "${CONFIRM_DESTROY}" = "DESTROY"
-          test "${INCIDENT_RUN_ID}" = "31791499897"
-          test "${INCIDENT_SOURCE_COMMIT}" = "e1772d27ab77e81cb2cb2f5c6dac2f8a339178e5"
+          test "${INCIDENT_RUN_ID}" = "31807122381"
+          test "${INCIDENT_SOURCE_COMMIT}" = "a3e757bdb141b73c9394b4d4316b5786d9a677ca"
           test "${AWS_REGION}" = "ap-south-1"
           account="$(aws sts get-caller-identity --query Account --output text)"
           test "${account}" = "887720497919"
+          if [[ "${GITHUB_EVENT_NAME}" = "push" ]]; then
+            python - <<'PY'
+          import json
+          from pathlib import Path
+
+          authorization = json.loads(
+              Path(
+                  ".github/atlas-lab-authorizations/rescue-31807122381.json"
+              ).read_text()
+          )
+          expected = {
+              "schema_version": "1.0",
+              "project": "AtlasRetail",
+              "operation": "rescue-teardown",
+              "incident_run_id": 31807122381,
+              "incident_source_commit": (
+                  "a3e757bdb141b73c9394b4d4316b5786d9a677ca"
+              ),
+              "confirm_destroy": "DESTROY",
+              "scope": "EXACT_TERRAFORM_STATE_ONLY",
+          }
+          if authorization != expected:
+              raise SystemExit("Invalid Atlas rescue authorization")
+          PY
+          fi
           mkdir -p "${EVIDENCE_DIR}"
           aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
           printf '%s\n' "${INCIDENT_RUN_ID}" > "${EVIDENCE_DIR}/incident-run-id.txt"
@@ -95,28 +130,26 @@ jobs:
           terraform -chdir="${TF_DIR}" state list \
             > "${EVIDENCE_DIR}/terraform-state-before.txt" \
             2> "${EVIDENCE_DIR}/terraform-state-before.log"
-      - name: Create and apply a saved destroy-only plan
+      - name: Create, validate, and apply a saved destroy-only plan
         run: |
-          set +e
-          set -o pipefail
+          set -euo pipefail
           terraform -chdir="${TF_DIR}" plan -destroy \
+            -lock-timeout=60s \
             -out=rescue.tfplan \
             -var="aws_region=${AWS_REGION}" \
             -var="run_id=${INCIDENT_RUN_ID}" \
             -var="source_commit=${INCIDENT_SOURCE_COMMIT}" \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-destroy-plan.log"
-          plan_status="${PIPESTATUS[0]}"
-          printf '%s\n' "${plan_status}" > "${EVIDENCE_DIR}/terraform-destroy-plan.status"
-          if [[ "${plan_status}" -ne 0 ]]; then
-            exit "${plan_status}"
-          fi
+          terraform -chdir="${TF_DIR}" show -json rescue.tfplan \
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-destroy-plan.json"
           terraform -chdir="${TF_DIR}" show -no-color rescue.tfplan \
-            > "${EVIDENCE_DIR}/terraform-destroy-plan.txt"
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-destroy-plan.txt"
+          python scripts/validate_terraform_plan.py \
+            --mode destroy \
+            --plan "${EVIDENCE_DIR}/terraform-destroy-plan.json" \
+            --output "${EVIDENCE_DIR}/terraform-destroy-plan-validation.json"
           terraform -chdir="${TF_DIR}" apply -auto-approve rescue.tfplan \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-destroy-apply.log"
-          apply_status="${PIPESTATUS[0]}"
-          printf '%s\n' "${apply_status}" > "${EVIDENCE_DIR}/terraform-destroy-apply.status"
-          exit "${apply_status}"
       - name: Prove teardown across AWS and Terraform inventories
         if: always()
         run: |
