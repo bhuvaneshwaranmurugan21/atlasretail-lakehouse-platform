@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/aws-read-only-preflight.yml
       - infra/atlas/**
+      - infra/iam/atlasretail-github-role-policy.json
       - scripts/verify_preflight.py
 
 permissions:
