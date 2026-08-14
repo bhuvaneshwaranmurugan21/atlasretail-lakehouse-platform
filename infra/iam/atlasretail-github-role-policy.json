@@ -1,0 +1,285 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadAccountAndTags",
+      "Effect": "Allow",
+      "Action": [
+        "sts:GetCallerIdentity",
+        "tag:GetResources"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "FoundationStack",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:CreateStack",
+        "cloudformation:DescribeStackEvents",
+        "cloudformation:DescribeStacks",
+        "cloudformation:GetTemplate",
+        "cloudformation:UpdateStack",
+        "cloudformation:ValidateTemplate"
+      ],
+      "Resource": "arn:aws:cloudformation:ap-south-1:887720497919:stack/portfolio-lab-foundation/*"
+    },
+    {
+      "Sid": "FoundationBudget",
+      "Effect": "Allow",
+      "Action": [
+        "budgets:CreateBudget",
+        "budgets:DescribeBudget",
+        "budgets:ModifyBudget"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "StateAndLabBuckets",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:DeleteObject",
+        "s3:DeleteObjectVersion",
+        "s3:GetAccelerateConfiguration",
+        "s3:GetBucketCORS",
+        "s3:GetBucketEncryption",
+        "s3:GetBucketLifecycleConfiguration",
+        "s3:GetBucketLocation",
+        "s3:GetBucketLogging",
+        "s3:GetBucketObjectLockConfiguration",
+        "s3:GetBucketOwnershipControls",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetBucketRequestPayment",
+        "s3:GetBucketTagging",
+        "s3:GetBucketVersioning",
+        "s3:GetBucketWebsite",
+        "s3:GetLifecycleConfiguration",
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:ListBucket",
+        "s3:ListBucketVersions",
+        "s3:PutBucketEncryption",
+        "s3:PutBucketLifecycleConfiguration",
+        "s3:PutBucketOwnershipControls",
+        "s3:PutBucketPolicy",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutBucketTagging",
+        "s3:PutBucketVersioning",
+        "s3:PutLifecycleConfiguration",
+        "s3:PutObject",
+        "s3:PutObjectTagging"
+      ],
+      "Resource": [
+        "arn:aws:s3:::portfolio-lab-tfstate-887720497919-ap-south-1",
+        "arn:aws:s3:::portfolio-lab-tfstate-887720497919-ap-south-1/*",
+        "arn:aws:s3:::atlasretail-*",
+        "arn:aws:s3:::atlasretail-*/*"
+      ]
+    },
+    {
+      "Sid": "DynamoControl",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DeleteItem",
+        "dynamodb:DeleteTable",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:DescribeTable",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:GetItem",
+        "dynamodb:ListTagsOfResource",
+        "dynamodb:PutItem",
+        "dynamodb:Scan",
+        "dynamodb:TagResource",
+        "dynamodb:UntagResource",
+        "dynamodb:UpdateContinuousBackups",
+        "dynamodb:UpdateItem",
+        "dynamodb:UpdateTable",
+        "dynamodb:UpdateTimeToLive"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:ap-south-1:887720497919:table/portfolio-lab-terraform-locks",
+        "arn:aws:dynamodb:ap-south-1:887720497919:table/portfolio-lab-account-lease",
+        "arn:aws:dynamodb:ap-south-1:887720497919:table/atlasretail-*"
+      ]
+    },
+    {
+      "Sid": "AtlasRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:DeleteRolePolicy",
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListInstanceProfilesForRole",
+        "iam:ListRolePolicies",
+        "iam:ListRoleTags",
+        "iam:PutRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:UpdateAssumeRolePolicy"
+      ],
+      "Resource": "arn:aws:iam::887720497919:role/atlasretail-*"
+    },
+    {
+      "Sid": "PassAtlasRoles",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::887720497919:role/atlasretail-*",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": [
+            "glue.amazonaws.com",
+            "lambda.amazonaws.com",
+            "states.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "AtlasKms",
+      "Effect": "Allow",
+      "Action": [
+        "kms:CreateAlias",
+        "kms:CreateKey",
+        "kms:Decrypt",
+        "kms:DeleteAlias",
+        "kms:DescribeKey",
+        "kms:DisableKey",
+        "kms:EnableKey",
+        "kms:Encrypt",
+        "kms:GenerateDataKey",
+        "kms:GetKeyPolicy",
+        "kms:GetKeyRotationStatus",
+        "kms:ListAliases",
+        "kms:ListResourceTags",
+        "kms:PutKeyPolicy",
+        "kms:ScheduleKeyDeletion",
+        "kms:TagResource",
+        "kms:UntagResource",
+        "kms:UpdateAlias",
+        "kms:UpdateKeyDescription"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AtlasGlue",
+      "Effect": "Allow",
+      "Action": [
+        "glue:CreateDatabase",
+        "glue:CreateJob",
+        "glue:DeleteDatabase",
+        "glue:DeleteJob",
+        "glue:GetDatabase",
+        "glue:GetDatabases",
+        "glue:GetJob",
+        "glue:GetJobRun",
+        "glue:GetJobRuns",
+        "glue:GetTags",
+        "glue:StartJobRun",
+        "glue:TagResource",
+        "glue:UntagResource",
+        "glue:UpdateDatabase",
+        "glue:UpdateJob"
+      ],
+      "Resource": [
+        "arn:aws:glue:ap-south-1:887720497919:catalog",
+        "arn:aws:glue:ap-south-1:887720497919:database/atlasretail_*",
+        "arn:aws:glue:ap-south-1:887720497919:table/atlasretail_*/*",
+        "arn:aws:glue:ap-south-1:887720497919:job/atlasretail-*"
+      ]
+    },
+    {
+      "Sid": "AtlasLambda",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:AddPermission",
+        "lambda:CreateFunction",
+        "lambda:DeleteFunction",
+        "lambda:GetFunction",
+        "lambda:GetFunctionCodeSigningConfig",
+        "lambda:GetPolicy",
+        "lambda:InvokeFunction",
+        "lambda:ListTags",
+        "lambda:RemovePermission",
+        "lambda:TagResource",
+        "lambda:UntagResource",
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration"
+      ],
+      "Resource": "arn:aws:lambda:ap-south-1:887720497919:function:atlasretail-*"
+    },
+    {
+      "Sid": "AtlasStateMachines",
+      "Effect": "Allow",
+      "Action": [
+        "states:CreateStateMachine",
+        "states:DeleteStateMachine",
+        "states:DescribeExecution",
+        "states:DescribeStateMachine",
+        "states:GetExecutionHistory",
+        "states:ListExecutions",
+        "states:ListTagsForResource",
+        "states:StartExecution",
+        "states:StopExecution",
+        "states:TagResource",
+        "states:UntagResource",
+        "states:UpdateStateMachine"
+      ],
+      "Resource": [
+        "arn:aws:states:ap-south-1:887720497919:stateMachine:atlasretail-*",
+        "arn:aws:states:ap-south-1:887720497919:execution:atlasretail-*:*"
+      ]
+    },
+    {
+      "Sid": "AtlasAthena",
+      "Effect": "Allow",
+      "Action": [
+        "athena:CreateWorkGroup",
+        "athena:DeleteWorkGroup",
+        "athena:GetQueryExecution",
+        "athena:GetQueryResults",
+        "athena:GetWorkGroup",
+        "athena:ListTagsForResource",
+        "athena:StartQueryExecution",
+        "athena:StopQueryExecution",
+        "athena:TagResource",
+        "athena:UntagResource",
+        "athena:UpdateWorkGroup"
+      ],
+      "Resource": "arn:aws:athena:ap-south-1:887720497919:workgroup/atlasretail-*"
+    },
+    {
+      "Sid": "AtlasLogsAndAlarms",
+      "Effect": "Allow",
+      "Action": [
+        "logs:AssociateKmsKey",
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:DescribeLogGroups",
+        "logs:ListTagsForResource",
+        "logs:PutRetentionPolicy",
+        "logs:TagResource",
+        "logs:UntagResource"
+      ],
+      "Resource": "arn:aws:logs:ap-south-1:887720497919:log-group:*atlasretail-*"
+    },
+    {
+      "Sid": "AtlasCloudWatchAlarms",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:DeleteAlarms",
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:ListTagsForResource",
+        "cloudwatch:PutMetricAlarm",
+        "cloudwatch:TagResource",
+        "cloudwatch:UntagResource"
+      ],
+      "Resource": "arn:aws:cloudwatch:ap-south-1:887720497919:alarm:atlasretail-*"
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+name: Shared AWS foundation
+
+on:
+  workflow_dispatch:
+    inputs:
+      monthly_budget_usd:
+        description: Monthly gross-cost guardrail in USD
+        required: true
+        default: "20"
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: portfolio-aws-account
+  cancel-in-progress: false
+
+jobs:
+  deploy-foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Prove identity
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity
+      - name: Validate and deploy
+        env:
+          BUDGET_USD: ${{ inputs.monthly_budget_usd }}
+        run: |
+          set -euo pipefail
+          test "${BUDGET_USD}" -ge 1
+          test "${BUDGET_USD}" -le 100
+          aws cloudformation validate-template \
+            --template-body file://infra/foundation/template.yml >/dev/null
+          aws cloudformation deploy \
+            --stack-name portfolio-lab-foundation \
+            --template-file infra/foundation/template.yml \
+            --parameter-overrides MonthlyBudgetUsd="${BUDGET_USD}" \
+            --no-fail-on-empty-changeset
+      - name: Record outputs
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/foundation
+          aws cloudformation describe-stacks \
+            --stack-name portfolio-lab-foundation \
+            --query 'Stacks[0].{StackId:StackId,Status:StackStatus,Outputs:Outputs}' \
+            > evidence/foundation/stack.json
+          aws dynamodb describe-time-to-live \
+            --table-name portfolio-lab-account-lease \
+            > evidence/foundation/lease-ttl.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: foundation-evidence-${{ github.run_id }}
+          path: evidence/foundation
+          if-no-files-found: error
+          retention-days: 14

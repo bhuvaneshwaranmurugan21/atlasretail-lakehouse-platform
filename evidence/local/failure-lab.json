@@ -1,0 +1,94 @@
+{
+  "architecture": "iceberg-snapshot-publication",
+  "checks": [
+    {
+      "check": "retail_invariants",
+      "passed": true,
+      "proof": {
+        "captured_cents": 200693,
+        "gross_order_cents": 200693,
+        "inventory_movements": 120,
+        "order_lines": 58,
+        "orders": 30,
+        "payments": 30,
+        "products": 20,
+        "refunded_cents": 2629,
+        "returns": 2
+      }
+    },
+    {
+      "check": "atomic_publication",
+      "passed": true,
+      "proof": 1
+    },
+    {
+      "check": "idempotent_batch_replay",
+      "passed": true,
+      "proof": "5410268697d2e82c6b758c4bf0fb1348d7672e749a7d547ffcaf20bc75838547"
+    },
+    {
+      "check": "conflicting_batch_identity",
+      "passed": true,
+      "proof": "batch base-001 was reused with different content"
+    },
+    {
+      "check": "manifest_row_count",
+      "passed": true,
+      "proof": "row count mismatch for orders"
+    },
+    {
+      "check": "financial_equation_gate",
+      "passed": true,
+      "proof": "ORDER_TOTAL,UNDERPAID"
+    },
+    {
+      "check": "excess_refund_gate",
+      "passed": true,
+      "proof": "EXCESS_REFUND"
+    },
+    {
+      "check": "negative_inventory_gate",
+      "passed": true,
+      "proof": "NEGATIVE_INVENTORY"
+    },
+    {
+      "check": "late_dimension_gate",
+      "passed": true,
+      "proof": "MISSING_DIMENSION"
+    },
+    {
+      "check": "atomic_failure_rollback",
+      "passed": true,
+      "proof": "injected failure before snapshot commit"
+    },
+    {
+      "check": "deterministic_recovery",
+      "passed": true,
+      "proof": "3d7e7fc5fff617e65428a1a2ded579fa8251c8570dceba67bddd82c11cb1d880"
+    },
+    {
+      "check": "stale_publication_blocked",
+      "passed": true,
+      "proof": "stale pointer version: expected 0, actual 1"
+    },
+    {
+      "check": "backfill_generation_isolation",
+      "passed": true,
+      "proof": "g-backfill-001"
+    },
+    {
+      "check": "snapshot_digest_integrity",
+      "passed": true,
+      "proof": "all snapshots verified"
+    }
+  ],
+  "claim_level": "LOCAL_VERIFIED",
+  "evidence_digest": "a19c48e56688fb46c38ad09c065758ba70f8e2c9791a8376b27c92804443bf37",
+  "metrics": {
+    "checks_passed": 14,
+    "checks_total": 14
+  },
+  "production_claim": false,
+  "project": "atlasretail-lakehouse-platform",
+  "result": "PASS"
+}
