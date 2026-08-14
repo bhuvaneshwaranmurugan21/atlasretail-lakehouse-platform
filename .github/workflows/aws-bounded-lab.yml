@@ -67,16 +67,19 @@ jobs:
       - name: Initialize and apply Terraform
         run: |
           set -euo pipefail
+          mkdir -p "${EVIDENCE_DIR}"
           terraform -chdir="${TF_DIR}" init \
             -backend-config="bucket=portfolio-lab-tfstate-887720497919-ap-south-1" \
             -backend-config="key=atlasretail/main.tfstate" \
             -backend-config="region=${AWS_REGION}" \
             -backend-config="dynamodb_table=portfolio-lab-terraform-locks" \
-            -backend-config="encrypt=true"
+            -backend-config="encrypt=true" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-init.log"
           terraform -chdir="${TF_DIR}" apply -auto-approve \
             -var="aws_region=${AWS_REGION}" \
             -var="run_id=${RUN_ID}" \
-            -var="source_commit=${GITHUB_SHA}"
+            -var="source_commit=${GITHUB_SHA}" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-apply.log"
           terraform -chdir="${TF_DIR}" output -json > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
       - name: Generate and upload immutable inputs
         env:
@@ -176,13 +179,21 @@ jobs:
         if: always()
         run: |
           set +e
+          set -o pipefail
+          mkdir -p "${EVIDENCE_DIR}"
           outputs="${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
+          if [[ ! -s "${outputs}" ]]; then
+            terraform -chdir="${TF_DIR}" output -json > "${outputs}" \
+              2> "${EVIDENCE_DIR}/terraform-output-recovery.log" \
+              || printf '{}\n' > "${outputs}"
+          fi
           terraform -chdir="${TF_DIR}" destroy -auto-approve \
             -var="aws_region=${AWS_REGION}" \
             -var="run_id=${RUN_ID}" \
-            -var="source_commit=${GITHUB_SHA}"
-          destroy_status="$?"
-          python scripts/verify_teardown.py "${outputs}" "${TF_DIR}" \
+            -var="source_commit=${GITHUB_SHA}" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-destroy.log"
+          destroy_status="${PIPESTATUS[0]}"
+          python scripts/verify_teardown.py "${outputs}" "${TF_DIR}" "${RUN_ID}" \
             "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/teardown.json"
           verification_status="$?"
           if [[ "${destroy_status}" -ne 0 || "${verification_status}" -ne 0 ]]; then

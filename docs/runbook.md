@@ -10,7 +10,7 @@
 
 ## Execute
 
-Run the `AWS bounded lab` workflow from GitHub Actions. Keep `order_count` at 10,000 until the
+Run the `AWS bounded lab` workflow from GitHub Actions. Keep `order_count` at 1,000 until the
 baseline completes. The workflow acquires an account lock, applies Terraform, uploads deterministic
 input, runs the success and injected-failure scenarios, collects evidence, and tears down.
 
@@ -30,5 +30,9 @@ failed gate.
 
 ## Teardown verification
 
-The workflow always executes `terraform destroy`. It then checks for resources tagged with the run
-ID and writes `teardown.json`. A failed cleanup is a failed lab even when the data path passed.
+The workflow always executes `terraform destroy`. It then checks every named resource from the
+Terraform outputs, confirms that Terraform state is readable and empty, and inventories resources
+carrying the workflow's `RunId` tag. Only explicit service-specific not-found responses prove
+deletion; authorization or API errors fail closed. A KMS key awaiting AWS's mandatory
+scheduled-deletion window is the only documented exception. The workflow writes `teardown.json`,
+and a failed cleanup is a failed lab even when the data path passed.
