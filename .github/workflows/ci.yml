@@ -27,6 +27,7 @@ jobs:
           mypy src
           cfn-lint infra/foundation/template.yml --regions ap-south-1
           python -m compileall -q src tests aws
+          bash -n scripts/*.sh
       - name: Tests and coverage
         run: pytest
       - name: Reproduce local failure evidence

@@ -1,0 +1,141 @@
+name: AWS rescue teardown
+
+on:
+  workflow_dispatch:
+    inputs:
+      incident_run_id:
+        description: Failed bounded-lab run to remove
+        required: true
+        default: "31791499897"
+      incident_source_commit:
+        description: Full source SHA used by the failed run
+        required: true
+        default: "e1772d27ab77e81cb2cb2f5c6dac2f8a339178e5"
+      confirm_destroy:
+        description: Type DESTROY to authorize incident cleanup
+        required: true
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: portfolio-aws-account
+  cancel-in-progress: false
+
+jobs:
+  rescue:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_DIR: infra/atlas
+      INCIDENT_RUN_ID: ${{ inputs.incident_run_id }}
+      INCIDENT_SOURCE_COMMIT: ${{ inputs.incident_source_commit }}
+      EVIDENCE_DIR: evidence/aws/rescue-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: 1.11.4
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: atlasretail-rescue-${{ github.run_id }}
+      - name: Validate incident and hard safety bounds
+        env:
+          CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
+        run: |
+          set -euo pipefail
+          test "${CONFIRM_DESTROY}" = "DESTROY"
+          test "${INCIDENT_RUN_ID}" = "31791499897"
+          test "${INCIDENT_SOURCE_COMMIT}" = "e1772d27ab77e81cb2cb2f5c6dac2f8a339178e5"
+          test "${AWS_REGION}" = "ap-south-1"
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          test "${account}" = "887720497919"
+          mkdir -p "${EVIDENCE_DIR}"
+          aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
+          printf '%s\n' "${INCIDENT_RUN_ID}" > "${EVIDENCE_DIR}/incident-run-id.txt"
+          printf '%s\n' "${INCIDENT_SOURCE_COMMIT}" > "${EVIDENCE_DIR}/incident-source-commit.txt"
+      - name: Acquire the account-wide lease
+        run: bash scripts/acquire_lock.sh
+      - name: Initialize the incident state only
+        run: |
+          set -euo pipefail
+          terraform -chdir="${TF_DIR}" init \
+            -backend-config="bucket=portfolio-lab-tfstate-887720497919-ap-south-1" \
+            -backend-config="key=atlasretail/main.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=portfolio-lab-terraform-locks" \
+            -backend-config="encrypt=true" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-init.log"
+      - name: Capture state before rescue
+        run: |
+          set +e
+          set -o pipefail
+          terraform -chdir="${TF_DIR}" output -json \
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs-before.json" \
+            2> "${EVIDENCE_DIR}/terraform-output-before.log"
+          output_status="$?"
+          if [[ "${output_status}" -ne 0 ]]; then
+            printf '{}\n' > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs-before.json"
+          fi
+          terraform -chdir="${TF_DIR}" state list \
+            > "${EVIDENCE_DIR}/terraform-state-before.txt" \
+            2> "${EVIDENCE_DIR}/terraform-state-before.log"
+      - name: Create and apply a saved destroy-only plan
+        run: |
+          set +e
+          set -o pipefail
+          terraform -chdir="${TF_DIR}" plan -destroy \
+            -out=rescue.tfplan \
+            -var="aws_region=${AWS_REGION}" \
+            -var="run_id=${INCIDENT_RUN_ID}" \
+            -var="source_commit=${INCIDENT_SOURCE_COMMIT}" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-destroy-plan.log"
+          plan_status="${PIPESTATUS[0]}"
+          printf '%s\n' "${plan_status}" > "${EVIDENCE_DIR}/terraform-destroy-plan.status"
+          if [[ "${plan_status}" -ne 0 ]]; then
+            exit "${plan_status}"
+          fi
+          terraform -chdir="${TF_DIR}" show -no-color rescue.tfplan \
+            > "${EVIDENCE_DIR}/terraform-destroy-plan.txt"
+          terraform -chdir="${TF_DIR}" apply -auto-approve rescue.tfplan \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-destroy-apply.log"
+          apply_status="${PIPESTATUS[0]}"
+          printf '%s\n' "${apply_status}" > "${EVIDENCE_DIR}/terraform-destroy-apply.status"
+          exit "${apply_status}"
+      - name: Prove teardown across AWS and Terraform inventories
+        if: always()
+        run: |
+          set +e
+          outputs="${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs-before.json"
+          if [[ ! -s "${outputs}" ]]; then
+            printf '{}\n' > "${outputs}"
+          fi
+          python scripts/verify_teardown.py \
+            "${outputs}" \
+            "${TF_DIR}" \
+            "${INCIDENT_RUN_ID}" \
+            "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/teardown.json"
+          verification_status="$?"
+          printf '%s\n' "${verification_status}" \
+            > "${EVIDENCE_DIR}/teardown-verification.status"
+          exit "${verification_status}"
+      - name: Release the account-wide lease
+        if: always()
+        run: bash scripts/release_lock.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: atlasretail-rescue-evidence-${{ github.run_id }}
+          path: evidence/aws/rescue-${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 30
