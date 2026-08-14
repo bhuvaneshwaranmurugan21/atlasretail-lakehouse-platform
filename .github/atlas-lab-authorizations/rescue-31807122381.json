@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "project": "AtlasRetail",
+  "operation": "rescue-teardown",
+  "incident_run_id": 31807122381,
+  "incident_source_commit": "a3e757bdb141b73c9394b4d4316b5786d9a677ca",
+  "confirm_destroy": "DESTROY",
+  "scope": "EXACT_TERRAFORM_STATE_ONLY"
+}
