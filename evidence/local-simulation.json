@@ -1,0 +1,95 @@
+{
+  "architecture": "quality-gated-iceberg-snapshots",
+  "checks": [
+    {
+      "check": "initial_batch_applied",
+      "passed": true,
+      "proof": "applied"
+    },
+    {
+      "check": "identical_batch_replay",
+      "passed": true,
+      "proof": "replayed"
+    },
+    {
+      "check": "conflicting_batch_blocked",
+      "passed": true,
+      "proof": "ReplayConflict"
+    },
+    {
+      "check": "refund_above_capture_blocked",
+      "passed": true,
+      "proof": "ContractViolation"
+    },
+    {
+      "check": "negative_inventory_blocked",
+      "passed": true,
+      "proof": "ContractViolation"
+    },
+    {
+      "check": "breaking_schema_blocked",
+      "passed": true,
+      "proof": "ContractViolation"
+    },
+    {
+      "check": "failure_injection",
+      "passed": true,
+      "proof": "InjectedFailure"
+    },
+    {
+      "check": "atomic_failure_rollback",
+      "passed": true,
+      "proof": true
+    },
+    {
+      "check": "replay_after_failure",
+      "passed": true,
+      "proof": "applied"
+    },
+    {
+      "check": "quality_gated_publication",
+      "passed": true,
+      "proof": true
+    },
+    {
+      "check": "stale_pointer_blocked",
+      "passed": true,
+      "proof": "PublicationConflict"
+    },
+    {
+      "check": "isolated_backfill",
+      "passed": true,
+      "proof": [
+        "snap-3-d40a2a523025",
+        true
+      ]
+    },
+    {
+      "check": "deterministic_business_totals",
+      "passed": true,
+      "proof": {
+        "orders": 10000,
+        "refunds": 500
+      }
+    }
+  ],
+  "claim_level": "LOCAL_VERIFIED",
+  "evidence_digest": "a11ea281b7fb7919980d5e8f0af3028086b8b760e8c0cf7f9b8d7fb9cb6d3cbe",
+  "metrics": {
+    "checks_passed": 13,
+    "checks_total": 13
+  },
+  "production_claim": false,
+  "project": "atlasretail-lakehouse-platform",
+  "result": "PASS",
+  "terminal_snapshot": {
+    "batch_id": "backfill-1",
+    "inventory_units": 14,
+    "order_cents": 10000,
+    "published": false,
+    "refund_cents": 500,
+    "row_count": 4,
+    "snapshot_id": "snap-3-d40a2a523025",
+    "state_digest": "d40a2a523025e87f18d116808330a96641cdbcc7631c93556498087a727ed2cd"
+  }
+}

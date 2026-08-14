@@ -1,0 +1,22 @@
+project: atlasretail-lakehouse-platform
+updated: 2026-08-14
+claims:
+  correctness_kernel:
+    level: LOCAL_VERIFIED
+    evidence: [tests/, evidence/local-simulation.json]
+  infrastructure:
+    level: DESIGN_ONLY
+    evidence: [infra/terraform/]
+  managed_runtime:
+    level: DESIGN_ONLY
+    validator: src/atlasretail/aws_evidence.py
+    required:
+      - Glue job run identifiers
+      - Athena query execution identifiers and bytes scanned
+      - Iceberg snapshot identifiers
+      - injected failure and recovered replay
+      - measured cost and runtime
+      - teardown verification
+  production_scale:
+    level: EXTRAPOLATED
+    note: No production traffic claim is made from the bounded lab.

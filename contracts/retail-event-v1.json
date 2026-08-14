@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:atlasretail:retail-event:v1",
+  "type": "object",
+  "required": ["event_id", "kind", "business_id", "event_time", "knowledge_time", "schema_version"],
+  "properties": {
+    "event_id": {"type": "string", "minLength": 1},
+    "kind": {"enum": ["order", "return", "inventory"]},
+    "business_id": {"type": "string", "minLength": 1},
+    "event_time": {"type": "integer"},
+    "knowledge_time": {"type": "integer"},
+    "amount_cents": {"type": "integer"},
+    "quantity": {"type": "integer"},
+    "schema_version": {"const": 1}
+  },
+  "additionalProperties": false
+}
+
