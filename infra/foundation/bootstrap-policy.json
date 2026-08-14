@@ -5,14 +5,23 @@
       "Sid": "FoundationStack",
       "Effect": "Allow",
       "Action": [
+        "cloudformation:CreateChangeSet",
         "cloudformation:CreateStack",
+        "cloudformation:DeleteChangeSet",
+        "cloudformation:DescribeChangeSet",
         "cloudformation:DescribeStackEvents",
         "cloudformation:DescribeStacks",
+        "cloudformation:ExecuteChangeSet",
         "cloudformation:GetTemplate",
-        "cloudformation:UpdateStack",
-        "cloudformation:ValidateTemplate"
+        "cloudformation:UpdateStack"
       ],
       "Resource": "arn:aws:cloudformation:ap-south-1:887720497919:stack/portfolio-lab-foundation/*"
+    },
+    {
+      "Sid": "ValidateFoundationTemplate",
+      "Effect": "Allow",
+      "Action": "cloudformation:ValidateTemplate",
+      "Resource": "*"
     },
     {
       "Sid": "FoundationS3",
