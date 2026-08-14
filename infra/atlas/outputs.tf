@@ -33,3 +33,39 @@ output "glue_database" {
 output "kms_key_arn" {
   value = aws_kms_key.lab.arn
 }
+
+output "kms_alias_name" {
+  value = aws_kms_alias.lab.name
+}
+
+output "glue_log_group_name" {
+  value = aws_cloudwatch_log_group.glue.name
+}
+
+output "states_log_group_name" {
+  value = aws_cloudwatch_log_group.states.name
+}
+
+output "lambda_log_group_name" {
+  value = aws_cloudwatch_log_group.lambda.name
+}
+
+output "glue_role_name" {
+  value = aws_iam_role.glue.name
+}
+
+output "states_role_name" {
+  value = aws_iam_role.states.name
+}
+
+output "lambda_role_name" {
+  value = aws_iam_role.lambda.name
+}
+
+output "lambda_function_name" {
+  value = aws_lambda_function.control.function_name
+}
+
+output "pipeline_alarm_name" {
+  value = aws_cloudwatch_metric_alarm.pipeline_failed.alarm_name
+}

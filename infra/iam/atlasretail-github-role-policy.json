@@ -61,6 +61,7 @@
         "s3:GetBucketPolicy",
         "s3:GetBucketPolicyStatus",
         "s3:GetBucketPublicAccessBlock",
+        "s3:GetReplicationConfiguration",
         "s3:GetBucketRequestPayment",
         "s3:GetBucketTagging",
         "s3:GetBucketVersioning",
@@ -176,6 +177,21 @@
       "Resource": "*"
     },
     {
+      "Sid": "AtlasKmsServiceGrants",
+      "Effect": "Allow",
+      "Action": [
+        "kms:CreateGrant",
+        "kms:ListGrants",
+        "kms:RevokeGrant"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "Bool": {
+          "kms:GrantIsForAWSResource": "true"
+        }
+      }
+    },
+    {
       "Sid": "AtlasGlue",
       "Effect": "Allow",
       "Action": [
@@ -188,6 +204,9 @@
         "glue:GetJob",
         "glue:GetJobRun",
         "glue:GetJobRuns",
+        "glue:GetPartitions",
+        "glue:GetTable",
+        "glue:GetTables",
         "glue:GetTags",
         "glue:StartJobRun",
         "glue:TagResource",
@@ -211,7 +230,9 @@
         "lambda:DeleteFunction",
         "lambda:GetFunction",
         "lambda:GetFunctionCodeSigningConfig",
+        "lambda:GetFunctionConcurrency",
         "lambda:GetPolicy",
+        "lambda:GetRuntimeManagementConfig",
         "lambda:InvokeFunction",
         "lambda:ListTags",
         "lambda:RemovePermission",
@@ -263,13 +284,18 @@
       "Resource": "arn:aws:athena:ap-south-1:887720497919:workgroup/atlasretail-*"
     },
     {
+      "Sid": "GlobalProviderReads",
+      "Effect": "Allow",
+      "Action": "logs:DescribeLogGroups",
+      "Resource": "*"
+    },
+    {
       "Sid": "AtlasLogsAndAlarms",
       "Effect": "Allow",
       "Action": [
         "logs:AssociateKmsKey",
         "logs:CreateLogGroup",
         "logs:DeleteLogGroup",
-        "logs:DescribeLogGroups",
         "logs:ListTagsForResource",
         "logs:PutRetentionPolicy",
         "logs:TagResource",

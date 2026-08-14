@@ -26,10 +26,40 @@ def output_value(outputs: dict[str, Any], name: str) -> str:
     return value
 
 
+def output_or_default(outputs: dict[str, Any], name: str, default: str) -> str:
+    """Use a deterministic Terraform name when a partial apply omitted an output."""
+    value = outputs.get(name, {}).get("value")
+    return value if isinstance(value, str) and value else default
+
+
 def confirmed_absent(code: int, detail: str, markers: Iterable[str]) -> bool:
     """Accept only an explicit service-specific not-found response."""
     normalized = detail.lower()
     return code != 0 and any(marker.lower() in normalized for marker in markers)
+
+
+def json_object(code: int, detail: str) -> dict[str, Any] | None:
+    """Return a successful JSON object or None for any API/JSON failure."""
+    if code != 0 or not detail.strip():
+        return None
+    try:
+        parsed = json.loads(detail)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def terraform_resources(module: dict[str, Any]) -> list[str]:
+    """Collect resource addresses recursively from Terraform's JSON state."""
+    resources = [
+        resource.get("address", "unknown")
+        for resource in module.get("resources", [])
+        if isinstance(resource, dict)
+    ]
+    for child in module.get("child_modules", []):
+        if isinstance(child, dict):
+            resources.extend(terraform_resources(child))
+    return resources
 
 
 def verify(
@@ -38,85 +68,219 @@ def verify(
     run_id: str,
     runner: Runner = command,
 ) -> dict[str, Any]:
-    """Verify named resources, Terraform state, and the run-wide tag inventory."""
+    """Verify every resource class, Terraform state, and the RunId inventory."""
     checks: list[dict[str, Any]] = []
+    prefix = f"atlasretail-{run_id}"
+
+    def add(resource: str, deleted: bool, detail: str) -> None:
+        checks.append({"resource": resource, "deleted": deleted, "detail": detail[-1000:]})
 
     for output_name in ("landing_bucket", "warehouse_bucket", "evidence_bucket"):
         try:
             name = output_value(outputs, output_name)
         except ValueError as error:
-            checks.append({"resource": output_name, "deleted": False, "detail": str(error)})
+            add(output_name, False, str(error))
             continue
         code, detail = runner("aws", "s3api", "head-bucket", "--bucket", name)
-        checks.append(
-            {
-                "resource": name,
-                "deleted": confirmed_absent(code, detail, ("404", "not found", "nosuchbucket")),
-                "detail": detail[-500:],
-            }
-        )
+        add(name, confirmed_absent(code, detail, ("404", "NoSuchBucket")), detail)
 
     named_checks = (
         (
-            "control_table",
+            output_or_default(outputs, "control_table", f"{prefix}-control"),
             ("aws", "dynamodb", "describe-table", "--table-name"),
             ("ResourceNotFoundException",),
         ),
         (
-            "glue_job_name",
+            output_or_default(outputs, "glue_job_name", f"{prefix}-iceberg"),
             ("aws", "glue", "get-job", "--job-name"),
             ("EntityNotFoundException",),
         ),
         (
-            "state_machine_arn",
-            (
-                "aws",
-                "stepfunctions",
-                "describe-state-machine",
-                "--state-machine-arn",
+            output_or_default(
+                outputs,
+                "glue_database",
+                f"{prefix}_retail".replace("-", "_"),
             ),
-            ("StateMachineDoesNotExist",),
+            ("aws", "glue", "get-database", "--name"),
+            ("EntityNotFoundException",),
+        ),
+        (
+            output_or_default(outputs, "athena_workgroup", f"{prefix}-verification"),
+            ("aws", "athena", "get-work-group", "--work-group"),
+            ("not found", "does not exist"),
+        ),
+        (
+            output_or_default(outputs, "lambda_function_name", f"{prefix}-control"),
+            ("aws", "lambda", "get-function", "--function-name"),
+            ("ResourceNotFoundException",),
         ),
     )
-    for output_name, prefix, markers in named_checks:
-        try:
-            name = output_value(outputs, output_name)
-        except ValueError as error:
-            checks.append({"resource": output_name, "deleted": False, "detail": str(error)})
-            continue
-        code, detail = runner(*prefix, name)
-        checks.append(
-            {
-                "resource": name,
-                "deleted": confirmed_absent(code, detail, markers),
-                "detail": detail[-500:],
-            }
+    for name, command_prefix, markers in named_checks:
+        code, detail = runner(*command_prefix, name)
+        add(name, confirmed_absent(code, detail, markers), detail)
+
+    try:
+        state_machine_arn = output_value(outputs, "state_machine_arn")
+    except ValueError:
+        identity_code, identity_detail = runner(
+            "aws", "sts", "get-caller-identity", "--output", "json"
+        )
+        identity = json_object(identity_code, identity_detail)
+        account = identity.get("Account") if identity else None
+        if not isinstance(account, str) or not account:
+            add(
+                "state_machine_arn",
+                False,
+                "Terraform output is missing and caller identity could not construct the ARN.",
+            )
+            state_machine_arn = ""
+        else:
+            state_machine_arn = (
+                f"arn:aws:states:ap-south-1:{account}:stateMachine:{prefix}-pipeline"
+            )
+    if state_machine_arn:
+        code, detail = runner(
+            "aws",
+            "stepfunctions",
+            "describe-state-machine",
+            "--state-machine-arn",
+            state_machine_arn,
+        )
+        add(
+            state_machine_arn,
+            confirmed_absent(code, detail, ("StateMachineDoesNotExist",)),
+            detail,
+        )
+
+    for output_name, suffix in (
+        ("glue_role_name", "glue"),
+        ("states_role_name", "states"),
+        ("lambda_role_name", "lambda"),
+    ):
+        role_name = output_or_default(outputs, output_name, f"{prefix}-{suffix}")
+        code, detail = runner("aws", "iam", "get-role", "--role-name", role_name)
+        add(role_name, confirmed_absent(code, detail, ("NoSuchEntity",)), detail)
+
+    for output_name, default_name in (
+        ("glue_log_group_name", f"/aws-glue/jobs/{prefix}"),
+        ("states_log_group_name", f"/aws/vendedlogs/states/{prefix}"),
+        ("lambda_log_group_name", f"/aws/lambda/{prefix}-control"),
+    ):
+        log_group = output_or_default(outputs, output_name, default_name)
+        code, detail = runner(
+            "aws",
+            "logs",
+            "describe-log-groups",
+            "--log-group-name-prefix",
+            log_group,
+            "--output",
+            "json",
+        )
+        response = json_object(code, detail)
+        exact_matches = []
+        if response is not None:
+            exact_matches = [
+                group
+                for group in response.get("logGroups", [])
+                if isinstance(group, dict) and group.get("logGroupName") == log_group
+            ]
+        add(
+            log_group,
+            response is not None and not exact_matches,
+            detail if response is None or exact_matches else "Exact log group is absent.",
+        )
+
+    alarm_name = output_or_default(outputs, "pipeline_alarm_name", f"{prefix}-pipeline-failed")
+    alarm_code, alarm_detail = runner(
+        "aws",
+        "cloudwatch",
+        "describe-alarms",
+        "--alarm-names",
+        alarm_name,
+        "--output",
+        "json",
+    )
+    alarm_response = json_object(alarm_code, alarm_detail)
+    alarm_exists = False
+    if alarm_response is not None:
+        alarm_exists = any(
+            alarm.get("AlarmName") == alarm_name
+            for collection in ("MetricAlarms", "CompositeAlarms")
+            for alarm in alarm_response.get(collection, [])
+            if isinstance(alarm, dict)
+        )
+    add(
+        alarm_name,
+        alarm_response is not None and not alarm_exists,
+        alarm_detail if alarm_response is None or alarm_exists else "Exact alarm is absent.",
+    )
+
+    kms_pending_deletion = False
+    kms_key_arn = ""
+    try:
+        kms_key_arn = output_value(outputs, "kms_key_arn")
+    except ValueError as error:
+        add("kms_key_arn", False, str(error))
+    if kms_key_arn:
+        alias_name = output_or_default(outputs, "kms_alias_name", f"alias/{prefix}")
+        alias_code, alias_detail = runner(
+            "aws", "kms", "list-aliases", "--key-id", kms_key_arn, "--output", "json"
+        )
+        alias_response = json_object(alias_code, alias_detail)
+        alias_exists = False
+        if alias_response is not None:
+            alias_exists = any(
+                alias.get("AliasName") == alias_name
+                for alias in alias_response.get("Aliases", [])
+                if isinstance(alias, dict)
+            )
+        add(
+            alias_name,
+            alias_response is not None and not alias_exists,
+            alias_detail if alias_response is None or alias_exists else "KMS alias is absent.",
+        )
+
+        key_code, key_detail = runner(
+            "aws", "kms", "describe-key", "--key-id", kms_key_arn, "--output", "json"
+        )
+        key_response = json_object(key_code, key_detail)
+        metadata = key_response.get("KeyMetadata", {}) if key_response else {}
+        kms_pending_deletion = (
+            isinstance(metadata, dict)
+            and metadata.get("KeyState") == "PendingDeletion"
+            and bool(metadata.get("DeletionDate"))
+        )
+        add(
+            kms_key_arn,
+            kms_pending_deletion,
+            (
+                "KMS key is PendingDeletion with a deletion date."
+                if kms_pending_deletion
+                else key_detail or "KMS key state could not be proven PendingDeletion."
+            ),
         )
 
     state_code, state_json = runner("terraform", f"-chdir={terraform_directory}", "show", "-json")
-    state_empty = False
-    state_detail = state_json[-500:]
-    if state_code == 0 and state_json.strip():
-        try:
-            state = json.loads(state_json)
-            root_module = state.get("values", {}).get("root_module", {})
-            state_empty = not root_module.get("resources") and not root_module.get("child_modules")
-            state_detail = "Terraform state is readable and empty."
-        except (json.JSONDecodeError, AttributeError):
-            state_detail = "Terraform state output is not valid JSON."
-    elif state_code != 0:
-        state_detail = f"Terraform state is unreadable: {state_detail}"
+    state = json_object(state_code, state_json)
+    if state is None:
+        state_empty = False
+        state_detail = (
+            f"Terraform state is unreadable: {state_json[-500:]}"
+            if state_code != 0
+            else "Terraform state output is empty or invalid JSON."
+        )
     else:
-        state_detail = "Terraform returned no state JSON."
-    checks.append(
-        {
-            "resource": "terraform-state",
-            "deleted": state_empty,
-            "detail": state_detail,
-        }
-    )
+        root_module = state.get("values", {}).get("root_module", {})
+        remaining_state = terraform_resources(root_module) if isinstance(root_module, dict) else []
+        state_empty = not remaining_state
+        state_detail = (
+            "Terraform state is readable and empty."
+            if state_empty
+            else json.dumps({"remaining_resources": remaining_state}, sort_keys=True)
+        )
+    add("terraform-state", state_empty, state_detail)
 
-    tag_code, tag_json = runner(
+    tag_code, tag_detail = runner(
         "aws",
         "resourcegroupstaggingapi",
         "get-resources",
@@ -125,49 +289,34 @@ def verify(
         "--output",
         "json",
     )
+    tag_response = json_object(tag_code, tag_detail)
     inventory_clean = False
-    inventory_detail = tag_json[-500:]
-    if tag_code == 0 and tag_json.strip():
-        try:
-            mappings = json.loads(tag_json).get("ResourceTagMappingList", [])
-            remaining = {
-                mapping.get("ResourceARN")
-                for mapping in mappings
-                if isinstance(mapping, dict) and mapping.get("ResourceARN")
-            }
-            kms_key_arn = output_value(outputs, "kms_key_arn")
-            allowed = {kms_key_arn}
-            unexpected = sorted(remaining - allowed)
-            inventory_clean = not unexpected
-            inventory_detail = json.dumps(
-                {
-                    "allowed_scheduled_kms_keys": sorted(remaining & allowed),
-                    "unexpected_resources": unexpected,
-                },
-                sort_keys=True,
-            )
-        except ValueError as error:
-            inventory_detail = str(error)
-        except (json.JSONDecodeError, AttributeError, TypeError):
-            inventory_detail = "RunId tag inventory is not valid JSON."
-    elif tag_code != 0:
-        inventory_detail = f"RunId tag inventory is unreadable: {inventory_detail}"
+    if tag_response is None:
+        inventory_detail = f"RunId tag inventory is unreadable: {tag_detail[-500:]}"
     else:
-        inventory_detail = "AWS returned no RunId tag inventory JSON."
-    checks.append(
-        {
-            "resource": f"RunId={run_id} tag inventory",
-            "deleted": inventory_clean,
-            "detail": inventory_detail,
+        remaining = {
+            mapping.get("ResourceARN")
+            for mapping in tag_response.get("ResourceTagMappingList", [])
+            if isinstance(mapping, dict) and mapping.get("ResourceARN")
         }
-    )
+        allowed = {kms_key_arn} if kms_key_arn and kms_pending_deletion else set()
+        unexpected = sorted(remaining - allowed)
+        inventory_clean = not unexpected
+        inventory_detail = json.dumps(
+            {
+                "allowed_pending_deletion_kms_keys": sorted(remaining & allowed),
+                "unexpected_resources": unexpected,
+            },
+            sort_keys=True,
+        )
+    add(f"RunId={run_id} tag inventory", inventory_clean, inventory_detail)
 
     return {
         "result": "PASS" if all(check["deleted"] for check in checks) else "FAIL",
         "checks": checks,
         "kms_note": (
-            "A RunId-tagged KMS key may remain only while AWS completes its mandatory "
-            "scheduled-deletion window."
+            "A RunId-tagged KMS key is allowed only when DescribeKey proves "
+            "PendingDeletion and supplies a deletion date."
         ),
     }
 
