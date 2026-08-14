@@ -73,3 +73,23 @@ an unsafe false-pass path.
 - The account lease is released and the evidence artifact is uploaded even if cleanup fails.
 
 Only after these criteria pass may a new bounded AtlasRetail execution begin.
+
+## Rescue attempt 1
+
+The first rescue was [GitHub run 31794022586](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/31794022586).
+Its saved destroy plan succeeded. Apply deleted the three S3 buckets, three IAM roles,
+three log groups, KMS alias, and random suffix from Terraform state; it also scheduled
+the KMS key for deletion. The account lease was released and the evidence artifact was
+uploaded with digest
+`sha256:244f703e6c66a34805fa16af153d679cf43cb1edb69d97bdb875950ad3a2a1ab`.
+
+Glue rejected `DeleteDatabase` because authorization is evaluated against the database's
+`userDefinedFunction` descendants as well as the catalog, database, and table resources.
+The policy correction adds only the AtlasRetail UDF namespace:
+`arn:aws:glue:ap-south-1:887720497919:userDefinedFunction/atlasretail_*/*`.
+
+The original partial apply wrote only five Terraform outputs. After the first rescue removed
+the buckets and random suffix from state, those historical names could no longer be recovered
+from live state. The checked-in incident output manifest preserves the exact names observed in
+the original Terraform state and first rescue plan. Subsequent verification uses that immutable
+manifest for explicit service checks while preserving the live pre-rescue outputs separately.

@@ -80,12 +80,17 @@ jobs:
         run: |
           set +e
           set -o pipefail
+          manifest="evidence/incidents/${INCIDENT_RUN_ID}/terraform-outputs.json"
+          outputs="${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs-before.json"
+          live_outputs="${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-live-outputs-before.json"
+          test -s "${manifest}" || exit 1
+          cp "${manifest}" "${outputs}" || exit 1
           terraform -chdir="${TF_DIR}" output -json \
-            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs-before.json" \
+            > "${live_outputs}" \
             2> "${EVIDENCE_DIR}/terraform-output-before.log"
           output_status="$?"
           if [[ "${output_status}" -ne 0 ]]; then
-            printf '{}\n' > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs-before.json"
+            printf '{}\n' > "${live_outputs}"
           fi
           terraform -chdir="${TF_DIR}" state list \
             > "${EVIDENCE_DIR}/terraform-state-before.txt" \
