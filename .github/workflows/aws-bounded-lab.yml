@@ -15,7 +15,7 @@ on:
     branches:
       - main
     paths:
-      - .github/atlas-lab-authorizations/run-001.json
+      - .github/atlas-lab-authorizations/run-002.json
 
 permissions:
   id-token: write
@@ -31,7 +31,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' &&
       startsWith(github.event.head_commit.message,
-      'Authorize Atlas bounded lab: 1000 orders'))
+      'Retry Atlas bounded lab: 1000 orders'))
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     env:
@@ -53,6 +53,7 @@ jobs:
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
         with:
           terraform_version: 1.11.4
+          terraform_wrapper: false
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
@@ -78,7 +79,7 @@ jobs:
           from pathlib import Path
 
           authorization = json.loads(
-              Path(".github/atlas-lab-authorizations/run-001.json").read_text()
+              Path(".github/atlas-lab-authorizations/run-002.json").read_text()
           )
           expected = {
               "schema_version": "1.0",
@@ -88,6 +89,7 @@ jobs:
               "confirm_destroy": "DESTROY",
               "authorization": "ONE_TIME",
               "budget_ceiling_usd": 5,
+              "prior_guarded_run": 31806322615,
           }
           if authorization != expected:
               raise SystemExit("Invalid one-time Atlas lab authorization")
@@ -236,11 +238,17 @@ jobs:
           machine="$(terraform -chdir="${TF_DIR}" output -raw state_machine_arn 2>/dev/null)"
           job="$(terraform -chdir="${TF_DIR}" output -raw glue_job_name 2>/dev/null)"
           table="$(terraform -chdir="${TF_DIR}" output -raw control_table 2>/dev/null)"
+          alarm="$(terraform -chdir="${TF_DIR}" output -raw pipeline_alarm_name 2>/dev/null)"
           glue_logs="$(terraform -chdir="${TF_DIR}" output -raw glue_log_group_name 2>/dev/null)"
           states_logs="$(terraform -chdir="${TF_DIR}" output -raw states_log_group_name 2>/dev/null)"
           lambda_logs="$(terraform -chdir="${TF_DIR}" output -raw lambda_log_group_name 2>/dev/null)"
-          aws stepfunctions list-executions --state-machine-arn "${machine}" \
-            > "${EVIDENCE_DIR}/stepfunctions-executions.json"
+          if [[ "${machine}" == arn:aws:states:ap-south-1:887720497919:stateMachine:atlasretail-* ]]; then
+            aws stepfunctions list-executions --state-machine-arn "${machine}" \
+              > "${EVIDENCE_DIR}/stepfunctions-executions.json"
+          else
+            printf '{"executions":[],"collection":"SKIPPED_NO_DEPLOYMENT"}\n' \
+              > "${EVIDENCE_DIR}/stepfunctions-executions.json"
+          fi
           for kind in success replay failure recovery; do
             arn_file="${EVIDENCE_DIR}/${kind}-execution-arn.txt"
             if [[ -s "${arn_file}" ]]; then
@@ -250,17 +258,40 @@ jobs:
                 > "${EVIDENCE_DIR}/${kind}-history.json"
             fi
           done
-          aws glue get-job-runs --job-name "${job}" > "${EVIDENCE_DIR}/glue-job-runs.json"
-          aws dynamodb scan --table-name "${table}" --consistent-read \
-            > "${EVIDENCE_DIR}/control-table.json"
-          aws cloudwatch describe-alarms --alarm-name-prefix "atlasretail-${RUN_ID}" \
-            > "${EVIDENCE_DIR}/alarms.json"
-          aws logs filter-log-events --log-group-name "${glue_logs}" \
-            > "${EVIDENCE_DIR}/glue-cloudwatch-events.json"
-          aws logs filter-log-events --log-group-name "${states_logs}" \
-            > "${EVIDENCE_DIR}/states-cloudwatch-events.json"
-          aws logs filter-log-events --log-group-name "${lambda_logs}" \
-            > "${EVIDENCE_DIR}/lambda-cloudwatch-events.json"
+          if [[ "${job}" == atlasretail-${RUN_ID}-* ]]; then
+            aws glue get-job-runs --job-name "${job}" > "${EVIDENCE_DIR}/glue-job-runs.json"
+          else
+            printf '{"JobRuns":[],"collection":"SKIPPED_NO_DEPLOYMENT"}\n' \
+              > "${EVIDENCE_DIR}/glue-job-runs.json"
+          fi
+          if [[ "${table}" == atlasretail-${RUN_ID}-control ]]; then
+            aws dynamodb scan --table-name "${table}" --consistent-read \
+              > "${EVIDENCE_DIR}/control-table.json"
+          else
+            printf '{"Items":[],"collection":"SKIPPED_NO_DEPLOYMENT"}\n' \
+              > "${EVIDENCE_DIR}/control-table.json"
+          fi
+          if [[ "${alarm}" == atlasretail-${RUN_ID}-pipeline-failed ]]; then
+            aws cloudwatch describe-alarms --alarm-names "${alarm}" \
+              > "${EVIDENCE_DIR}/alarms.json"
+          else
+            printf '{"MetricAlarms":[],"collection":"SKIPPED_NO_DEPLOYMENT"}\n' \
+              > "${EVIDENCE_DIR}/alarms.json"
+          fi
+          for name in glue states lambda; do
+            case "${name}" in
+              glue) group="${glue_logs}" ;;
+              states) group="${states_logs}" ;;
+              lambda) group="${lambda_logs}" ;;
+            esac
+            if [[ "${group}" == *atlasretail-${RUN_ID}* ]]; then
+              aws logs filter-log-events --log-group-name "${group}" \
+                > "${EVIDENCE_DIR}/${name}-cloudwatch-events.json"
+            else
+              printf '{"events":[],"collection":"SKIPPED_NO_DEPLOYMENT"}\n' \
+                > "${EVIDENCE_DIR}/${name}-cloudwatch-events.json"
+            fi
+          done
           python scripts/summarize_aws_evidence.py "${EVIDENCE_DIR}" "${GITHUB_SHA}"
       - name: Persist evidence before teardown
         if: always()
@@ -291,6 +322,7 @@ jobs:
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
         with:
           terraform_version: 1.11.4
+          terraform_wrapper: false
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}

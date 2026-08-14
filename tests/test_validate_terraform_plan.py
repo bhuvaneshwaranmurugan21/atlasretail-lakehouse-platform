@@ -20,6 +20,15 @@ def change(resource_type: str, action: str = "create", index: int = 0) -> dict[s
     }
 
 
+def data_change(resource_type: str, action: str = "read") -> dict[str, object]:
+    return {
+        "address": f"data.{resource_type}.proof",
+        "mode": "data",
+        "type": resource_type,
+        "change": {"actions": [action]},
+    }
+
+
 def bounded_apply_plan() -> dict[str, object]:
     return {
         "resource_changes": [change(resource_type) for resource_type in MODULE.REQUIRED_APPLY_TYPES]
@@ -66,3 +75,40 @@ def test_empty_destroy_plan_is_safe() -> None:
     result = MODULE.validate({"resource_changes": []}, "destroy")
 
     assert result["result"] == "PASS"
+
+
+def test_known_read_only_data_source_is_not_counted_as_infrastructure() -> None:
+    plan = bounded_apply_plan()
+    plan["resource_changes"].append(data_change("aws_iam_policy_document"))
+
+    result = MODULE.validate(plan, "apply")
+
+    assert result["result"] == "PASS"
+    assert result["resource_count"] == len(MODULE.REQUIRED_APPLY_TYPES)
+    assert result["read_only_data_source_counts"] == {"aws_iam_policy_document": 1}
+
+
+def test_unknown_or_mutating_data_source_fails_closed() -> None:
+    for candidate in (
+        data_change("aws_secretsmanager_secret"),
+        data_change("aws_iam_policy_document", action="create"),
+    ):
+        plan = bounded_apply_plan()
+        plan["resource_changes"].append(candidate)
+
+        assert MODULE.validate(plan, "apply")["result"] == "FAIL"
+
+
+def test_canonical_no_state_destroy_plan_is_safe() -> None:
+    plan = {
+        "applyable": False,
+        "complete": True,
+        "errored": False,
+        "planned_values": {"root_module": {}},
+    }
+
+    assert MODULE.validate(plan, "destroy")["result"] == "PASS"
+
+
+def test_malformed_destroy_plan_without_changes_fails_closed() -> None:
+    assert MODULE.validate({"applyable": False}, "destroy")["result"] == "FAIL"
