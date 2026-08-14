@@ -43,16 +43,32 @@ REQUIRED_APPLY_TYPES = {
     "aws_sfn_state_machine",
 }
 
+ALLOWED_READ_ONLY_DATA_TYPES = {"aws_iam_policy_document"}
+
+
+def valid_empty_destroy_plan(plan: dict[str, Any]) -> bool:
+    """Accept Terraform's canonical no-state destroy plan shape."""
+    root_module = plan.get("planned_values", {}).get("root_module")
+    return (
+        plan.get("applyable") is False
+        and plan.get("complete") is True
+        and plan.get("errored") is False
+        and root_module == {}
+    )
+
 
 def validate(plan: dict[str, Any], mode: str) -> dict[str, Any]:
     """Validate actions and type counts for an apply or destroy plan."""
     expected_action = ["create"] if mode == "apply" else ["delete"]
     changes = plan.get("resource_changes")
+    if changes is None and mode == "destroy" and valid_empty_destroy_plan(plan):
+        changes = []
     if not isinstance(changes, list):
         return {"result": "FAIL", "errors": ["resource_changes is missing"]}
 
     errors: list[str] = []
     counts: Counter[str] = Counter()
+    data_counts: Counter[str] = Counter()
     for change in changes:
         if not isinstance(change, dict):
             errors.append("resource change is not an object")
@@ -60,6 +76,14 @@ def validate(plan: dict[str, Any], mode: str) -> dict[str, Any]:
         resource_type = change.get("type")
         address = str(change.get("address", "unknown"))
         actions = change.get("change", {}).get("actions")
+        if change.get("mode") == "data":
+            if resource_type not in ALLOWED_READ_ONLY_DATA_TYPES:
+                errors.append(f"{address}: unexpected data source type {resource_type!r}")
+            elif actions != ["read"]:
+                errors.append(f"{address}: data source actions {actions!r} are not ['read']")
+            else:
+                data_counts[str(resource_type)] += 1
+            continue
         if resource_type not in ALLOWED_MAXIMUMS:
             errors.append(f"{address}: unexpected resource type {resource_type!r}")
             continue
@@ -82,6 +106,7 @@ def validate(plan: dict[str, Any], mode: str) -> dict[str, Any]:
         "mode": mode,
         "resource_count": sum(counts.values()),
         "resource_type_counts": dict(sorted(counts.items())),
+        "read_only_data_source_counts": dict(sorted(data_counts.items())),
         "errors": errors,
     }
 
