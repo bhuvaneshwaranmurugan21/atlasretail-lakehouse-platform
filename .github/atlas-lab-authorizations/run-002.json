@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0",
+  "project": "AtlasRetail",
+  "operation": "bounded-lab",
+  "order_count": 1000,
+  "confirm_destroy": "DESTROY",
+  "authorization": "ONE_TIME",
+  "budget_ceiling_usd": 5,
+  "prior_guarded_run": 31806322615
+}
