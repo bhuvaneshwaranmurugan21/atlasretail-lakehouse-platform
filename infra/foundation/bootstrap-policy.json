@@ -1,0 +1,68 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "FoundationStack",
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:CreateStack",
+        "cloudformation:DescribeStackEvents",
+        "cloudformation:DescribeStacks",
+        "cloudformation:GetTemplate",
+        "cloudformation:UpdateStack",
+        "cloudformation:ValidateTemplate"
+      ],
+      "Resource": "arn:aws:cloudformation:ap-south-1:887720497919:stack/portfolio-lab-foundation/*"
+    },
+    {
+      "Sid": "FoundationS3",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:GetBucketEncryption",
+        "s3:GetBucketLifecycleConfiguration",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetBucketVersioning",
+        "s3:PutBucketEncryption",
+        "s3:PutBucketLifecycleConfiguration",
+        "s3:PutBucketPolicy",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutBucketVersioning",
+        "s3:PutBucketOwnershipControls"
+      ],
+      "Resource": [
+        "arn:aws:s3:::portfolio-lab-tfstate-887720497919-ap-south-1",
+        "arn:aws:s3:::portfolio-lab-tfstate-887720497919-ap-south-1/*"
+      ]
+    },
+    {
+      "Sid": "FoundationDynamoDB",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:DescribeTable",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:ListTagsOfResource",
+        "dynamodb:TagResource",
+        "dynamodb:UpdateContinuousBackups",
+        "dynamodb:UpdateTimeToLive"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:ap-south-1:887720497919:table/portfolio-lab-terraform-locks",
+        "arn:aws:dynamodb:ap-south-1:887720497919:table/portfolio-lab-account-lease"
+      ]
+    },
+    {
+      "Sid": "FoundationBudget",
+      "Effect": "Allow",
+      "Action": [
+        "budgets:CreateBudget",
+        "budgets:DescribeBudget",
+        "budgets:ModifyBudget"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

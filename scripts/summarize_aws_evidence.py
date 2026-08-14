@@ -1,0 +1,84 @@
+"""Create a compact, honest summary from an AtlasRetail AWS evidence directory."""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+root = Path(sys.argv[1])
+source_commit = sys.argv[2]
+
+
+def load(name: str) -> dict[str, Any]:
+    path = root / name
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+execution_rows = load("stepfunctions-executions.json").get("executions", [])
+statuses = {row["name"].split("-")[0]: row["status"] for row in execution_rows}
+expected = {
+    "success": "SUCCEEDED",
+    "replay": "SUCCEEDED",
+    "failure": "FAILED",
+    "recovery": "SUCCEEDED",
+}
+execution_checks = {
+    name: {"expected": status, "actual": statuses.get(name), "passed": statuses.get(name) == status}
+    for name, status in expected.items()
+}
+
+glue_runs = load("glue-job-runs.json").get("JobRuns", [])
+dpu_seconds = 0.0
+for run in glue_runs:
+    if "DPUSeconds" in run:
+        dpu_seconds += float(run["DPUSeconds"])
+    else:
+        dpu_seconds += float(run.get("ExecutionTime", 0)) * float(run.get("NumberOfWorkers", 2))
+
+athena = load("athena-orders.json")
+statistics = athena.get("QueryExecution", {}).get("Statistics", {})
+athena_bytes = int(statistics.get("DataScannedInBytes", 0))
+
+# Immediate metered estimate, not an invoice. Reference rates are in cost-model.md.
+glue_estimate_usd = dpu_seconds / 3600 * 0.44
+athena_billable_bytes = max(athena_bytes, 10 * 1024 * 1024) if athena_bytes else 0
+athena_estimate_usd = athena_billable_bytes / 1_000_000_000_000 * 5.0
+
+pointer_unchanged = False
+before = root / "pointer-before-failure.json"
+after = root / "pointer-after-failure.json"
+if before.exists() and after.exists():
+    pointer_unchanged = before.read_bytes() == after.read_bytes()
+
+checks_passed = all(value["passed"] for value in execution_checks.values()) and pointer_unchanged
+summary = {
+    "project": "atlasretail-lakehouse-platform",
+    "claim_level": "AWS_VERIFIED" if checks_passed else "AWS_EXECUTION_INCOMPLETE",
+    "production_claim": False,
+    "source_commit": source_commit,
+    "result": "PASS" if checks_passed else "FAIL",
+    "checks": {
+        "executions": execution_checks,
+        "failure_did_not_move_pointer": pointer_unchanged,
+    },
+    "metered_usage": {
+        "glue_job_runs": len(glue_runs),
+        "glue_dpu_seconds": round(dpu_seconds, 3),
+        "athena_bytes_scanned": athena_bytes,
+    },
+    "immediate_cost_estimate_usd": {
+        "glue": round(glue_estimate_usd, 6),
+        "athena": round(athena_estimate_usd, 6),
+        "partial_total": round(glue_estimate_usd + athena_estimate_usd, 6),
+        "scope": (
+            "Glue compute and one Athena query only; billing data and minor service charges "
+            "settle later."
+        ),
+    },
+}
+(root / "summary.json").write_text(
+    json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+)
+raise SystemExit(0 if summary["result"] == "PASS" else 1)
