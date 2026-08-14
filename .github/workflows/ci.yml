@@ -25,6 +25,7 @@ jobs:
           ruff check .
           ruff format --check .
           mypy src
+          cfn-lint infra/foundation/template.yml --regions ap-south-1
           python -m compileall -q src tests aws
       - name: Tests and coverage
         run: pytest
