@@ -34,6 +34,19 @@ def _generate(output: Path, *, orders: int, seed: int, batch_id: str) -> None:
         json.dumps(manifest.to_dict(), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    (output / "expected-results.json").write_text(
+        json.dumps(
+            {
+                "generation_id": f"g-{batch_id}",
+                "gross_cents": sum(order.total_cents for order in batch.orders),
+                "orders": len(batch.orders),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def parser() -> argparse.ArgumentParser:

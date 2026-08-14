@@ -39,3 +39,17 @@ variable "glue_worker_count" {
     error_message = "The lab allows two or three G.1X workers only."
   }
 }
+
+variable "glue_job_timeout_minutes" {
+  description = "Hard per-run cost and duration bound for the Glue proof job."
+  type        = number
+  default     = 12
+
+  validation {
+    condition = (
+      var.glue_job_timeout_minutes >= 8 &&
+      var.glue_job_timeout_minutes <= 15
+    )
+    error_message = "The bounded lab allows an 8-15 minute Glue timeout only."
+  }
+}

@@ -185,7 +185,7 @@ resource "aws_glue_job" "retail" {
   glue_version      = "5.0"
   worker_type       = "G.1X"
   number_of_workers = var.glue_worker_count
-  timeout           = 20
+  timeout           = var.glue_job_timeout_minutes
   max_retries       = 0
 
   command {

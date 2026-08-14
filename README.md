@@ -80,9 +80,11 @@ The AWS workflow is manual because cloud execution is evidence work, not a CI si
 5. Do not raise the 10,000-order hard limit until the baseline cost and runtime are reviewed.
 
 The workflow checks account `887720497919` and region `ap-south-1`, acquires a three-hour
-account-wide lease, uses remote locked state, runs success/replay/failure/recovery scenarios, limits
-Athena scans to 1 GiB per query, and always executes teardown. The detailed operator procedure is
-in the [runbook](docs/runbook.md).
+account-wide lease, proves a clean backend, and machine-validates a saved create-only plan. It uses
+remote locked state, runs success/replay/failure/recovery scenarios, validates exact Athena
+business totals, exports CloudWatch events, and limits Athena scans to 1 GiB per query. A separate
+always-running job validates and applies a saved destroy-only plan so deployment-job failure cannot
+skip cleanup. The detailed operator procedure is in the [runbook](docs/runbook.md).
 
 ## Repository map
 

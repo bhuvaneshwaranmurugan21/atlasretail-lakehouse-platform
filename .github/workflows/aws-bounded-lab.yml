@@ -23,7 +23,7 @@ concurrency:
 jobs:
   execute:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 55
     env:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
@@ -59,15 +59,24 @@ jobs:
           test "${AWS_REGION}" = "ap-south-1"
           account="$(aws sts get-caller-identity --query Account --output text)"
           test "${account}" = "887720497919"
-          mkdir -p "${EVIDENCE_DIR}"
+          mkdir -p "${EVIDENCE_DIR}" .control
+          date +%s > "${EVIDENCE_DIR}/workflow-started-epoch.txt"
           aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
           printf '%s' "${ORDER_COUNT}" > "${EVIDENCE_DIR}/order-count.txt"
       - name: Acquire the account-wide lease
-        run: bash scripts/acquire_lock.sh
-      - name: Initialize and apply Terraform
+        run: |
+          bash scripts/acquire_lock.sh
+          printf '%s' "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}" > .control/lease-owner.txt
+      - name: Persist lease ownership
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-lease-${{ github.run_id }}
+          path: .control/lease-owner.txt
+          if-no-files-found: error
+          retention-days: 1
+      - name: Initialize backend and prove a clean preflight
         run: |
           set -euo pipefail
-          mkdir -p "${EVIDENCE_DIR}"
           terraform -chdir="${TF_DIR}" init \
             -backend-config="bucket=portfolio-lab-tfstate-887720497919-ap-south-1" \
             -backend-config="key=atlasretail/main.tfstate" \
@@ -75,12 +84,42 @@ jobs:
             -backend-config="dynamodb_table=portfolio-lab-terraform-locks" \
             -backend-config="encrypt=true" \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-init.log"
-          terraform -chdir="${TF_DIR}" apply -auto-approve \
+          python scripts/verify_preflight.py \
+            "${TF_DIR}" "${EVIDENCE_DIR}/preflight.json"
+          printf '%s' "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}" \
+            > .control/teardown-authorized.txt
+      - name: Persist teardown authority before deployment
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-teardown-authority-${{ github.run_id }}
+          path: .control/teardown-authorized.txt
+          if-no-files-found: error
+          retention-days: 1
+      - name: Create and validate the saved apply plan
+        run: |
+          set -euo pipefail
+          terraform -chdir="${TF_DIR}" plan \
+            -lock-timeout=60s \
+            -out=apply.tfplan \
             -var="aws_region=${AWS_REGION}" \
             -var="run_id=${RUN_ID}" \
             -var="source_commit=${GITHUB_SHA}" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-plan.log"
+          terraform -chdir="${TF_DIR}" show -json apply.tfplan \
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-apply-plan.json"
+          terraform -chdir="${TF_DIR}" show -no-color apply.tfplan \
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-apply-plan.txt"
+          python scripts/validate_terraform_plan.py \
+            --mode apply \
+            --plan "${EVIDENCE_DIR}/terraform-apply-plan.json" \
+            --output "${EVIDENCE_DIR}/terraform-apply-plan-validation.json"
+      - name: Apply only the validated saved plan
+        run: |
+          set -euo pipefail
+          terraform -chdir="${TF_DIR}" apply -auto-approve apply.tfplan \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-apply.log"
-          terraform -chdir="${TF_DIR}" output -json > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
+          terraform -chdir="${TF_DIR}" output -json \
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
       - name: Generate and upload immutable inputs
         env:
           ORDER_COUNT: ${{ inputs.order_count }}
@@ -95,6 +134,10 @@ jobs:
               --orders "${ORDER_COUNT}" \
               --seed "$([[ "${scenario}" = success ]] && echo 21 || echo 84)" \
               --batch-id "${batch}"
+            cp ".artifacts/aws/${batch}/manifest.json" \
+              "${EVIDENCE_DIR}/${scenario}-manifest.json"
+            cp ".artifacts/aws/${batch}/expected-results.json" \
+              "${EVIDENCE_DIR}/${scenario}-expected-results.json"
             aws s3 cp ".artifacts/aws/${batch}" "s3://${landing}/runs/${batch}" \
               --recursive \
               --only-show-errors \
@@ -136,14 +179,15 @@ jobs:
           aws dynamodb get-item --table-name "${table}" \
             --key '{"pk":{"S":"CONTROL"},"sk":{"S":"ACTIVE"}}' \
             --consistent-read > "${EVIDENCE_DIR}/pointer-after-failure.json"
-          diff -u "${EVIDENCE_DIR}/pointer-before-failure.json" "${EVIDENCE_DIR}/pointer-after-failure.json"
+          diff -u "${EVIDENCE_DIR}/pointer-before-failure.json" \
+            "${EVIDENCE_DIR}/pointer-after-failure.json"
           read -r recovery_arn recovery_status < <(bash scripts/start_execution.sh \
             "recovery-${RUN_ID}" "${machine}" "s3://${landing}/runs/${batch}" \
             "s3://${landing}/runs/${batch}/manifest.json" "${batch}" "${digest}" false)
           test "${recovery_status}" = "SUCCEEDED"
           printf '%s' "${failure_arn}" > "${EVIDENCE_DIR}/failure-execution-arn.txt"
           printf '%s' "${recovery_arn}" > "${EVIDENCE_DIR}/recovery-execution-arn.txt"
-      - name: Run bounded Athena verification
+      - name: Run and validate bounded Athena verification
         run: |
           set -euo pipefail
           workgroup="$(terraform -chdir="${TF_DIR}" output -raw athena_workgroup)"
@@ -152,13 +196,21 @@ jobs:
           bash scripts/wait_athena.sh "${workgroup}" "${database}" \
             "SELECT count(*) AS orders, sum(total_cents) AS gross_cents FROM orders WHERE generation_id='${generation}'" \
             "${EVIDENCE_DIR}/athena-orders.json"
-      - name: Collect AWS execution evidence
+          python scripts/validate_athena_results.py \
+            "${EVIDENCE_DIR}/failure-expected-results.json" \
+            "${EVIDENCE_DIR}/athena-orders-results.json" \
+            "${EVIDENCE_DIR}/athena-validation.json"
+      - name: Collect AWS execution and CloudWatch evidence
         if: always()
         run: |
           set +e
+          date +%s > "${EVIDENCE_DIR}/workflow-evidence-collected-epoch.txt"
           machine="$(terraform -chdir="${TF_DIR}" output -raw state_machine_arn 2>/dev/null)"
           job="$(terraform -chdir="${TF_DIR}" output -raw glue_job_name 2>/dev/null)"
           table="$(terraform -chdir="${TF_DIR}" output -raw control_table 2>/dev/null)"
+          glue_logs="$(terraform -chdir="${TF_DIR}" output -raw glue_log_group_name 2>/dev/null)"
+          states_logs="$(terraform -chdir="${TF_DIR}" output -raw states_log_group_name 2>/dev/null)"
+          lambda_logs="$(terraform -chdir="${TF_DIR}" output -raw lambda_log_group_name 2>/dev/null)"
           aws stepfunctions list-executions --state-machine-arn "${machine}" \
             > "${EVIDENCE_DIR}/stepfunctions-executions.json"
           for kind in success replay failure recovery; do
@@ -171,39 +223,135 @@ jobs:
             fi
           done
           aws glue get-job-runs --job-name "${job}" > "${EVIDENCE_DIR}/glue-job-runs.json"
-          aws dynamodb scan --table-name "${table}" --consistent-read > "${EVIDENCE_DIR}/control-table.json"
+          aws dynamodb scan --table-name "${table}" --consistent-read \
+            > "${EVIDENCE_DIR}/control-table.json"
           aws cloudwatch describe-alarms --alarm-name-prefix "atlasretail-${RUN_ID}" \
             > "${EVIDENCE_DIR}/alarms.json"
+          aws logs filter-log-events --log-group-name "${glue_logs}" \
+            > "${EVIDENCE_DIR}/glue-cloudwatch-events.json"
+          aws logs filter-log-events --log-group-name "${states_logs}" \
+            > "${EVIDENCE_DIR}/states-cloudwatch-events.json"
+          aws logs filter-log-events --log-group-name "${lambda_logs}" \
+            > "${EVIDENCE_DIR}/lambda-cloudwatch-events.json"
           python scripts/summarize_aws_evidence.py "${EVIDENCE_DIR}" "${GITHUB_SHA}"
-      - name: Destroy all ephemeral infrastructure
+      - name: Persist evidence before teardown
         if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-pre-teardown-${{ github.run_id }}
+          path: evidence/aws/${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 1
+
+  teardown:
+    needs: execute
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      RUN_ID: ${{ github.run_id }}
+      TF_DIR: infra/atlas
+      EVIDENCE_DIR: evidence/aws/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: 1.11.4
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: atlasretail-teardown-${{ github.run_id }}
+      - name: Prepare teardown workspace
+        run: mkdir -p "${EVIDENCE_DIR}" .control/teardown
+      - name: Recover pre-teardown evidence
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-pre-teardown-${{ github.run_id }}
+          path: evidence/aws/${{ github.run_id }}
+      - name: Recover immutable teardown authority
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-teardown-authority-${{ github.run_id }}
+          path: .control/teardown
+      - name: Validate teardown authority
+        id: authority
         run: |
-          set +e
-          set -o pipefail
-          mkdir -p "${EVIDENCE_DIR}"
+          expected="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}"
+          authority=".control/teardown/teardown-authorized.txt"
+          if [[ -s "${authority}" ]] && [[ "$(<"${authority}")" = "${expected}" ]]; then
+            echo "present=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "present=false" >> "${GITHUB_OUTPUT}"
+            printf '{"result":"SKIPPED","reason":"No valid teardown authority was persisted before apply."}\n' \
+              > "${EVIDENCE_DIR}/teardown.json"
+          fi
+      - name: Initialize backend and capture final outputs
+        if: steps.authority.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          terraform -chdir="${TF_DIR}" init \
+            -backend-config="bucket=portfolio-lab-tfstate-887720497919-ap-south-1" \
+            -backend-config="key=atlasretail/main.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=portfolio-lab-terraform-locks" \
+            -backend-config="encrypt=true" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-teardown-init.log"
           outputs="${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
           if [[ ! -s "${outputs}" ]]; then
             terraform -chdir="${TF_DIR}" output -json > "${outputs}" \
               2> "${EVIDENCE_DIR}/terraform-output-recovery.log" \
               || printf '{}\n' > "${outputs}"
           fi
-          terraform -chdir="${TF_DIR}" destroy -auto-approve \
+      - name: Create and validate the saved destroy-only plan
+        if: steps.authority.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          terraform -chdir="${TF_DIR}" plan -destroy \
+            -lock-timeout=60s \
+            -out=destroy.tfplan \
             -var="aws_region=${AWS_REGION}" \
             -var="run_id=${RUN_ID}" \
             -var="source_commit=${GITHUB_SHA}" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-destroy-plan.log"
+          terraform -chdir="${TF_DIR}" show -json destroy.tfplan \
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-destroy-plan.json"
+          terraform -chdir="${TF_DIR}" show -no-color destroy.tfplan \
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-destroy-plan.txt"
+          python scripts/validate_terraform_plan.py \
+            --mode destroy \
+            --plan "${EVIDENCE_DIR}/terraform-destroy-plan.json" \
+            --output "${EVIDENCE_DIR}/terraform-destroy-plan-validation.json"
+      - name: Apply only the validated saved destroy plan
+        if: steps.authority.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          terraform -chdir="${TF_DIR}" apply -auto-approve destroy.tfplan \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-destroy.log"
-          destroy_status="${PIPESTATUS[0]}"
-          python scripts/verify_teardown.py "${outputs}" "${TF_DIR}" "${RUN_ID}" \
-            "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/teardown.json"
-          verification_status="$?"
-          if [[ "${destroy_status}" -ne 0 || "${verification_status}" -ne 0 ]]; then
-            exit 1
-          fi
-      - name: Release the account-wide lease
+      - name: Prove teardown across AWS and Terraform inventories
+        if: ${{ always() && steps.authority.outputs.present == 'true' }}
+        run: |
+          python scripts/verify_teardown.py \
+            "${EVIDENCE_DIR}/terraform-outputs.json" \
+            "${TF_DIR}" \
+            "${RUN_ID}" \
+            "${EVIDENCE_DIR}/teardown.json"
+      - name: Release only this run's account-wide lease
         if: always()
+        env:
+          PORTFOLIO_LOCK_OWNER: ${{ github.repository }}/${{ github.run_id }}
         run: bash scripts/release_lock.sh
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - name: Upload final execution and teardown evidence
         if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: atlasretail-aws-evidence-${{ github.run_id }}
           path: evidence/aws/${{ github.run_id }}

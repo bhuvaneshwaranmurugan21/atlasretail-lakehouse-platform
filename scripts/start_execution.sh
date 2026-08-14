@@ -37,7 +37,7 @@ execution_arn="$(aws stepfunctions start-execution \
   --query executionArn \
   --output text)"
 
-deadline="$((SECONDS + 1800))"
+deadline="$((SECONDS + 900))"
 while true; do
   status="$(aws stepfunctions describe-execution \
     --execution-arn "${execution_arn}" \
