@@ -15,7 +15,7 @@ on:
     branches:
       - main
     paths:
-      - .github/atlas-lab-authorizations/run-002.json
+      - .github/atlas-lab-authorizations/run-003.json
 
 permissions:
   id-token: write
@@ -31,7 +31,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' &&
       startsWith(github.event.head_commit.message,
-      'Retry Atlas bounded lab: 1000 orders'))
+      'Execute Atlas bounded lab after rescue: 1000 orders'))
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     env:
@@ -43,6 +43,7 @@ jobs:
       EVIDENCE_DIR: evidence/aws/${{ github.run_id }}
       ORDER_COUNT: ${{ github.event_name == 'workflow_dispatch' && inputs.order_count || '1000' }}
       CONFIRM_DESTROY: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_destroy || 'DESTROY' }}
+      PUSH_BEFORE: ${{ github.event.before }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -74,12 +75,13 @@ jobs:
           aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
           printf '%s' "${ORDER_COUNT}" > "${EVIDENCE_DIR}/order-count.txt"
           if [[ "${GITHUB_EVENT_NAME}" = "push" ]]; then
+            test "${PUSH_BEFORE}" = "5f4634816d136dbb0a91b051b5b88eb7f2677d2a"
             python - <<'PY'
           import json
           from pathlib import Path
 
           authorization = json.loads(
-              Path(".github/atlas-lab-authorizations/run-002.json").read_text()
+              Path(".github/atlas-lab-authorizations/run-003.json").read_text()
           )
           expected = {
               "schema_version": "1.0",
@@ -89,7 +91,18 @@ jobs:
               "confirm_destroy": "DESTROY",
               "authorization": "ONE_TIME",
               "budget_ceiling_usd": 5,
-              "prior_guarded_run": 31806322615,
+              "authorized_base_commit": "5f4634816d136dbb0a91b051b5b88eb7f2677d2a",
+              "prior_failed_run": 31807122381,
+              "rescue_run": 31808958248,
+              "rescue_evidence_digest": (
+                  "sha256:93621ac080e9c49e57d521eacf084093"
+                  "adc010e13b65b49258ea0986f89f3887"
+              ),
+              "clean_preflight_run": 31809853275,
+              "clean_preflight_evidence_digest": (
+                  "sha256:33ac289c917ef405701931b0398007dc"
+                  "6d42696f6a860a3cb75aa67195013744"
+              ),
           }
           if authorization != expected:
               raise SystemExit("Invalid one-time Atlas lab authorization")
