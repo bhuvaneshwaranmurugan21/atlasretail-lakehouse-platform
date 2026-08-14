@@ -11,6 +11,11 @@ on:
         description: Type DESTROY to confirm automatic teardown
         required: true
         default: "DESTROY"
+  push:
+    branches:
+      - main
+    paths:
+      - .github/atlas-lab-authorizations/run-001.json
 
 permissions:
   id-token: write
@@ -22,6 +27,11 @@ concurrency:
 
 jobs:
   execute:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+      startsWith(github.event.head_commit.message,
+      'Authorize Atlas bounded lab: 1000 orders'))
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     env:
@@ -31,6 +41,8 @@ jobs:
       RUN_ID: ${{ github.run_id }}
       TF_DIR: infra/atlas
       EVIDENCE_DIR: evidence/aws/${{ github.run_id }}
+      ORDER_COUNT: ${{ github.event_name == 'workflow_dispatch' && inputs.order_count || '1000' }}
+      CONFIRM_DESTROY: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_destroy || 'DESTROY' }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -47,9 +59,6 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           role-session-name: atlasretail-${{ github.run_id }}
       - name: Validate hard safety bounds
-        env:
-          ORDER_COUNT: ${{ inputs.order_count }}
-          CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
         run: |
           set -euo pipefail
           test "${CONFIRM_DESTROY}" = "DESTROY"
@@ -63,6 +72,27 @@ jobs:
           date +%s > "${EVIDENCE_DIR}/workflow-started-epoch.txt"
           aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
           printf '%s' "${ORDER_COUNT}" > "${EVIDENCE_DIR}/order-count.txt"
+          if [[ "${GITHUB_EVENT_NAME}" = "push" ]]; then
+            python - <<'PY'
+          import json
+          from pathlib import Path
+
+          authorization = json.loads(
+              Path(".github/atlas-lab-authorizations/run-001.json").read_text()
+          )
+          expected = {
+              "schema_version": "1.0",
+              "project": "AtlasRetail",
+              "operation": "bounded-lab",
+              "order_count": 1000,
+              "confirm_destroy": "DESTROY",
+              "authorization": "ONE_TIME",
+              "budget_ceiling_usd": 5,
+          }
+          if authorization != expected:
+              raise SystemExit("Invalid one-time Atlas lab authorization")
+          PY
+          fi
       - name: Acquire the account-wide lease
         run: |
           bash scripts/acquire_lock.sh
@@ -121,8 +151,6 @@ jobs:
           terraform -chdir="${TF_DIR}" output -json \
             > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
       - name: Generate and upload immutable inputs
-        env:
-          ORDER_COUNT: ${{ inputs.order_count }}
         run: |
           set -euo pipefail
           landing="$(terraform -chdir="${TF_DIR}" output -raw landing_bucket)"
