@@ -6,11 +6,11 @@ on:
       incident_run_id:
         description: Failed bounded-lab run to remove
         required: true
-        default: "31807122381"
+        default: "31810378794"
       incident_source_commit:
         description: Full source SHA used by the failed run
         required: true
-        default: "a3e757bdb141b73c9394b4d4316b5786d9a677ca"
+        default: "0665a4b85dc498327bd48f288fe6f430a113abf8"
       confirm_destroy:
         description: Type DESTROY to authorize incident cleanup
         required: true
@@ -19,7 +19,7 @@ on:
     branches:
       - main
     paths:
-      - .github/atlas-lab-authorizations/rescue-31807122381.json
+      - .github/atlas-lab-authorizations/rescue-31810378794.json
 
 permissions:
   id-token: write
@@ -35,7 +35,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' &&
       startsWith(github.event.head_commit.message,
-      'Rescue Atlas run 31807122381'))
+      'Rescue Atlas run 31810378794'))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -43,9 +43,10 @@ jobs:
       TF_INPUT: "false"
       AWS_REGION: ${{ vars.AWS_REGION }}
       TF_DIR: infra/atlas
-      INCIDENT_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.incident_run_id || '31807122381' }}
-      INCIDENT_SOURCE_COMMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.incident_source_commit || 'a3e757bdb141b73c9394b4d4316b5786d9a677ca' }}
+      INCIDENT_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.incident_run_id || '31810378794' }}
+      INCIDENT_SOURCE_COMMIT: ${{ github.event_name == 'workflow_dispatch' && inputs.incident_source_commit || '0665a4b85dc498327bd48f288fe6f430a113abf8' }}
       CONFIRM_DESTROY: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_destroy || 'DESTROY' }}
+      PUSH_BEFORE: ${{ github.event.before }}
       EVIDENCE_DIR: evidence/aws/rescue-${{ github.run_id }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -65,28 +66,33 @@ jobs:
         run: |
           set -euo pipefail
           test "${CONFIRM_DESTROY}" = "DESTROY"
-          test "${INCIDENT_RUN_ID}" = "31807122381"
-          test "${INCIDENT_SOURCE_COMMIT}" = "a3e757bdb141b73c9394b4d4316b5786d9a677ca"
+          test "${INCIDENT_RUN_ID}" = "31810378794"
+          test "${INCIDENT_SOURCE_COMMIT}" = "0665a4b85dc498327bd48f288fe6f430a113abf8"
           test "${AWS_REGION}" = "ap-south-1"
           account="$(aws sts get-caller-identity --query Account --output text)"
           test "${account}" = "887720497919"
           if [[ "${GITHUB_EVENT_NAME}" = "push" ]]; then
+            test "${PUSH_BEFORE}" = "0665a4b85dc498327bd48f288fe6f430a113abf8"
             python - <<'PY'
           import json
           from pathlib import Path
 
           authorization = json.loads(
               Path(
-                  ".github/atlas-lab-authorizations/rescue-31807122381.json"
+                  ".github/atlas-lab-authorizations/rescue-31810378794.json"
               ).read_text()
           )
           expected = {
               "schema_version": "1.0",
               "project": "AtlasRetail",
               "operation": "rescue-teardown",
-              "incident_run_id": 31807122381,
+              "incident_run_id": 31810378794,
               "incident_source_commit": (
-                  "a3e757bdb141b73c9394b4d4316b5786d9a677ca"
+                  "0665a4b85dc498327bd48f288fe6f430a113abf8"
+              ),
+              "incident_evidence_digest": (
+                  "sha256:763a489c96686c79b9e940e609140166"
+                  "09e6c054ec3d7413373856cf6cfb6f5b"
               ),
               "confirm_destroy": "DESTROY",
               "scope": "EXACT_TERRAFORM_STATE_ONLY",
