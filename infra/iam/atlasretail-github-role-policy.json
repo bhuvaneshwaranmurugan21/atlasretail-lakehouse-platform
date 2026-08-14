@@ -218,6 +218,7 @@
         "arn:aws:glue:ap-south-1:887720497919:catalog",
         "arn:aws:glue:ap-south-1:887720497919:database/atlasretail_*",
         "arn:aws:glue:ap-south-1:887720497919:table/atlasretail_*/*",
+        "arn:aws:glue:ap-south-1:887720497919:userDefinedFunction/atlasretail_*/*",
         "arn:aws:glue:ap-south-1:887720497919:job/atlasretail-*"
       ]
     },

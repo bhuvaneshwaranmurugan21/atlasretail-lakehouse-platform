@@ -1,0 +1,92 @@
+{
+  "landing_bucket": {
+    "sensitive": false,
+    "type": "string",
+    "value": "atlasretail-31791499897-landing-c22831"
+  },
+  "warehouse_bucket": {
+    "sensitive": false,
+    "type": "string",
+    "value": "atlasretail-31791499897-warehouse-c22831"
+  },
+  "evidence_bucket": {
+    "sensitive": false,
+    "type": "string",
+    "value": "atlasretail-31791499897-evidence-c22831"
+  },
+  "state_machine_arn": {
+    "sensitive": false,
+    "type": "string",
+    "value": "arn:aws:states:ap-south-1:887720497919:stateMachine:atlasretail-31791499897-pipeline"
+  },
+  "glue_job_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "atlasretail-31791499897-iceberg"
+  },
+  "athena_workgroup": {
+    "sensitive": false,
+    "type": "string",
+    "value": "atlasretail-31791499897-verification"
+  },
+  "control_table": {
+    "sensitive": false,
+    "type": "string",
+    "value": "atlasretail-31791499897-control"
+  },
+  "glue_database": {
+    "sensitive": false,
+    "type": "string",
+    "value": "atlasretail_31791499897_retail"
+  },
+  "kms_key_arn": {
+    "sensitive": false,
+    "type": "string",
+    "value": "arn:aws:kms:ap-south-1:887720497919:key/d44b4cc3-92b1-4adf-b6c6-fd89049671b3"
+  },
+  "kms_alias_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "alias/atlasretail-31791499897"
+  },
+  "glue_log_group_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "/aws-glue/jobs/atlasretail-31791499897"
+  },
+  "states_log_group_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "/aws/vendedlogs/states/atlasretail-31791499897"
+  },
+  "lambda_log_group_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "/aws/lambda/atlasretail-31791499897-control"
+  },
+  "glue_role_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "atlasretail-31791499897-glue"
+  },
+  "states_role_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "atlasretail-31791499897-states"
+  },
+  "lambda_role_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "atlasretail-31791499897-lambda"
+  },
+  "lambda_function_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "atlasretail-31791499897-control"
+  },
+  "pipeline_alarm_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "atlasretail-31791499897-pipeline-failed"
+  }
+}
