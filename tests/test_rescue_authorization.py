@@ -36,6 +36,8 @@ def test_rescue_push_trigger_and_destroy_plan_are_guarded() -> None:
     assert rescue["env"]["CONFIRM_DESTROY"].endswith("|| 'DESTROY' }}")
 
     scripts = "\n".join(step.get("run", "") for step in rescue["steps"] if isinstance(step, dict))
+    assert "terraform-live-outputs-before.json" in scripts
+    assert "evidence/incidents/${INCIDENT_RUN_ID}" not in scripts
     assert "terraform-destroy-plan.json" in scripts
     assert "validate_terraform_plan.py" in scripts
     assert 'terraform -chdir="${TF_DIR}" apply -auto-approve rescue.tfplan' in scripts
