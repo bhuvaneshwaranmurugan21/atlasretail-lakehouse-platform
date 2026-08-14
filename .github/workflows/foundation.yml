@@ -37,13 +37,16 @@ jobs:
           set -euo pipefail
           test "${BUDGET_USD}" -ge 1
           test "${BUDGET_USD}" -le 100
+          mkdir -p evidence/foundation
           aws cloudformation validate-template \
-            --template-body file://infra/foundation/template.yml >/dev/null
+            --template-body file://infra/foundation/template.yml \
+            > evidence/foundation/validate-template.json
           aws cloudformation deploy \
             --stack-name portfolio-lab-foundation \
             --template-file infra/foundation/template.yml \
             --parameter-overrides MonthlyBudgetUsd="${BUDGET_USD}" \
-            --no-fail-on-empty-changeset
+            --no-fail-on-empty-changeset \
+            2>&1 | tee evidence/foundation/deploy.log
       - name: Record outputs
         run: |
           set -euo pipefail
