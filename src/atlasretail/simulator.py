@@ -6,6 +6,7 @@ import json
 import tempfile
 from collections.abc import Callable
 from dataclasses import replace
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -92,9 +93,7 @@ def run_failure_lab() -> dict[str, Any]:
             )
             proof = _expected_failure(
                 QualityGateError,
-                lambda invalid_manifest=invalid_manifest, invalid=invalid: engine.build_generation(
-                    invalid_manifest, invalid
-                ),
+                partial(engine.build_generation, invalid_manifest, invalid),
             )
             checks.append({"check": name, "passed": expected_code in proof, "proof": proof})
 

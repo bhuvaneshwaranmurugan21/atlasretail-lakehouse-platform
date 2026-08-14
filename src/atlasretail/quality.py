@@ -124,8 +124,8 @@ def validate(batch: RetailBatch, *, knowledge_time: int) -> QualityReport:
     returned_qty: dict[tuple[str, str], int] = {}
     for returned in batch.returns:
         key = (returned.order_id, returned.line_id)
-        line = line_lookup.get(key)
-        if line is None:
+        returned_line = line_lookup.get(key)
+        if returned_line is None:
             violations.append(
                 Violation("ORPHAN_RETURN", returned.return_id, "order line is missing")
             )
@@ -164,14 +164,14 @@ def validate(batch: RetailBatch, *, knowledge_time: int) -> QualityReport:
             )
 
     for line in batch.order_lines:
-        order = orders.get(line.order_id)
-        if order is None:
+        parent_order = orders.get(line.order_id)
+        if parent_order is None:
             violations.append(Violation("ORPHAN_LINE", line.line_id, "order is missing"))
             continue
         version = resolve_product(
             batch.products,
             product_id=line.product_id,
-            event_time=order.order_ts,
+            event_time=parent_order.order_ts,
             knowledge_time=knowledge_time,
         )
         if version is None:

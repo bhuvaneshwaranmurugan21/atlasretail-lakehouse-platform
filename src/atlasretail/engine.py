@@ -7,7 +7,7 @@ import os
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .canonical import digest
 from .errors import ConflictError, PublicationError, QualityGateError
@@ -38,7 +38,7 @@ class AtlasEngine:
             )
 
     def _state(self) -> dict[str, Any]:
-        return json.loads(self.state_path.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], json.loads(self.state_path.read_text(encoding="utf-8")))
 
     def _write_json_atomic(self, path: Path, value: Any) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -151,7 +151,10 @@ class AtlasEngine:
         generation = state["generations"].get(generation_id)
         if generation is None:
             raise KeyError(generation_id)
-        return json.loads((self.root / generation["snapshot"]).read_text(encoding="utf-8"))
+        return cast(
+            dict[str, Any],
+            json.loads((self.root / generation["snapshot"]).read_text(encoding="utf-8")),
+        )
 
     def assert_consistent(self) -> None:
         state = self._state()
