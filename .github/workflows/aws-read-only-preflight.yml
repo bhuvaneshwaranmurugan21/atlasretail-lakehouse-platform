@@ -1,0 +1,70 @@
+name: AWS read-only preflight
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/aws-read-only-preflight.yml
+      - infra/atlas/**
+      - scripts/verify_preflight.py
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: atlasretail-read-only-preflight
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_DIR: infra/atlas
+      EVIDENCE_DIR: evidence/preflight/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: 1.11.4
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: atlasretail-preflight-${{ github.run_id }}
+      - name: Prove repository identity and hard bounds
+        run: |
+          set -euo pipefail
+          test "${AWS_REGION}" = "ap-south-1"
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          test "${account}" = "887720497919"
+          mkdir -p "${EVIDENCE_DIR}"
+          aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
+      - name: Read the remote backend without deployment
+        run: |
+          set -euo pipefail
+          terraform -chdir="${TF_DIR}" init \
+            -backend-config="bucket=portfolio-lab-tfstate-887720497919-ap-south-1" \
+            -backend-config="key=atlasretail/main.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=portfolio-lab-terraform-locks" \
+            -backend-config="encrypt=true" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-init.log"
+          python scripts/verify_preflight.py \
+            "${TF_DIR}" "${EVIDENCE_DIR}/preflight.json"
+      - name: Upload identity and clean-baseline evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-read-only-preflight-${{ github.run_id }}
+          path: evidence/preflight/${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 30
