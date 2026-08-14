@@ -5,9 +5,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "aws-bounded-lab.yml"
-AUTHORIZATION = (
-    ROOT / ".github" / "atlas-lab-authorizations" / "run-001.json"
-)
+AUTHORIZATION = ROOT / ".github" / "atlas-lab-authorizations" / "run-001.json"
 
 
 def test_one_time_authorization_is_exactly_bounded() -> None:
