@@ -113,20 +113,40 @@ jobs:
             2>&1 | tee "${EVIDENCE_DIR}/terraform-init.log"
       - name: Capture state before rescue
         run: |
-          set +e
-          set -o pipefail
-          manifest="evidence/incidents/${INCIDENT_RUN_ID}/terraform-outputs.json"
-          outputs="${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs-before.json"
+          set -euo pipefail
           live_outputs="${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-live-outputs-before.json"
-          test -s "${manifest}" || exit 1
-          cp "${manifest}" "${outputs}" || exit 1
           terraform -chdir="${TF_DIR}" output -json \
             > "${live_outputs}" \
             2> "${EVIDENCE_DIR}/terraform-output-before.log"
-          output_status="$?"
-          if [[ "${output_status}" -ne 0 ]]; then
-            printf '{}\n' > "${live_outputs}"
-          fi
+          python - "${live_outputs}" "${INCIDENT_RUN_ID}" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          outputs = json.loads(Path(sys.argv[1]).read_text())
+          run_id = sys.argv[2]
+          required = {
+              "landing_bucket",
+              "warehouse_bucket",
+              "evidence_bucket",
+              "control_table",
+              "glue_database",
+              "athena_workgroup",
+              "lambda_function_name",
+              "kms_key_arn",
+          }
+          missing = sorted(required - outputs.keys())
+          if missing:
+              raise SystemExit(f"Incident Terraform outputs are incomplete: {missing}")
+          for name in required - {"kms_key_arn"}:
+              value = outputs[name].get("value", "")
+              if run_id not in value:
+                  raise SystemExit(f"Terraform output {name} is outside incident scope")
+          kms_arn = outputs["kms_key_arn"].get("value", "")
+          expected_prefix = "arn:aws:kms:ap-south-1:887720497919:key/"
+          if not kms_arn.startswith(expected_prefix):
+              raise SystemExit("Terraform KMS output is outside account and region scope")
+          PY
           terraform -chdir="${TF_DIR}" state list \
             > "${EVIDENCE_DIR}/terraform-state-before.txt" \
             2> "${EVIDENCE_DIR}/terraform-state-before.log"
@@ -154,7 +174,7 @@ jobs:
         if: always()
         run: |
           set +e
-          outputs="${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs-before.json"
+          outputs="${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-live-outputs-before.json"
           if [[ ! -s "${outputs}" ]]; then
             printf '{}\n' > "${outputs}"
           fi
