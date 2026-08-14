@@ -36,6 +36,9 @@ def test_incident_permissions_are_present_with_required_scope() -> None:
     assert "logs:DescribeLogGroups" in actions(global_reads)
     assert global_reads["Resource"] == "*"
 
+    log_evidence = statement("AtlasLogsAndAlarms")
+    assert "logs:FilterLogEvents" in actions(log_evidence)
+
     glue_resources = statement("AtlasGlue")["Resource"]
     assert (
         "arn:aws:glue:ap-south-1:887720497919:userDefinedFunction/atlasretail_*/*"

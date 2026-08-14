@@ -52,7 +52,27 @@ after = root / "pointer-after-failure.json"
 if before.exists() and after.exists():
     pointer_unchanged = before.read_bytes() == after.read_bytes()
 
-checks_passed = all(value["passed"] for value in execution_checks.values()) and pointer_unchanged
+athena_validation = load("athena-validation.json")
+athena_matches = athena_validation.get("result") == "PASS"
+cloudwatch_files = (
+    "glue-cloudwatch-events.json",
+    "states-cloudwatch-events.json",
+    "lambda-cloudwatch-events.json",
+)
+cloudwatch_exports = {name: isinstance(load(name).get("events"), list) for name in cloudwatch_files}
+cloudwatch_evidence_complete = all(cloudwatch_exports.values())
+checks_passed = (
+    all(value["passed"] for value in execution_checks.values())
+    and pointer_unchanged
+    and athena_matches
+    and cloudwatch_evidence_complete
+)
+
+elapsed_seconds = 0
+started = root / "workflow-started-epoch.txt"
+collected = root / "workflow-evidence-collected-epoch.txt"
+if started.exists() and collected.exists():
+    elapsed_seconds = max(0, int(collected.read_text()) - int(started.read_text()))
 summary = {
     "project": "atlasretail-lakehouse-platform",
     "claim_level": "AWS_VERIFIED" if checks_passed else "AWS_EXECUTION_INCOMPLETE",
@@ -62,11 +82,15 @@ summary = {
     "checks": {
         "executions": execution_checks,
         "failure_did_not_move_pointer": pointer_unchanged,
+        "athena_result_matches_expected": athena_matches,
+        "cloudwatch_exports": cloudwatch_exports,
     },
+    "business_result": athena_validation,
     "metered_usage": {
         "glue_job_runs": len(glue_runs),
         "glue_dpu_seconds": round(dpu_seconds, 3),
         "athena_bytes_scanned": athena_bytes,
+        "workflow_to_evidence_seconds": elapsed_seconds,
     },
     "immediate_cost_estimate_usd": {
         "glue": round(glue_estimate_usd, 6),

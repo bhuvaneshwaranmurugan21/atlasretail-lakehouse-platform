@@ -1,0 +1,115 @@
+"""Prove the Atlas backend is empty and only historical deleting KMS keys remain."""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+
+def command(*arguments: str) -> tuple[int, str]:
+    completed = subprocess.run(arguments, check=False, capture_output=True, text=True)
+    return completed.returncode, completed.stdout + completed.stderr
+
+
+def _json(code: int, detail: str) -> dict[str, Any] | None:
+    if code != 0:
+        return None
+    try:
+        parsed = json.loads(detail)
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _resources(module: dict[str, Any]) -> list[str]:
+    addresses = [
+        str(item.get("address", "unknown"))
+        for item in module.get("resources", [])
+        if isinstance(item, dict)
+    ]
+    for child in module.get("child_modules", []):
+        if isinstance(child, dict):
+            addresses.extend(_resources(child))
+    return addresses
+
+
+def verify(terraform_directory: str) -> dict[str, Any]:
+    errors: list[str] = []
+    state_code, state_detail = command(
+        "terraform", f"-chdir={terraform_directory}", "show", "-json"
+    )
+    state = _json(state_code, state_detail)
+    if state is None:
+        errors.append("Terraform state is unreadable")
+        remaining_state: list[str] = []
+    else:
+        root = state.get("values", {}).get("root_module", {})
+        remaining_state = _resources(root) if isinstance(root, dict) else []
+        if remaining_state:
+            errors.append("Terraform state is not empty")
+
+    tag_code, tag_detail = command(
+        "aws",
+        "resourcegroupstaggingapi",
+        "get-resources",
+        "--tag-filters",
+        "Key=Project,Values=AtlasRetail",
+        "--output",
+        "json",
+    )
+    inventory = _json(tag_code, tag_detail)
+    unexpected: list[str] = []
+    allowed_pending_kms: list[str] = []
+    if inventory is None:
+        errors.append("AtlasRetail tag inventory is unreadable")
+    else:
+        arns = sorted(
+            str(item["ResourceARN"])
+            for item in inventory.get("ResourceTagMappingList", [])
+            if isinstance(item, dict) and item.get("ResourceARN")
+        )
+        for arn in arns:
+            if ":kms:" not in arn:
+                unexpected.append(arn)
+                continue
+            key_code, key_detail = command(
+                "aws", "kms", "describe-key", "--key-id", arn, "--output", "json"
+            )
+            key = _json(key_code, key_detail)
+            metadata = key.get("KeyMetadata", {}) if key else {}
+            if (
+                isinstance(metadata, dict)
+                and metadata.get("KeyState") == "PendingDeletion"
+                and metadata.get("DeletionDate")
+            ):
+                allowed_pending_kms.append(arn)
+            else:
+                unexpected.append(arn)
+        if unexpected:
+            errors.append("Unexpected live AtlasRetail resources exist")
+
+    return {
+        "result": "PASS" if not errors else "FAIL",
+        "terraform_state_resources": remaining_state,
+        "allowed_pending_deletion_kms_keys": allowed_pending_kms,
+        "unexpected_resources": unexpected,
+        "errors": errors,
+    }
+
+
+def main(arguments: list[str]) -> int:
+    if len(arguments) != 3:
+        print("usage: verify_preflight.py TF_DIR OUTPUT_JSON", file=sys.stderr)
+        return 2
+    result = verify(arguments[1])
+    output = Path(arguments[2])
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return 0 if result["result"] == "PASS" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

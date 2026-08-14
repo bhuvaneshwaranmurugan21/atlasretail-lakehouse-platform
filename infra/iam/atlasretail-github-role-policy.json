@@ -297,6 +297,7 @@
         "logs:AssociateKmsKey",
         "logs:CreateLogGroup",
         "logs:DeleteLogGroup",
+        "logs:FilterLogEvents",
         "logs:ListTagsForResource",
         "logs:PutRetentionPolicy",
         "logs:TagResource",
