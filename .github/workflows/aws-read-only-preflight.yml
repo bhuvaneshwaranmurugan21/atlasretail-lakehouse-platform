@@ -8,6 +8,7 @@ on:
       - .github/workflows/aws-read-only-preflight.yml
       - infra/atlas/**
       - infra/iam/atlasretail-github-role-policy.json
+      - scripts/verify_account_plan.py
       - scripts/verify_preflight.py
 
 permissions:
@@ -49,6 +50,13 @@ jobs:
           test "${account}" = "887720497919"
           mkdir -p "${EVIDENCE_DIR}"
           aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
+          aws freetier get-account-plan-state \
+            --region us-east-1 \
+            > "${EVIDENCE_DIR}/account-plan.json"
+          python scripts/verify_account_plan.py \
+            "${EVIDENCE_DIR}/account-plan.json" \
+            "${EVIDENCE_DIR}/account-plan-verification.json" \
+            5
       - name: Read the remote backend without deployment
         run: |
           set -euo pipefail

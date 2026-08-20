@@ -26,6 +26,10 @@ def statement(sid: str) -> dict[str, Any]:
 
 
 def test_incident_permissions_are_present_with_required_scope() -> None:
+    account_reads = statement("ReadAccountAndTags")
+    assert "freetier:GetAccountPlanState" in actions(account_reads)
+    assert account_reads["Resource"] == "*"
+
     assert "s3:GetReplicationConfiguration" in actions(statement("StateAndLabBuckets"))
 
     grants = statement("AtlasKmsServiceGrants")

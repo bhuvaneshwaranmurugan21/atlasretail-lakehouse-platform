@@ -5,6 +5,7 @@
       "Sid": "ReadAccountAndTags",
       "Effect": "Allow",
       "Action": [
+        "freetier:GetAccountPlanState",
         "sts:GetCallerIdentity",
         "tag:GetResources"
       ],

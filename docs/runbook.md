@@ -2,9 +2,10 @@
 
 ## Current stop condition
 
-Do not dispatch the data-processing workflow while the account remains on an AWS Free plan that
-denies Glue job creation. The previous attempt stopped during Terraform apply; no Glue, Step
-Functions, or Athena workload executed.
+Do not dispatch the data-processing workflow unless the read-only preflight records an AWS account
+plan of `PAID` and `ACTIVE` with remaining USD credits at or above the bounded run's cost ceiling.
+The previous Free-plan attempt stopped during Terraform apply; no Glue, Step Functions, or Athena
+workload executed.
 
 ## Preconditions
 
@@ -13,10 +14,12 @@ Functions, or Athena workload executed.
 3. Confirm that the deployed inline policy matches
    `infra/iam/atlasretail-github-role-policy.json`.
 4. Require a successful identity-only workflow and read-only environment preflight.
-5. Confirm that `atlasretail/main.tfstate` is readable and empty.
-6. Confirm that the shared budget and account lease exist.
-7. Use a unique run ID and begin with 500 synthetic orders.
-8. Review the open correctness boundaries in `docs/correctness.md` before authorizing execution.
+5. Require `freetier:GetAccountPlanState` to return `PAID` and `ACTIVE`, and preserve the response
+   plus the fail-closed verification result in the preflight evidence artifact.
+6. Confirm that `atlasretail/main.tfstate` is readable and empty.
+7. Confirm that the shared budget and account lease exist.
+8. Use a unique run ID and begin with 500 synthetic orders.
+9. Review the open correctness boundaries in `docs/correctness.md` before authorizing execution.
 
 ## Deploy and execute
 
