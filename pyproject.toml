@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "atlasretail-lakehouse-platform"
 version = "0.1.0"
-description = "Retail lakehouse correctness kernel and bounded AWS execution lab"
+description = "Generation-consistent retail lakehouse with bounded AWS validation"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

@@ -2,9 +2,9 @@
 
 ## Status
 
-Remediation prepared. The rescue workflow must not be dispatched until its code is merged,
-the corrected inline policy is attached to the AtlasRetail GitHub OIDC role, and an
-identity-only OIDC test succeeds.
+Resolved. The original Terraform state was removed, the residual Glue authorization scope was
+corrected, and a subsequent read-only preflight established a clean backend before another
+deployment was authorized.
 
 ## Scope
 
@@ -15,81 +15,60 @@ identity-only OIDC test succeeds.
 - AWS region: `ap-south-1`
 - Terraform backend key: `atlasretail/main.tfstate`
 
-No workload proof ran. Glue execution, Step Functions success/replay/failure/recovery,
-Athena verification, runtime measurement, and cost measurement were all skipped because
-Terraform apply failed.
+No data-processing workload ran. Glue execution, Step Functions scenarios, Athena validation,
+runtime measurement, and workload-cost measurement were skipped because Terraform apply failed.
 
-## What happened
+## Impact
 
-Terraform partially created the lab before provider calls encountered three IAM contract
-gaps:
+Terraform partially created the validation environment. Normal cleanup could not refresh every
+resource, so Terraform state and run-tag inventory remained non-empty. The account lease was
+released, but another Atlas deployment was blocked until exact-state recovery and independent
+absence checks succeeded.
 
-1. `kms:CreateGrant` was absent, blocking the DynamoDB table encrypted by the lab KMS key.
-2. `logs:DescribeLogGroups` was placed in a resource-scoped statement although the list API
-   requires account-wide resource scope.
-3. `s3:GetReplicationConfiguration` was absent, so provider refresh failed for all three
-   S3 buckets during cleanup.
+## Root cause
 
-The unconditional cleanup step ran, but Terraform could not complete its refresh and destroy.
-The teardown verifier then correctly failed because Terraform state and the RunId tag
-inventory still contained resources. Review also found that the verifier treated a tagged
-KMS key as acceptable without proving that AWS had placed it in `PendingDeletion`; that was
-an unsafe false-pass path.
+Three IAM contract gaps appeared during provider operations:
 
-## Remediation
+1. `kms:CreateGrant` was absent for the DynamoDB service grant.
+2. `logs:DescribeLogGroups` was incorrectly placed in a resource-scoped statement.
+3. `s3:GetReplicationConfiguration` was absent from the provider refresh permissions.
 
-- Add the missing S3 provider read.
-- move `logs:DescribeLogGroups` to an explicit `Resource: "*"` statement.
-- allow KMS service grants only when `kms:GrantIsForAWSResource` is true.
-- add the Glue catalog reads required by the Athena verification path.
-- expose deterministic resource names as Terraform outputs.
-- verify each named resource class, recursively inspect Terraform state, and inspect the
-  RunId tag inventory.
-- allow the KMS key only after `DescribeKey` proves `PendingDeletion` and provides a
-  deletion date; separately prove that its alias is absent.
-- add an incident-specific rescue workflow that can only create and apply a saved
-  `terraform plan -destroy` for run `31791499897`.
+Review also found an unsafe verifier boundary: a tagged KMS key could have been accepted without
+proving `PendingDeletion` and recording its deletion date.
 
-## Rescue procedure
+## Corrections
 
-1. Merge the remediation through a reviewed pull request with green CI.
-2. Replace the AtlasRetail OIDC role's inline policy with the repository policy document.
-3. Run the identity-only OIDC workflow and require a pass.
-4. Obtain action-time confirmation for destructive cleanup.
-5. Dispatch `AWS rescue teardown` with the incident defaults and type `DESTROY`.
-6. Download and retain the rescue evidence artifact.
-7. Require every teardown check to pass before running another bounded lab.
+- Added the required S3 provider read.
+- Moved global CloudWatch Logs discovery to `Resource: "*"`.
+- Allowed KMS service grants only when `kms:GrantIsForAWSResource` is true.
+- Added the Glue catalog reads required by the Athena path.
+- Exposed deterministic resource names as Terraform outputs.
+- Required explicit checks for every named resource, recursive Terraform state, and run-tag
+  inventory.
+- Required a pending-deletion state and deletion date for the KMS exception.
+- Added an exact-run rescue workflow restricted to a saved destroy-only plan.
 
-## Acceptance criteria
+## Rescue history
 
-- The destroy-only plan targets the incident state and contains no create or update action.
-- Its saved plan applies successfully.
-- All three S3 buckets return explicit not-found results.
-- DynamoDB, Glue job/database, Athena workgroup, Lambda, Step Functions, IAM roles,
-  CloudWatch log groups/alarm, and the KMS alias are explicitly absent.
-- The KMS key is demonstrably `PendingDeletion` with a deletion date.
-- Terraform state is readable and recursively empty.
-- The RunId tag inventory contains no resource except that proven pending-deletion KMS key.
-- The account lease is released and the evidence artifact is uploaded even if cleanup fails.
-
-Only after these criteria pass may a new bounded AtlasRetail execution begin.
-
-## Rescue attempt 1
-
-The first rescue was [GitHub run 31794022586](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/31794022586).
-Its saved destroy plan succeeded. Apply deleted the three S3 buckets, three IAM roles,
-three log groups, KMS alias, and random suffix from Terraform state; it also scheduled
-the KMS key for deletion. The account lease was released and the evidence artifact was
-uploaded with digest
+The first rescue was [run 31794022586](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/31794022586).
+Its saved destroy plan removed the three S3 buckets, three IAM roles, three log groups, KMS alias,
+and random suffix from state, and scheduled the KMS key for deletion. The account lease was
+released. The artifact digest was
 `sha256:244f703e6c66a34805fa16af153d679cf43cb1edb69d97bdb875950ad3a2a1ab`.
 
-Glue rejected `DeleteDatabase` because authorization is evaluated against the database's
-`userDefinedFunction` descendants as well as the catalog, database, and table resources.
-The policy correction adds only the AtlasRetail UDF namespace:
-`arn:aws:glue:ap-south-1:887720497919:userDefinedFunction/atlasretail_*/*`.
+Glue rejected database deletion because authorization also evaluated the database's
+`userDefinedFunction` descendants. The policy was restricted to the AtlasRetail UDF namespace,
+the residual database was removed in the corrected recovery path, and later preflight checks
+confirmed that the backend and tagged inventory were clean.
 
-The original partial apply wrote only five Terraform outputs. After the first rescue removed
-the buckets and random suffix from state, those historical names could no longer be recovered
-from live state. The checked-in incident output manifest preserves the exact names observed in
-the original Terraform state and first rescue plan. Subsequent verification uses that immutable
-manifest for explicit service checks while preserving the live pre-rescue outputs separately.
+## Verification criteria
+
+- The saved recovery plan contained destroy actions only.
+- S3, DynamoDB, Glue, Athena, Lambda, Step Functions, IAM, CloudWatch, and the KMS alias were absent.
+- The KMS key was in `PendingDeletion` with a recorded date.
+- Terraform state was readable and recursively empty.
+- Run-tag inventory contained no unexpected resource.
+- The account lease was released.
+
+The checked-in incident output manifest preserves resource identifiers that could no longer be
+recovered after partial Terraform state removal.
