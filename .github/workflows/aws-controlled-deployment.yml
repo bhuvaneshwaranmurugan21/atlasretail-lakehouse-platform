@@ -1,0 +1,446 @@
+name: AWS controlled deployment canary
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_deploy:
+        description: Type DEPLOY_ATLASRETAIL_CANARY
+        required: true
+      confirm_destroy:
+        description: Type DESTROY_AFTER_VERIFICATION
+        required: true
+      budget_ceiling_usd:
+        description: Maximum permitted budget headroom consumed by this run (1-5 USD)
+        required: true
+        default: "5"
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: portfolio-aws-account
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      RUN_ID: ${{ github.run_id }}
+      TF_DIR: infra/atlas
+      EVIDENCE_DIR: evidence/deployment/${{ github.run_id }}
+      CONTROL_DIR: .control/deployment/${{ github.run_id }}
+      CONFIRM_DEPLOY: ${{ inputs.confirm_deploy }}
+      CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
+      BUDGET_CEILING_USD: ${{ inputs.budget_ceiling_usd }}
+      ROLE_NAME: AtlasRetailGitHubOidcRole
+      POLICY_NAME: AtlasRetailBoundedLabPolicy
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: 1.11.4
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: atlasretail-deploy-${{ github.run_id }}
+
+      - name: Validate immutable admission bounds
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${GITHUB_ACTOR}" = "bhuvaneshwaranmurugan21"
+          test "${CONFIRM_DEPLOY}" = "DEPLOY_ATLASRETAIL_CANARY"
+          test "${CONFIRM_DESTROY}" = "DESTROY_AFTER_VERIFICATION"
+          [[ "${BUDGET_CEILING_USD}" =~ ^[0-9]+$ ]]
+          test "${BUDGET_CEILING_USD}" -ge 1
+          test "${BUDGET_CEILING_USD}" -le 5
+          test "${AWS_REGION}" = "ap-south-1"
+          mkdir -p "${EVIDENCE_DIR}" "${CONTROL_DIR}"
+          date +%s > "${EVIDENCE_DIR}/workflow-started-epoch.txt"
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          test "${account}" = "887720497919"
+          aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
+          aws freetier get-account-plan-state --region us-east-1 \
+            > "${EVIDENCE_DIR}/account-plan.json"
+          python scripts/verify_account_plan.py \
+            "${EVIDENCE_DIR}/account-plan.json" \
+            "${EVIDENCE_DIR}/account-plan-verification.json" \
+            "${BUDGET_CEILING_USD}"
+          aws budgets describe-budget \
+            --account-id "${account}" \
+            --budget-name portfolio-labs-monthly-cost \
+            > "${CONTROL_DIR}/budget-before.json"
+          aws budgets describe-notifications-for-budget \
+            --account-id "${account}" \
+            --budget-name portfolio-labs-monthly-cost \
+            > "${CONTROL_DIR}/budget-notifications-before.json"
+          python scripts/verify_budget.py \
+            "${CONTROL_DIR}/budget-before.json" \
+            "${CONTROL_DIR}/budget-notifications-before.json" \
+            "${EVIDENCE_DIR}/budget-before-verification.json" \
+            "${BUDGET_CEILING_USD}"
+
+      - name: Prove live IAM parity before mutation
+        run: |
+          set -euo pipefail
+          aws iam get-role --role-name "${ROLE_NAME}" > "${CONTROL_DIR}/role.json"
+          aws iam list-role-policies --role-name "${ROLE_NAME}" \
+            > "${CONTROL_DIR}/inline-policy-names.json"
+          aws iam list-attached-role-policies --role-name "${ROLE_NAME}" \
+            > "${CONTROL_DIR}/attached-policies.json"
+          aws iam get-role-policy \
+            --role-name "${ROLE_NAME}" \
+            --policy-name "${POLICY_NAME}" \
+            > "${CONTROL_DIR}/live-role-policy.json"
+          python scripts/verify_iam_parity.py \
+            infra/iam/atlasretail-github-role-policy.json \
+            "${CONTROL_DIR}/role.json" \
+            "${CONTROL_DIR}/inline-policy-names.json" \
+            "${CONTROL_DIR}/attached-policies.json" \
+            "${CONTROL_DIR}/live-role-policy.json" \
+            "${EVIDENCE_DIR}/iam-parity.json"
+
+      - name: Acquire the account-wide lease
+        run: |
+          bash scripts/acquire_lock.sh
+          printf '%s' "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}" \
+            > "${CONTROL_DIR}/lease-owner.txt"
+
+      - name: Persist lease ownership
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-deployment-lease-${{ github.run_id }}
+          path: .control/deployment/${{ github.run_id }}/lease-owner.txt
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Initialize backend and prove a clean preflight
+        run: |
+          set -euo pipefail
+          terraform -chdir="${TF_DIR}" init \
+            -backend-config="bucket=portfolio-lab-tfstate-887720497919-ap-south-1" \
+            -backend-config="key=atlasretail/main.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=portfolio-lab-terraform-locks" \
+            -backend-config="encrypt=true" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-init.log"
+          python scripts/verify_preflight.py \
+            "${TF_DIR}" "${EVIDENCE_DIR}/preflight-before.json"
+          printf '%s' "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}" \
+            > "${CONTROL_DIR}/teardown-authorized.txt"
+          python - "${CONTROL_DIR}/teardown-authority.json" <<'PY'
+          import hashlib, json, os, pathlib, sys
+          root = pathlib.Path("infra/atlas")
+          digest = hashlib.sha256()
+          for path in sorted(root.rglob("*")):
+              if path.is_file() and ".terraform" not in path.parts:
+                  digest.update(path.relative_to(root).as_posix().encode())
+                  digest.update(path.read_bytes())
+          value = {
+              "schema_version": "1.0",
+              "project": "AtlasRetail",
+              "operation": "controlled-deployment",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "source_commit": os.environ["GITHUB_SHA"],
+              "account": "887720497919",
+              "region": os.environ["AWS_REGION"],
+              "backend_bucket": "portfolio-lab-tfstate-887720497919-ap-south-1",
+              "backend_key": "atlasretail/main.tfstate",
+              "infrastructure_digest": "sha256:" + digest.hexdigest(),
+          }
+          pathlib.Path(sys.argv[1]).write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+          PY
+
+      - name: Persist immutable teardown authority before deployment
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-deployment-authority-${{ github.run_id }}
+          path: |
+            .control/deployment/${{ github.run_id }}/teardown-authorized.txt
+            .control/deployment/${{ github.run_id }}/teardown-authority.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Create and validate the exact saved apply plan
+        run: |
+          set -euo pipefail
+          terraform -chdir="${TF_DIR}" plan \
+            -lock-timeout=60s \
+            -out="${GITHUB_WORKSPACE}/${CONTROL_DIR}/apply.tfplan" \
+            -var="aws_region=${AWS_REGION}" \
+            -var="run_id=${RUN_ID}" \
+            -var="source_commit=${GITHUB_SHA}" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-apply-plan.log"
+          terraform -chdir="${TF_DIR}" show -json \
+            "${GITHUB_WORKSPACE}/${CONTROL_DIR}/apply.tfplan" \
+            > "${GITHUB_WORKSPACE}/${CONTROL_DIR}/terraform-apply-plan.json"
+          terraform -chdir="${TF_DIR}" show -no-color \
+            "${GITHUB_WORKSPACE}/${CONTROL_DIR}/apply.tfplan" \
+            > "${GITHUB_WORKSPACE}/${CONTROL_DIR}/terraform-apply-plan.txt"
+          python scripts/validate_terraform_plan.py \
+            --mode apply \
+            --plan "${CONTROL_DIR}/terraform-apply-plan.json" \
+            --output "${EVIDENCE_DIR}/terraform-apply-plan-validation.json"
+          python scripts/summarize_terraform_plan.py \
+            "${CONTROL_DIR}/terraform-apply-plan.json" \
+            "${EVIDENCE_DIR}/terraform-apply-plan-inventory.json"
+          python - "${EVIDENCE_DIR}/terraform-apply-plan-validation.json" <<'PY'
+          import json, sys
+          value = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert value["result"] == "PASS", value
+          assert value["resource_count"] == 40, value
+          assert value["read_only_data_source_counts"] == {"aws_iam_policy_document": 6}, value
+          PY
+          python scripts/extract_state_machine_definition.py \
+            "${CONTROL_DIR}/terraform-apply-plan.json" \
+            "${CONTROL_DIR}/state-machine-definition.json"
+          aws stepfunctions validate-state-machine-definition \
+            --definition "file://${CONTROL_DIR}/state-machine-definition.json" \
+            --type STANDARD \
+            --severity WARNING \
+            > "${EVIDENCE_DIR}/state-machine-validation.json"
+          python - "${EVIDENCE_DIR}/state-machine-validation.json" <<'PY'
+          import json, sys
+          value = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert value.get("result") == "OK", value
+          PY
+          sha256sum \
+            "${CONTROL_DIR}/apply.tfplan" \
+            "${CONTROL_DIR}/terraform-apply-plan.json" \
+            "${CONTROL_DIR}/terraform-apply-plan.txt" \
+            > "${EVIDENCE_DIR}/terraform-apply-plan-hashes.txt"
+
+      - name: Apply only the validated saved plan
+        run: |
+          set -euo pipefail
+          date +%s > "${EVIDENCE_DIR}/terraform-apply-started-epoch.txt"
+          terraform -chdir="${TF_DIR}" apply -auto-approve \
+            "${GITHUB_WORKSPACE}/${CONTROL_DIR}/apply.tfplan" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-apply.log"
+          date +%s > "${EVIDENCE_DIR}/terraform-apply-completed-epoch.txt"
+          terraform -chdir="${TF_DIR}" output -json \
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
+
+      - name: Verify deployed control plane and zero workload
+        run: |
+          set -euo pipefail
+          python scripts/verify_deployment.py \
+            "${EVIDENCE_DIR}/terraform-outputs.json" \
+            "${TF_DIR}" \
+            "${RUN_ID}" \
+            "${GITHUB_SHA}" \
+            "${EVIDENCE_DIR}/deployment-verification.json"
+
+      - name: Capture post-deployment budget evidence
+        if: always()
+        run: |
+          set -euo pipefail
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          aws budgets describe-budget \
+            --account-id "${account}" \
+            --budget-name portfolio-labs-monthly-cost \
+            > "${CONTROL_DIR}/budget-after-deployment.json"
+          aws budgets describe-notifications-for-budget \
+            --account-id "${account}" \
+            --budget-name portfolio-labs-monthly-cost \
+            > "${CONTROL_DIR}/budget-notifications-after-deployment.json"
+          python scripts/verify_budget.py \
+            "${CONTROL_DIR}/budget-after-deployment.json" \
+            "${CONTROL_DIR}/budget-notifications-after-deployment.json" \
+            "${EVIDENCE_DIR}/budget-after-deployment-verification.json" \
+            "${BUDGET_CEILING_USD}"
+          date +%s > "${EVIDENCE_DIR}/deployment-evidence-collected-epoch.txt"
+
+      - name: Persist sanitized deployment evidence before teardown
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-deployment-pre-teardown-${{ github.run_id }}
+          path: evidence/deployment/${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 1
+
+  teardown:
+    needs: deploy
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      RUN_ID: ${{ github.run_id }}
+      TF_DIR: infra/atlas
+      EVIDENCE_DIR: evidence/deployment/${{ github.run_id }}
+      CONTROL_DIR: .control/deployment/${{ github.run_id }}
+      BUDGET_CEILING_USD: ${{ inputs.budget_ceiling_usd }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: 1.11.4
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: atlasretail-deploy-teardown-${{ github.run_id }}
+
+      - name: Prepare teardown workspace
+        run: mkdir -p "${EVIDENCE_DIR}" "${CONTROL_DIR}"
+
+      - name: Recover deployment evidence
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-deployment-pre-teardown-${{ github.run_id }}
+          path: evidence/deployment/${{ github.run_id }}
+
+      - name: Recover immutable teardown authority
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-deployment-authority-${{ github.run_id }}
+          path: .control/deployment/${{ github.run_id }}
+
+      - name: Validate teardown authority
+        id: authority
+        run: |
+          expected="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}"
+          marker="${CONTROL_DIR}/teardown-authorized.txt"
+          manifest="${CONTROL_DIR}/teardown-authority.json"
+          if [[ -s "${marker}" ]] && [[ "$(<"${marker}")" = "${expected}" ]] && [[ -s "${manifest}" ]]; then
+            python - "${manifest}" <<'PY'
+          import json, os, sys
+          value = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert value["repository"] == os.environ["GITHUB_REPOSITORY"]
+          assert value["run_id"] == os.environ["GITHUB_RUN_ID"]
+          assert value["source_commit"] == os.environ["GITHUB_SHA"]
+          assert value["account"] == "887720497919"
+          assert value["region"] == "ap-south-1"
+          PY
+            echo "present=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "present=false" >> "${GITHUB_OUTPUT}"
+            printf '{"result":"FAIL","reason":"Valid teardown authority is unavailable."}\n' \
+              > "${EVIDENCE_DIR}/teardown.json"
+          fi
+
+      - name: Initialize backend and recover outputs
+        if: steps.authority.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          terraform -chdir="${TF_DIR}" init \
+            -backend-config="bucket=portfolio-lab-tfstate-887720497919-ap-south-1" \
+            -backend-config="key=atlasretail/main.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=portfolio-lab-terraform-locks" \
+            -backend-config="encrypt=true" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-teardown-init.log"
+          outputs="${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
+          if [[ ! -s "${outputs}" ]]; then
+            terraform -chdir="${TF_DIR}" output -json > "${outputs}" \
+              2> "${EVIDENCE_DIR}/terraform-output-recovery.log" \
+              || printf '{}\n' > "${outputs}"
+          fi
+
+      - name: Create and validate the saved destroy-only plan
+        if: steps.authority.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          terraform -chdir="${TF_DIR}" plan -destroy \
+            -lock-timeout=60s \
+            -out="${GITHUB_WORKSPACE}/${CONTROL_DIR}/destroy.tfplan" \
+            -var="aws_region=${AWS_REGION}" \
+            -var="run_id=${RUN_ID}" \
+            -var="source_commit=${GITHUB_SHA}" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-destroy-plan.log"
+          terraform -chdir="${TF_DIR}" show -json \
+            "${GITHUB_WORKSPACE}/${CONTROL_DIR}/destroy.tfplan" \
+            > "${GITHUB_WORKSPACE}/${CONTROL_DIR}/terraform-destroy-plan.json"
+          terraform -chdir="${TF_DIR}" show -no-color \
+            "${GITHUB_WORKSPACE}/${CONTROL_DIR}/destroy.tfplan" \
+            > "${GITHUB_WORKSPACE}/${CONTROL_DIR}/terraform-destroy-plan.txt"
+          python scripts/validate_terraform_plan.py \
+            --mode destroy \
+            --plan "${CONTROL_DIR}/terraform-destroy-plan.json" \
+            --output "${EVIDENCE_DIR}/terraform-destroy-plan-validation.json"
+          sha256sum \
+            "${CONTROL_DIR}/destroy.tfplan" \
+            "${CONTROL_DIR}/terraform-destroy-plan.json" \
+            "${CONTROL_DIR}/terraform-destroy-plan.txt" \
+            > "${EVIDENCE_DIR}/terraform-destroy-plan-hashes.txt"
+
+      - name: Apply only the validated saved destroy plan
+        if: steps.authority.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          date +%s > "${EVIDENCE_DIR}/terraform-destroy-started-epoch.txt"
+          terraform -chdir="${TF_DIR}" apply -auto-approve \
+            "${GITHUB_WORKSPACE}/${CONTROL_DIR}/destroy.tfplan" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-destroy.log"
+          date +%s > "${EVIDENCE_DIR}/terraform-destroy-completed-epoch.txt"
+
+      - name: Prove teardown across AWS and Terraform inventories
+        id: verify_teardown
+        if: ${{ always() && steps.authority.outputs.present == 'true' }}
+        run: |
+          python scripts/verify_teardown.py \
+            "${EVIDENCE_DIR}/terraform-outputs.json" \
+            "${TF_DIR}" \
+            "${RUN_ID}" \
+            "${EVIDENCE_DIR}/teardown.json"
+
+      - name: Capture post-teardown budget evidence
+        if: always()
+        continue-on-error: true
+        run: |
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          aws budgets describe-budget \
+            --account-id "${account}" \
+            --budget-name portfolio-labs-monthly-cost \
+            > "${CONTROL_DIR}/budget-after-teardown.json"
+          aws budgets describe-notifications-for-budget \
+            --account-id "${account}" \
+            --budget-name portfolio-labs-monthly-cost \
+            > "${CONTROL_DIR}/budget-notifications-after-teardown.json"
+          python scripts/verify_budget.py \
+            "${CONTROL_DIR}/budget-after-teardown.json" \
+            "${CONTROL_DIR}/budget-notifications-after-teardown.json" \
+            "${EVIDENCE_DIR}/budget-after-teardown-verification.json" \
+            "${BUDGET_CEILING_USD}"
+
+      - name: Release only a clean run's account-wide lease
+        if: ${{ always() && steps.verify_teardown.outcome == 'success' }}
+        env:
+          PORTFOLIO_LOCK_OWNER: ${{ github.repository }}/${{ github.run_id }}
+        run: bash scripts/release_lock.sh
+
+      - name: Build final Part 2 evidence summary
+        if: always()
+        run: |
+          python scripts/summarize_deployment_evidence.py \
+            "${EVIDENCE_DIR}" "${GITHUB_SHA}" "${GITHUB_RUN_ID}"
+
+      - name: Upload final controlled-deployment evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-controlled-deployment-${{ github.run_id }}
+          path: evidence/deployment/${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 30
