@@ -90,6 +90,28 @@ def test_exact_string_equals_subject_is_accepted() -> None:
     assert result["result"] == "PASS"
 
 
+def test_stable_owner_and_repository_id_subject_is_accepted() -> None:
+    tracked = {"Version": "2012-10-17", "Statement": []}
+    result = MODULE.verify(
+        tracked,
+        {
+            "Role": {
+                "RoleName": MODULE.ROLE_NAME,
+                "AssumeRolePolicyDocument": trust(MODULE.EXPECTED_STABLE_ID_SUBJECT),
+            }
+        },
+        {"PolicyNames": [MODULE.POLICY_NAME]},
+        {"AttachedPolicies": []},
+        {
+            "RoleName": MODULE.ROLE_NAME,
+            "PolicyName": MODULE.POLICY_NAME,
+            "PolicyDocument": tracked,
+        },
+    )
+
+    assert result["result"] == "PASS"
+
+
 def test_equivalent_statement_grouping_is_accepted() -> None:
     tracked = {
         "Version": "2012-10-17",
