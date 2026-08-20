@@ -30,6 +30,15 @@ def test_incident_permissions_are_present_with_required_scope() -> None:
     assert "freetier:GetAccountPlanState" in actions(account_reads)
     assert account_reads["Resource"] == "*"
 
+    self_reads = statement("ReadOwnRoleConfiguration")
+    assert actions(self_reads) == {
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+    }
+    assert self_reads["Resource"].endswith(":role/AtlasRetailGitHubOidcRole")
+
     assert "s3:GetReplicationConfiguration" in actions(statement("StateAndLabBuckets"))
 
     grants = statement("AtlasKmsServiceGrants")

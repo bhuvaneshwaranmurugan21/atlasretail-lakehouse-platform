@@ -5,6 +5,7 @@ orders, payments, returns, inventory, and product dimensions.**
 
 [![CI](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/ci.yml)
 [![OIDC identity](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/aws-oidc-identity.yml/badge.svg)](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/aws-oidc-identity.yml)
+[![AWS plan-only proof](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/aws-plan-only.yml/badge.svg)](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/aws-plan-only.yml)
 
 AtlasRetail separates generation construction from publication. Six independently valid Iceberg
 table commits can still represent an inconsistent retail state; the platform therefore builds an
@@ -82,6 +83,7 @@ unexplained diff.
 | Domain, immutable-object manifest, and retail invariants | `LOCAL_VERIFIED` | Automated tests and deterministic failure scenarios |
 | Managed lifecycle, recovery, serving resolver, and stale-writer rejection | `LOCAL_VERIFIED` | Control-plane, resolver, and infrastructure-contract tests |
 | GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` |
+| Live IAM parity, budget headroom, create-only plan, and zero-change proof | `AWS_VERIFIED` | Sanitized plan-only workflow artifact attributed to `main` |
 | Saved-plan deployment and exact-state teardown controls | `AWS_VERIFIED` | Recorded partial deployments and successful rescue teardown |
 | Managed Glue and Iceberg transformation | `NOT_YET_VERIFIED` | Hardened implementation exists; the new managed workload has not run |
 | Managed replay, conflict, object tamper, failure, recovery, and Athena validation | `NOT_YET_VERIFIED` | Requires the bounded AWS execution |
@@ -100,13 +102,15 @@ Terraform plan, and mandatory teardown.
 
 Before execution:
 
-1. Require the read-only account-plan gate to record `PAID`, `ACTIVE`, and at least the bounded
+1. Require the plan-only proof to verify live IAM parity, an empty baseline, a create-only resource
+   envelope, the planned Step Functions definition, and an unchanged post-plan inventory.
+2. Require the read-only account-plan gate to record `PAID`, `ACTIVE`, and at least the bounded
    run's configured cost ceiling in remaining USD credits.
-2. Attach [the checked-in role policy](infra/iam/atlasretail-github-role-policy.json) to
+3. Attach [the checked-in role policy](infra/iam/atlasretail-github-role-policy.json) to
    `AtlasRetailGitHubOidcRole` without broadening the repository-and-branch OIDC trust.
-3. Require a successful read-only preflight and an empty Atlas Terraform state.
-4. Begin with 500 orders; the workflow enforces a maximum of 2,000 per managed scenario.
-5. Require both the execution summary and independent teardown report to pass.
+4. Require a successful read-only preflight and an empty Atlas Terraform state.
+5. Begin with 500 orders; the workflow enforces a maximum of 2,000 per managed scenario.
+6. Require both the execution summary and independent teardown report to pass.
 
 The complete procedure and stop conditions are in the [AWS runbook](docs/runbook.md).
 

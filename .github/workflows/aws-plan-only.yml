@@ -1,0 +1,186 @@
+name: AWS plan-only proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/aws-plan-only.yml
+      - infra/atlas/**
+      - infra/iam/atlasretail-github-role-policy.json
+      - scripts/extract_state_machine_definition.py
+      - scripts/summarize_plan_evidence.py
+      - scripts/summarize_terraform_plan.py
+      - scripts/validate_terraform_plan.py
+      - scripts/verify_account_plan.py
+      - scripts/verify_budget.py
+      - scripts/verify_iam_parity.py
+      - scripts/verify_no_change.py
+      - scripts/verify_preflight.py
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: atlasretail-plan-only
+  cancel-in-progress: false
+
+jobs:
+  prove:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_DIR: infra/atlas
+      EVIDENCE_DIR: evidence/plan/${{ github.run_id }}
+      CONTROL_DIR: .control/plan/${{ github.run_id }}
+      COST_CEILING_USD: "5"
+      ROLE_NAME: AtlasRetailGitHubOidcRole
+      POLICY_NAME: AtlasRetailBoundedLabPolicy
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: 1.11.4
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: atlasretail-plan-${{ github.run_id }}
+
+      - name: Verify identity, account plan, and budget envelope
+        run: |
+          set -euo pipefail
+          test "${AWS_REGION}" = "ap-south-1"
+          mkdir -p "${EVIDENCE_DIR}" "${CONTROL_DIR}"
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          test "${account}" = "887720497919"
+          aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
+          aws freetier get-account-plan-state --region us-east-1 \
+            > "${EVIDENCE_DIR}/account-plan.json"
+          python scripts/verify_account_plan.py \
+            "${EVIDENCE_DIR}/account-plan.json" \
+            "${EVIDENCE_DIR}/account-plan-verification.json" \
+            "${COST_CEILING_USD}"
+          aws budgets describe-budget \
+            --account-id "${account}" \
+            --budget-name portfolio-labs-monthly-cost \
+            > "${CONTROL_DIR}/account-budget.json"
+          aws budgets describe-notifications-for-budget \
+            --account-id "${account}" \
+            --budget-name portfolio-labs-monthly-cost \
+            > "${CONTROL_DIR}/budget-notifications.json"
+          python scripts/verify_budget.py \
+            "${CONTROL_DIR}/account-budget.json" \
+            "${CONTROL_DIR}/budget-notifications.json" \
+            "${EVIDENCE_DIR}/budget-verification.json" \
+            "${COST_CEILING_USD}"
+
+      - name: Prove live IAM parity and bounded OIDC trust
+        run: |
+          set -euo pipefail
+          aws iam get-role --role-name "${ROLE_NAME}" \
+            > "${CONTROL_DIR}/role.json"
+          aws iam list-role-policies --role-name "${ROLE_NAME}" \
+            > "${CONTROL_DIR}/inline-policy-names.json"
+          aws iam list-attached-role-policies --role-name "${ROLE_NAME}" \
+            > "${CONTROL_DIR}/attached-policies.json"
+          aws iam get-role-policy \
+            --role-name "${ROLE_NAME}" \
+            --policy-name "${POLICY_NAME}" \
+            > "${CONTROL_DIR}/live-role-policy.json"
+          python scripts/verify_iam_parity.py \
+            infra/iam/atlasretail-github-role-policy.json \
+            "${CONTROL_DIR}/role.json" \
+            "${CONTROL_DIR}/inline-policy-names.json" \
+            "${CONTROL_DIR}/attached-policies.json" \
+            "${CONTROL_DIR}/live-role-policy.json" \
+            "${EVIDENCE_DIR}/iam-parity.json"
+
+      - name: Initialize backend and capture zero-resource baseline
+        run: |
+          set -euo pipefail
+          terraform -chdir="${TF_DIR}" init \
+            -backend-config="bucket=portfolio-lab-tfstate-887720497919-ap-south-1" \
+            -backend-config="key=atlasretail/main.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=portfolio-lab-terraform-locks" \
+            -backend-config="encrypt=true" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-init.log"
+          python scripts/verify_preflight.py \
+            "${TF_DIR}" "${EVIDENCE_DIR}/preflight-before.json"
+
+      - name: Generate and validate a fresh create-only plan
+        run: |
+          set -euo pipefail
+          terraform -chdir="${TF_DIR}" plan \
+            -lock-timeout=60s \
+            -out="${GITHUB_WORKSPACE}/${CONTROL_DIR}/atlasretail.tfplan" \
+            -var="aws_region=${AWS_REGION}" \
+            -var="run_id=${GITHUB_RUN_ID}" \
+            -var="source_commit=${GITHUB_SHA}" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-plan.log"
+          terraform -chdir="${TF_DIR}" show -json \
+            "${GITHUB_WORKSPACE}/${CONTROL_DIR}/atlasretail.tfplan" \
+            > "${GITHUB_WORKSPACE}/${CONTROL_DIR}/terraform-plan.json"
+          terraform -chdir="${TF_DIR}" show -no-color \
+            "${GITHUB_WORKSPACE}/${CONTROL_DIR}/atlasretail.tfplan" \
+            > "${GITHUB_WORKSPACE}/${CONTROL_DIR}/terraform-plan.txt"
+          python scripts/validate_terraform_plan.py \
+            --mode apply \
+            --plan "${CONTROL_DIR}/terraform-plan.json" \
+            --output "${EVIDENCE_DIR}/terraform-plan-validation.json"
+          python scripts/summarize_terraform_plan.py \
+            "${CONTROL_DIR}/terraform-plan.json" \
+            "${EVIDENCE_DIR}/terraform-plan-inventory.json"
+          sha256sum \
+            "${CONTROL_DIR}/atlasretail.tfplan" \
+            "${CONTROL_DIR}/terraform-plan.json" \
+            "${CONTROL_DIR}/terraform-plan.txt" \
+            > "${EVIDENCE_DIR}/terraform-plan-hashes.txt"
+
+      - name: Validate the planned managed lifecycle with AWS
+        run: |
+          set -euo pipefail
+          python scripts/extract_state_machine_definition.py \
+            "${CONTROL_DIR}/terraform-plan.json" \
+            "${CONTROL_DIR}/state-machine-definition.json"
+          aws stepfunctions validate-state-machine-definition \
+            --definition "file://${CONTROL_DIR}/state-machine-definition.json" \
+            --type STANDARD \
+            --severity WARNING \
+            > "${EVIDENCE_DIR}/state-machine-validation.json"
+          python - "${EVIDENCE_DIR}/state-machine-validation.json" <<'PY'
+          import json, sys
+          result = json.load(open(sys.argv[1], encoding="utf-8"))
+          if result.get("result") != "OK":
+              raise SystemExit(f"Step Functions validation failed: {result}")
+          PY
+
+      - name: Prove the plan produced no persistent infrastructure change
+        run: |
+          set -euo pipefail
+          python scripts/verify_preflight.py \
+            "${TF_DIR}" "${EVIDENCE_DIR}/preflight-after.json"
+          python scripts/verify_no_change.py \
+            "${EVIDENCE_DIR}/preflight-before.json" \
+            "${EVIDENCE_DIR}/preflight-after.json" \
+            "${EVIDENCE_DIR}/no-change-verification.json"
+          python scripts/summarize_plan_evidence.py \
+            "${EVIDENCE_DIR}" "${GITHUB_SHA}" "${GITHUB_RUN_ID}"
+
+      - name: Upload sanitized plan evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-plan-only-${{ github.run_id }}
+          path: evidence/plan/${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 30

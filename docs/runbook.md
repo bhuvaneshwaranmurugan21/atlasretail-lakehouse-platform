@@ -21,6 +21,27 @@ workload executed.
 8. Use a unique run ID and begin with 500 synthetic orders.
 9. Review the open correctness boundaries in `docs/correctness.md` before authorizing execution.
 
+## Plan-only approval gate
+
+The `AWS plan-only proof` workflow runs before any deployment authorization. It:
+
+1. Obtains short-lived credentials through the repository-and-branch-bound OIDC role.
+2. Verifies the paid account state, remaining credits, monthly budget, current spend, and a
+   five-dollar gross run ceiling.
+3. Compares the live inline role policy with the checked-in policy and rejects managed-policy
+   attachments or broader OIDC trust.
+4. Reads the locked remote backend and proves that state and tagged inventory are clean.
+5. Generates a fresh plan for the exact `main` commit and rejects updates, replacements, deletions,
+   unexpected resource types, or counts beyond the checked-in envelope.
+6. Validates the planned managed lifecycle definition with the Step Functions API.
+7. Repeats the state and inventory checks and proves that the planning operation created no
+   persistent AtlasRetail infrastructure.
+8. Publishes only sanitized inventory, validation results, source identity, and content hashes;
+   the binary plan is never published or reused for deployment.
+
+A later deployment must regenerate its own saved plan and compare it with the approved resource
+envelope. A plan-only artifact is evidence for review, not deployment authority.
+
 ## Deploy and execute
 
 Run `AWS bounded lab` manually with `order_count=500` and `confirm_destroy=DESTROY`. The workflow:
