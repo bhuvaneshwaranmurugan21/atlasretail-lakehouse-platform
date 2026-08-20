@@ -41,6 +41,23 @@ def canonical(value: object) -> object:
     return value
 
 
+def semantic_policy(value: dict[str, Any]) -> object:
+    """Compare permissions while ignoring descriptive, non-semantic statement SIDs."""
+    statements = value.get("Statement", [])
+    if isinstance(statements, dict):
+        statements = [statements]
+    normalized = []
+    for statement in statements if isinstance(statements, list) else []:
+        if isinstance(statement, dict):
+            normalized.append(
+                canonical({key: item for key, item in statement.items() if key != "Sid"})
+            )
+    return {
+        "Version": value.get("Version"),
+        "Statement": sorted(normalized, key=lambda item: json.dumps(item, sort_keys=True)),
+    }
+
+
 def values(value: object) -> set[str]:
     if isinstance(value, str):
         return {value}
@@ -84,7 +101,9 @@ def verify(
             continue
         action = values(statement.get("Action"))
         audience = values(equals.get("token.actions.githubusercontent.com:aud"))
-        subjects = values(likes.get("token.actions.githubusercontent.com:sub"))
+        subjects = values(equals.get("token.actions.githubusercontent.com:sub")) | values(
+            likes.get("token.actions.githubusercontent.com:sub")
+        )
         if (
             statement.get("Effect") == "Allow"
             and principal.get("Federated") == OIDC_PROVIDER
@@ -107,7 +126,7 @@ def verify(
         errors.append("Retrieved inline policy identity is unexpected")
     try:
         live = policy_document(live_payload.get("PolicyDocument"))
-        policies_match = canonical(tracked) == canonical(live)
+        policies_match = semantic_policy(tracked) == semantic_policy(live)
     except (ValueError, json.JSONDecodeError):
         policies_match = False
     if not policies_match:

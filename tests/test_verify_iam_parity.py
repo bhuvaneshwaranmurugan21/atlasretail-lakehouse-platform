@@ -10,7 +10,18 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
 
-def trust(subject: str = MODULE.EXPECTED_SUBJECT) -> dict[str, object]:
+def trust(
+    subject: str = MODULE.EXPECTED_SUBJECT, *, subject_operator: str = "StringLike"
+) -> dict[str, object]:
+    conditions: dict[str, object] = {
+        "StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
+        subject_operator: {"token.actions.githubusercontent.com:sub": subject},
+    }
+    if subject_operator == "StringEquals":
+        conditions["StringEquals"] = {
+            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+            "token.actions.githubusercontent.com:sub": subject,
+        }
     return {
         "Version": "2012-10-17",
         "Statement": [
@@ -18,19 +29,17 @@ def trust(subject: str = MODULE.EXPECTED_SUBJECT) -> dict[str, object]:
                 "Effect": "Allow",
                 "Principal": {"Federated": MODULE.OIDC_PROVIDER},
                 "Action": "sts:AssumeRoleWithWebIdentity",
-                "Condition": {
-                    "StringEquals": {
-                        "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-                    },
-                    "StringLike": {"token.actions.githubusercontent.com:sub": subject},
-                },
+                "Condition": conditions,
             }
         ],
     }
 
 
 def test_exact_role_policy_and_main_branch_trust_pass() -> None:
-    tracked = {"Version": "2012-10-17", "Statement": [{"Action": ["b", "a"]}]}
+    tracked = {
+        "Version": "2012-10-17",
+        "Statement": [{"Sid": "TrackedLabel", "Action": ["b", "a"]}],
+    }
     result = MODULE.verify(
         tracked,
         {"Role": {"RoleName": MODULE.ROLE_NAME, "AssumeRolePolicyDocument": trust()}},
@@ -39,12 +48,37 @@ def test_exact_role_policy_and_main_branch_trust_pass() -> None:
         {
             "RoleName": MODULE.ROLE_NAME,
             "PolicyName": MODULE.POLICY_NAME,
-            "PolicyDocument": {"Statement": [{"Action": ["a", "b"]}], "Version": "2012-10-17"},
+            "PolicyDocument": {
+                "Statement": [{"Sid": "LiveLabel", "Action": ["a", "b"]}],
+                "Version": "2012-10-17",
+            },
         },
     )
 
     assert result["result"] == "PASS"
     assert result["tracked_policy_matches_live"] is True
+
+
+def test_exact_string_equals_subject_is_accepted() -> None:
+    tracked = {"Version": "2012-10-17", "Statement": []}
+    result = MODULE.verify(
+        tracked,
+        {
+            "Role": {
+                "RoleName": MODULE.ROLE_NAME,
+                "AssumeRolePolicyDocument": trust(subject_operator="StringEquals"),
+            }
+        },
+        {"PolicyNames": [MODULE.POLICY_NAME]},
+        {"AttachedPolicies": []},
+        {
+            "RoleName": MODULE.ROLE_NAME,
+            "PolicyName": MODULE.POLICY_NAME,
+            "PolicyDocument": tracked,
+        },
+    )
+
+    assert result["result"] == "PASS"
 
 
 def test_broad_trust_or_managed_policy_fails() -> None:
