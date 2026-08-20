@@ -33,6 +33,12 @@
       "Resource": "*"
     },
     {
+      "Sid": "GlobalStepFunctionsValidation",
+      "Effect": "Allow",
+      "Action": "states:ValidateStateMachineDefinition",
+      "Resource": "*"
+    },
+    {
       "Sid": "FoundationBudget",
       "Effect": "Allow",
       "Action": [

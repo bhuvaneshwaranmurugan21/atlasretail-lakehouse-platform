@@ -2,14 +2,16 @@
 
 | Threat | Control | Residual risk |
 |---|---|---|
-| Untrusted fork obtains AWS access | GitHub OIDC `sub` is restricted to owner/repo/main | Compromised maintainer/main workflow |
-| Public object exposure | S3 public access block, ownership enforcement, TLS-only policy | AWS account administrator override |
-| Data tampering or ID reuse | Manifest SHA-256 proofs and conditional batch registration | Compromised producer can create a new valid ID |
-| Concurrent portfolio labs overspend | DynamoDB lease and GitHub concurrency group | Manual console resources bypass lock |
-| Secret leakage | No static AWS keys; short-lived OIDC credentials | Logs may contain non-secret business data |
-| Failed run becomes visible | Generation isolation and conditional publication | Bugs shared by validator and transformer |
-| Deployment job timeout skips cleanup | Independent teardown job plus immutable run authority | GitHub-wide outage still requires rescue workflow |
-| Unbounded retention | S3 lifecycle, log retention, saved destroy plan, rescue workflow | Failed teardown needs manual intervention |
+| Untrusted fork obtains AWS access | GitHub OIDC `sub` is restricted to owner, repository, and `main` | Compromised maintainer or trusted workflow |
+| Public object exposure | S3 public-access block, ownership enforcement, and TLS-only policy | AWS account administrator override |
+| Batch ID is reused with other content | Canonical manifest digest and conditional registration | Managed path does not yet bind every S3 version and checksum |
+| Concurrent environments consume shared account capacity | DynamoDB account lease and GitHub concurrency group | Manual console resources bypass the lease |
+| Static credentials leak | GitHub receives short-lived OIDC credentials; no AWS keys are stored | Logs may contain non-secret operational identifiers |
+| Partial generation becomes active | Generation-scoped writes and conditional publication | A reader that bypasses the serving boundary can query physical data |
+| Stale publisher replaces newer state | DynamoDB pointer-version condition | Application defect can supply an incorrect generation before binding is hardened |
+| Deployment timeout skips cleanup | Independent teardown job and persisted run authority | GitHub-wide outage requires incident-specific rescue |
+| Teardown silently leaves resources | Named service checks, recursive state inspection, and run-tag inventory | Unsupported or untagged resource types require manual inspection |
+| Retained data grows without bound | S3 lifecycle, log retention, and explicit generation cleanup design | Failed cleanup requires operator intervention |
 
-Synthetic data contains no personal or payment-card information. KMS encryption is used to prove
-key policy and audit behaviour, not to claim PCI DSS compliance.
+Synthetic fixtures contain no personal data or payment-card numbers. KMS encryption validates key
+policy and audit behaviour; it does not establish PCI DSS compliance.

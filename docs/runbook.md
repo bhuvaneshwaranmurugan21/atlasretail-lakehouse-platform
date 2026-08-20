@@ -1,44 +1,81 @@
-# AWS lab runbook
+# AWS validation runbook
 
-## Safety preconditions
+## Current stop condition
 
-1. Use account `887720497919` in `ap-south-1`.
-2. Keep the role trust restricted to this repository's `main` branch.
-3. Attach only the generated AtlasRetail deployment policy.
-4. Confirm the shared budget and account lock exist.
-5. Use a unique run ID and the default small workload first.
+Do not dispatch the data-processing workflow while the account remains on an AWS Free plan that
+denies Glue job creation. The previous attempt stopped during Terraform apply; no Glue, Step
+Functions, or Athena workload executed.
 
-## Execute
+## Preconditions
 
-Run the `AWS bounded lab` workflow from GitHub Actions. Keep `order_count` at 1,000 until the
-baseline completes. The workflow acquires an account lock, proves the remote state and tagged
-inventory are clean, machine-validates a saved create-only Terraform plan, uploads deterministic
-input, runs the success and injected-failure scenarios, and collects evidence. An independent job
-then validates and applies a saved destroy-only plan.
+1. Use account `887720497919` and region `ap-south-1`.
+2. Keep the GitHub OIDC trust restricted to this repository's `main` branch.
+3. Confirm that the deployed inline policy matches
+   `infra/iam/atlasretail-github-role-policy.json`.
+4. Require a successful identity-only workflow and read-only environment preflight.
+5. Confirm that `atlasretail/main.tfstate` is readable and empty.
+6. Confirm that the shared budget and account lease exist.
+7. Use a unique run ID and begin with 1,000 synthetic orders.
+8. Review the open correctness boundaries in `docs/correctness.md` before authorizing execution.
+
+## Deploy and execute
+
+Run `AWS bounded lab` manually with `order_count=1000` and `confirm_destroy=DESTROY`. The workflow:
+
+1. Validates the account, region, inputs, and source authorization.
+2. Acquires the account-wide DynamoDB lease.
+3. Initializes the locked remote Terraform state.
+4. Proves that state and tagged inventory are clean.
+5. Persists teardown authority before infrastructure creation.
+6. Creates and machine-validates a saved create-only plan.
+7. Applies only that saved plan.
+8. Uploads deterministic inputs.
+9. Runs success, replay, injected-failure, and recovery scenarios.
+10. Executes bounded Athena validation.
+11. Captures service histories, logs, metrics, plans, outputs, runtime, and immediate cost estimates.
+12. Invokes the independent teardown job regardless of execution outcome.
 
 ## Expected signals
 
-- The success execution ends `SUCCEEDED` and publishes one new pointer version.
-- The injected failure ends `FAILED`; the active generation and pointer version do not change.
-- Replaying the success batch does not create a second logical generation.
-- Athena orders and gross value exactly match the deterministic expected-results contract.
-- CloudWatch event exports, Step Functions histories, Athena query statistics, Terraform plans and
-  outputs, resource inventory, runtime, and estimated cost appear in the workflow artifact.
+- Successful transformation and publication end `SUCCEEDED`.
+- Identical replay does not create a second logical generation.
+- Injected failure ends `FAILED` and does not move the active pointer.
+- Recovery ends `SUCCEEDED` for the accepted batch identity.
+- Athena row count and gross value match the deterministic expected-results contract.
+- The evidence summary and teardown report both return `PASS`.
+
+## Stop conditions
+
+Do not retry automatically when any of the following occurs:
+
+- Account-plan or service-access denial
+- IAM authorization failure
+- Terraform state or tagged-resource residue
+- Manifest or business-validation failure
+- Missing service history or evidence file
+- Failed or skipped teardown check
+
+Classify the failure, preserve the run and source identifiers, correct one root cause, validate the
+change locally and in CI, and run a new read-only preflight before another deployment.
 
 ## Recovery
 
-If transformation fails, inspect the Glue driver log and the quarantined manifest. Correct the data
-or code, then replay the same immutable manifest. Never manually move the active pointer around a
-failed gate.
+For transformation failures, inspect the Glue driver log, Step Functions history, registered batch
+record, and immutable input identity. Correct data or code without changing the accepted batch
+identity. Do not manually change the active pointer.
+
+If Terraform apply partially succeeds and normal teardown cannot refresh state, use an
+incident-specific rescue authorization. The rescue path may only initialize the exact backend,
+create and validate a saved destroy-only plan, apply that plan, and independently verify absence.
 
 ## Teardown verification
 
-Before apply, the execution job persists an immutable teardown-authority marker. The independent
-teardown job runs even when the execution job fails or times out, but it will destroy state only
-when that marker belongs to the same repository run. It creates, validates, and applies a saved
-destroy-only plan. It then checks every named resource from the Terraform outputs, confirms that
-Terraform state is readable and empty, and inventories resources carrying the workflow's `RunId`
-tag. Only explicit service-specific not-found responses prove deletion; authorization or API
-errors fail closed. A KMS key awaiting AWS's mandatory scheduled-deletion window is the only
-documented exception. The workflow writes `teardown.json`, and a failed cleanup is a failed lab
-even when the data path passed.
+The independent teardown job retrieves the authority recorded before apply, captures live outputs,
+creates and validates a saved destroy-only plan, and applies only that plan. It then checks every
+named service resource, recursively confirms that Terraform state is empty, and inventories
+resources carrying the run ID.
+
+Only explicit service-specific not-found responses prove deletion. Authorization errors, API
+errors, and unreadable state fail closed. A KMS key in AWS-mandated `PendingDeletion` is accepted
+only when its alias is absent and the deletion date is recorded. A successful data path with failed
+cleanup is a failed validation run.
