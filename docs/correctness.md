@@ -12,11 +12,12 @@ environment in which it is currently enforced.
 | Idempotent redelivery | The same batch ID and digest has one business effect |
 | Conflicting reuse | The same batch ID with another digest is rejected |
 | Manifest agreement | Declared table counts and digests must agree with the supplied records |
+| Object identity | Every managed file is bound to one S3 key, version, size, ETag, and SHA-256 |
 
-The local engine validates row counts and canonical table digests. The current Glue job validates
-the batch ID, contract version, and row counts but does not yet bind every S3 object version and
-checksum to the registered manifest. That managed-path gap must be closed before the data path can
-be marked `AWS_VERIFIED`.
+The local engine validates row counts and canonical table digests. The managed job reads the
+manifest by exact version, verifies its canonical digest, checks every registered object version
+and checksum, and server-side copies that exact version into a generation-isolated read prefix.
+These rules are locally verified; their Glue execution remains `DESIGNED` until the bounded run.
 
 ## Generation lifecycle
 
@@ -25,10 +26,11 @@ registered -> building -> validated -> published
                        \-> failed
 ```
 
-Every transformation writes a generation identifier. An incomplete or failed generation remains
-physically inspectable but must not advance the active pointer. Recovery reuses the accepted batch
-identity and deterministic generation. The AWS control plane still needs explicit lifecycle and
-failure records beyond its current registered/published states.
+Registration deterministically derives the generation identifier from the batch and manifest
+identity. Conditional DynamoDB transitions record attempts, execution identity, validation
+evidence, failure stage, and normalized error. An incomplete generation may remain physically
+inspectable but cannot advance the active pointer. Recovery reuses the accepted identity and
+rewrites the same generation deterministically.
 
 ## Financial reconciliation
 
@@ -54,17 +56,15 @@ movement ID provides the tie-breaker.
 ## Bitemporal products
 
 An order line resolves a product version by event time and by the version known at the manifest's
-knowledge-time boundary. A missing version fails validation. The managed transformation still
-needs an explicit exactly-one-match and overlapping-effective-interval check; existence alone is
-not sufficient.
+knowledge-time boundary. The match count must equal one. Both a missing interval and overlapping
+knowable intervals fail validation; versions are never silently ranked to hide overlap.
 
 ## Publication concurrency
 
-Publication performs a DynamoDB transactional update guarded by the expected pointer version. One
-publisher can advance a given pointer version; a stale writer fails without replacing the active
-generation. The state machine must use the generation returned by batch registration rather than
-trusting a separately supplied generation value. That binding is scheduled for correctness
-hardening before the next AWS execution.
+Publication performs a DynamoDB transactional update guarded by the expected pointer version and
+the generation's `VALIDATED` state. One publisher can advance a given pointer version; a stale
+writer fails without replacing the active generation. Every downstream state uses the generation
+returned by registration rather than a caller-supplied identifier.
 
 ## Replay and recovery
 
@@ -79,7 +79,7 @@ validation and publication conditions as a forward load.
 
 ## Serving boundary
 
-DynamoDB is the current authority for the active-generation pointer. Athena is used for bounded
-result validation, but the repository does not yet provide a complete analyst-facing resolver that
-automatically scopes every query to that pointer. Until the resolver exists, raw Iceberg tables are
-physical storage rather than the published serving contract.
+DynamoDB is the authority for the active-generation pointer. The resolver reads that pointer once,
+validates its published generation, and constructs a six-table query pinned to the same generation.
+Raw Iceberg tables remain physical storage; enforcing resolver-only access requires production IAM
+separation beyond this bounded environment.

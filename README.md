@@ -14,11 +14,13 @@ active-generation pointer only after the complete generation passes validation.
 ## System behaviour
 
 - Bind a batch identifier to one canonical manifest digest.
+- Bind every managed input to an exact S3 key, version, byte count, ETag, and SHA-256 checksum.
 - Treat an identical redelivery as idempotent and reject conflicting content reuse.
 - Write orders, lines, payments, returns, inventory movements, and products by generation.
 - Reconcile financial equations, captured payments, refunds, return quantities, inventory, and
   bitemporal product resolution before publication.
 - Advance the DynamoDB active-generation pointer with compare-and-swap semantics.
+- Resolve the active generation once before constructing a six-table serving query.
 - Prevent failed, incomplete, stale, or unapproved backfill generations from becoming active.
 - Retain attributable execution evidence and independently verify infrastructure teardown.
 
@@ -77,12 +79,12 @@ unexplained diff.
 
 | Capability | Status | Evidence |
 |---|---|---|
-| Domain, manifest, and retail invariants | `LOCAL_VERIFIED` | Automated tests and deterministic failure scenarios |
-| Generation isolation, replay, rollback, and stale-writer rejection | `LOCAL_VERIFIED` | Local publication model and behavioural tests |
+| Domain, immutable-object manifest, and retail invariants | `LOCAL_VERIFIED` | Automated tests and deterministic failure scenarios |
+| Managed lifecycle, recovery, serving resolver, and stale-writer rejection | `LOCAL_VERIFIED` | Control-plane, resolver, and infrastructure-contract tests |
 | GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` |
 | Saved-plan deployment and exact-state teardown controls | `AWS_VERIFIED` | Recorded partial deployments and successful rescue teardown |
-| Managed Glue and Iceberg transformation | `NOT_YET_VERIFIED` | AWS Free-plan service access prevented Glue job creation |
-| Managed replay, injected failure, recovery, and Athena validation | `NOT_YET_VERIFIED` | The data-processing portion of the AWS workflow has not run |
+| Managed Glue and Iceberg transformation | `NOT_YET_VERIFIED` | Hardened implementation exists; the new managed workload has not run |
+| Managed replay, conflict, object tamper, failure, recovery, and Athena validation | `NOT_YET_VERIFIED` | Requires the bounded AWS execution |
 | Runtime, throughput, and settled cost | `NOT_YET_MEASURED` | Requires a successful managed execution |
 | Sustained production operation | `OUT_OF_SCOPE` | No long-running workload or operational-tenure claim |
 
@@ -102,7 +104,7 @@ Before execution:
 2. Attach [the checked-in role policy](infra/iam/atlasretail-github-role-policy.json) to
    `AtlasRetailGitHubOidcRole` without broadening the repository-and-branch OIDC trust.
 3. Require a successful read-only preflight and an empty Atlas Terraform state.
-4. Begin with 1,000 orders; do not raise the workload bound until the baseline is reviewed.
+4. Begin with 500 orders; the workflow enforces a maximum of 2,000 per managed scenario.
 5. Require both the execution summary and independent teardown report to pass.
 
 The complete procedure and stop conditions are in the [AWS runbook](docs/runbook.md).
@@ -111,9 +113,9 @@ The complete procedure and stop conditions are in the [AWS runbook](docs/runbook
 
 AtlasRetail currently targets a single-region, synthetic-data validation environment. It does not
 establish PCI DSS compliance, personal-data controls, multi-region disaster recovery, continuous
-petabyte throughput, or staffed 24x7 operation. The active-generation pointer is implemented in
-the control plane, but a complete analyst-facing serving resolver is not yet implemented; raw
-physical tables must not be treated as the published interface.
+petabyte throughput, or staffed 24x7 operation. The resolver provides a generation-pinned query
+boundary, but it does not prevent a principal with direct physical-table access from bypassing that
+boundary. Raw physical tables are therefore storage interfaces, not published data products.
 
 See the [threat model](docs/threat-model.md), [cost model](docs/cost-model.md), and
 [correctness model](docs/correctness.md) for the remaining boundaries.

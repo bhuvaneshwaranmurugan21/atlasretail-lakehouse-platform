@@ -15,23 +15,25 @@ Functions, or Athena workload executed.
 4. Require a successful identity-only workflow and read-only environment preflight.
 5. Confirm that `atlasretail/main.tfstate` is readable and empty.
 6. Confirm that the shared budget and account lease exist.
-7. Use a unique run ID and begin with 1,000 synthetic orders.
+7. Use a unique run ID and begin with 500 synthetic orders.
 8. Review the open correctness boundaries in `docs/correctness.md` before authorizing execution.
 
 ## Deploy and execute
 
-Run `AWS bounded lab` manually with `order_count=1000` and `confirm_destroy=DESTROY`. The workflow:
+Run `AWS bounded lab` manually with `order_count=500` and `confirm_destroy=DESTROY`. The workflow:
 
 1. Validates the account, region, inputs, and source authorization.
 2. Acquires the account-wide DynamoDB lease.
 3. Initializes the locked remote Terraform state.
 4. Proves that state and tagged inventory are clean.
 5. Persists teardown authority before infrastructure creation.
-6. Creates and machine-validates a saved create-only plan.
+6. Creates and machine-validates a saved create-only plan and validates the planned ASL definition
+   through the Step Functions API.
 7. Applies only that saved plan.
-8. Uploads deterministic inputs.
-9. Runs success, replay, injected-failure, and recovery scenarios.
-10. Executes bounded Athena validation.
+8. Uploads deterministic inputs with exact S3 version and checksum evidence.
+9. Runs success, replay, batch-conflict, object-tamper, injected-failure, recovery, temporal-overlap,
+   financial-mismatch, and stale-publisher scenarios.
+10. Resolves one published generation and executes bounded Athena validation across all six tables.
 11. Captures service histories, logs, metrics, plans, outputs, runtime, and immediate cost estimates.
 12. Invokes the independent teardown job regardless of execution outcome.
 
@@ -41,6 +43,9 @@ Run `AWS bounded lab` manually with `order_count=1000` and `confirm_destroy=DEST
 - Identical replay does not create a second logical generation.
 - Injected failure ends `FAILED` and does not move the active pointer.
 - Recovery ends `SUCCEEDED` for the accepted batch identity.
+- Batch conflict, object tamper, temporal overlap, and financial mismatch end `FAILED` before
+  publication.
+- The control-plane stale publisher fails without replacing the resolved generation.
 - Athena row count and gross value match the deterministic expected-results contract.
 - The evidence summary and teardown report both return `PASS`.
 
