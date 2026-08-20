@@ -57,19 +57,18 @@ def test_post_rescue_authorization_binds_cleanup_and_clean_preflight() -> None:
     }
 
 
-def test_push_trigger_is_narrow_and_manual_dispatch_remains() -> None:
+def test_phase_two_lab_requires_explicit_manual_dispatch() -> None:
     workflow = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
     triggers = workflow["on"]
 
-    assert "workflow_dispatch" in triggers
-    assert triggers["push"] == {
-        "branches": ["main"],
-        "paths": [".github/atlas-lab-authorizations/run-003.json"],
-    }
+    assert set(triggers) == {"workflow_dispatch"}
 
     execute = workflow["jobs"]["execute"]
-    assert "Execute Atlas bounded lab after rescue: 1000 orders" in execute["if"]
-    assert execute["env"]["ORDER_COUNT"].endswith("|| '1000' }}")
-    assert execute["env"]["CONFIRM_DESTROY"].endswith("|| 'DESTROY' }}")
+    assert "if" not in execute
+    assert execute["env"]["ORDER_COUNT"] == "${{ inputs.order_count }}"
+    assert execute["env"]["CONFIRM_DESTROY"] == "${{ inputs.confirm_destroy }}"
+    assert execute["env"]["BUDGET_CEILING_USD"] == "${{ inputs.budget_ceiling_usd }}"
     scripts = "\n".join(step.get("run", "") for step in execute["steps"] if isinstance(step, dict))
-    assert 'test "${PUSH_BEFORE}" = "5f4634816d136dbb0a91b051b5b88eb7f2677d2a"' in scripts
+    assert 'test "${CONFIRM_DESTROY}" = "DESTROY"' in scripts
+    assert 'test "${ORDER_COUNT}" -le 2000' in scripts
+    assert 'test "${BUDGET_CEILING_USD}" -le 10' in scripts

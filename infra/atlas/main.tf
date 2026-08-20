@@ -2,13 +2,15 @@ data "aws_caller_identity" "current" {}
 
 data "aws_partition" "current" {}
 
-resource "random_id" "suffix" {
-  byte_length = 3
-}
-
 locals {
-  prefix = "atlasretail-${var.run_id}"
-  suffix = random_id.suffix.hex
+  prefix               = "atlasretail-${var.run_id}"
+  landing_bucket_name  = "${local.prefix}-landing-${data.aws_caller_identity.current.account_id}"
+  warehouse_bucket_name = "${local.prefix}-warehouse-${data.aws_caller_identity.current.account_id}"
+  evidence_bucket_name = "${local.prefix}-evidence-${data.aws_caller_identity.current.account_id}"
+  glue_database_name   = replace("${local.prefix}_retail", "-", "_")
+  glue_job_name        = "${local.prefix}-iceberg"
+  lambda_function_name = "${local.prefix}-control"
+  lambda_function_arn  = "arn:${data.aws_partition.current.partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.lambda_function_name}"
   tags = {
     Project      = "AtlasRetail"
     ManagedBy    = "Terraform"
@@ -16,6 +18,17 @@ locals {
     SourceCommit = var.source_commit
     ExpiresAfter = "3-hours"
   }
+  lambda_retry = [{
+    ErrorEquals = [
+      "Lambda.ServiceException",
+      "Lambda.AWSLambdaException",
+      "Lambda.SdkClientException",
+      "Lambda.TooManyRequestsException"
+    ]
+    IntervalSeconds = 2
+    MaxAttempts     = 3
+    BackoffRate     = 2
+  }]
 }
 
 resource "aws_kms_key" "lab" {
@@ -31,19 +44,19 @@ resource "aws_kms_alias" "lab" {
 
 module "landing_bucket" {
   source      = "./modules/bucket"
-  name        = "${local.prefix}-landing-${local.suffix}"
+  name        = local.landing_bucket_name
   kms_key_arn = aws_kms_key.lab.arn
 }
 
 module "warehouse_bucket" {
   source      = "./modules/bucket"
-  name        = "${local.prefix}-warehouse-${local.suffix}"
+  name        = local.warehouse_bucket_name
   kms_key_arn = aws_kms_key.lab.arn
 }
 
 module "evidence_bucket" {
   source      = "./modules/bucket"
-  name        = "${local.prefix}-evidence-${local.suffix}"
+  name        = local.evidence_bucket_name
   kms_key_arn = aws_kms_key.lab.arn
 }
 
@@ -74,7 +87,7 @@ resource "aws_dynamodb_table" "control" {
 }
 
 resource "aws_glue_catalog_database" "retail" {
-  name = replace("${local.prefix}_retail", "-", "_")
+  name = local.glue_database_name
 }
 
 resource "aws_athena_workgroup" "verification" {
@@ -137,7 +150,13 @@ data "aws_iam_policy_document" "glue_assume" {
 
 data "aws_iam_policy_document" "glue" {
   statement {
-    actions = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectAttributes",
+      "s3:GetObjectVersion",
+      "s3:PutObject",
+      "s3:DeleteObject"
+    ]
     resources = [
       "${module.landing_bucket.arn}/*",
       "${module.warehouse_bucket.arn}/*",
@@ -180,7 +199,7 @@ resource "aws_iam_role_policy" "glue" {
 }
 
 resource "aws_glue_job" "retail" {
-  name              = "${local.prefix}-iceberg"
+  name              = local.glue_job_name
   role_arn          = aws_iam_role.glue.arn
   glue_version      = "5.0"
   worker_type       = "G.1X"
@@ -235,11 +254,18 @@ data "aws_iam_policy_document" "lambda" {
   statement {
     actions = [
       "dynamodb:GetItem",
-      "dynamodb:PutItem",
       "dynamodb:TransactWriteItems",
       "dynamodb:UpdateItem"
     ]
     resources = [aws_dynamodb_table.control.arn]
+  }
+  statement {
+    actions   = ["s3:GetObject"]
+    resources = ["${module.evidence_bucket.arn}/validation/*"]
+  }
+  statement {
+    actions   = ["kms:Decrypt"]
+    resources = [aws_kms_key.lab.arn]
   }
   statement {
     actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
@@ -256,7 +282,7 @@ resource "aws_iam_role_policy" "lambda" {
 resource "aws_lambda_function" "control" {
   depends_on = [aws_cloudwatch_log_group.lambda]
 
-  function_name    = "${local.prefix}-control"
+  function_name    = local.lambda_function_name
   role             = aws_iam_role.lambda.arn
   handler          = "control.handler"
   runtime          = "python3.12"
@@ -341,15 +367,19 @@ resource "aws_sfn_state_machine" "retail" {
         Type     = "Task"
         Resource = "arn:aws:states:::lambda:invoke"
         Parameters = {
-          FunctionName = aws_lambda_function.control.arn
+          FunctionName = local.lambda_function_arn
           Payload = {
-            action              = "register"
-            "batch_id.$"        = "$.batch_id"
-            "generation_id.$"   = "$.generation_id"
-            "manifest_digest.$" = "$.manifest_digest"
+            action                    = "register"
+            "batch_id.$"              = "$.batch_id"
+            "manifest_digest.$"       = "$.manifest_digest"
+            "manifest_uri.$"          = "$.manifest_uri"
+            "manifest_version_id.$"   = "$.manifest_version_id"
+            "source_commit.$"         = "$.source_commit"
+            "workflow_run_id.$"       = "$.workflow_run_id"
           }
         }
         ResultSelector = { "result.$" = "$.Payload" }
+        Retry          = local.lambda_retry
         ResultPath     = "$.registration"
         Next           = "AlreadyBuilt"
       }
@@ -359,44 +389,153 @@ resource "aws_sfn_state_machine" "retail" {
           Variable     = "$.registration.result.status"
           StringEquals = "REPLAYED"
           Next         = "ReplaySucceeded"
+          }, {
+          Variable     = "$.registration.result.status"
+          StringEquals = "IN_PROGRESS"
+          Next         = "ConcurrentExecutionRejected"
         }]
-        Default = "BuildIcebergGeneration"
+        Default = "StartGenerationBuild"
+      }
+      StartGenerationBuild = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = local.lambda_function_arn
+          Payload = {
+            action              = "start_build"
+            "generation_id.$"   = "$.registration.result.generation_id"
+            "execution_arn.$"   = "$$.Execution.Id"
+          }
+        }
+        ResultSelector = { "result.$" = "$.Payload" }
+        Retry          = local.lambda_retry
+        ResultPath     = "$.build"
+        Next           = "BuildIcebergGeneration"
       }
       BuildIcebergGeneration = {
         Type     = "Task"
         Resource = "arn:aws:states:::glue:startJobRun.sync"
         Parameters = {
-          JobName = aws_glue_job.retail.name
+          JobName = local.glue_job_name
           Arguments = {
-            "--SOURCE_URI.$"     = "$.source_uri"
-            "--MANIFEST_URI.$"   = "$.manifest_uri"
-            "--BATCH_ID.$"       = "$.batch_id"
-            "--GENERATION_ID.$"  = "$.generation_id"
-            "--DATABASE"         = aws_glue_catalog_database.retail.name
-            "--INJECT_FAILURE.$" = "$.inject_failure"
+            "--MANIFEST_URI.$"        = "$.manifest_uri"
+            "--MANIFEST_VERSION_ID.$" = "$.manifest_version_id"
+            "--MANIFEST_DIGEST.$"     = "$.manifest_digest"
+            "--BATCH_ID.$"            = "$.batch_id"
+            "--GENERATION_ID.$"       = "$.registration.result.generation_id"
+            "--DATABASE"              = local.glue_database_name
+            "--VALIDATION_URI.$"      = "States.Format('s3://${local.evidence_bucket_name}/validation/{}.json', $.registration.result.generation_id)"
+            "--INJECT_FAILURE.$"      = "$.inject_failure"
           }
         }
         ResultPath = "$.glue"
-        Next       = "PublishGeneration"
+        Next       = "ValidateGeneration"
+        Catch = [{
+          ErrorEquals = ["States.ALL"]
+          ResultPath  = "$.failure"
+          Next        = "MarkGlueFailure"
+        }]
+      }
+      ValidateGeneration = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = local.lambda_function_arn
+          Payload = {
+            action            = "validate"
+            "generation_id.$" = "$.registration.result.generation_id"
+            "validation_uri.$" = "States.Format('s3://${local.evidence_bucket_name}/validation/{}.json', $.registration.result.generation_id)"
+            "glue_job_run_id.$" = "$.glue.JobRunId"
+          }
+        }
+        ResultSelector = { "result.$" = "$.Payload" }
+        Retry          = local.lambda_retry
+        ResultPath     = "$.validation"
+        Next           = "PublishGeneration"
+        Catch = [{
+          ErrorEquals = ["States.ALL"]
+          ResultPath  = "$.failure"
+          Next        = "MarkValidationFailure"
+        }]
       }
       PublishGeneration = {
         Type     = "Task"
         Resource = "arn:aws:states:::lambda:invoke"
         Parameters = {
-          FunctionName = aws_lambda_function.control.arn
+          FunctionName = local.lambda_function_arn
           Payload = {
             action                       = "publish"
-            "batch_id.$"                 = "$.batch_id"
-            "generation_id.$"            = "$.generation_id"
+            "generation_id.$"            = "$.registration.result.generation_id"
             "expected_pointer_version.$" = "$.registration.result.pointer_version"
           }
         }
         ResultSelector = { "result.$" = "$.Payload" }
+        Retry          = local.lambda_retry
         ResultPath     = "$.publication"
         End            = true
+        Catch = [{
+          ErrorEquals = ["States.ALL"]
+          ResultPath  = "$.failure"
+          Next        = "MarkPublicationFailure"
+        }]
       }
       ReplaySucceeded = {
         Type = "Succeed"
+      }
+      ConcurrentExecutionRejected = {
+        Type  = "Fail"
+        Error = "BATCH_IN_PROGRESS"
+        Cause = "The accepted batch already has a non-terminal generation"
+      }
+      MarkGlueFailure = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = local.lambda_function_arn
+          Payload = {
+            action             = "fail"
+            "generation_id.$"  = "$.registration.result.generation_id"
+            failure_stage      = "GLUE"
+            "failure_code.$"   = "States.JsonToString($.failure)"
+          }
+        }
+        Retry = local.lambda_retry
+        Next = "GenerationFailed"
+      }
+      MarkValidationFailure = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = local.lambda_function_arn
+          Payload = {
+            action             = "fail"
+            "generation_id.$"  = "$.registration.result.generation_id"
+            failure_stage      = "VALIDATION"
+            "failure_code.$"   = "States.JsonToString($.failure)"
+          }
+        }
+        Retry = local.lambda_retry
+        Next = "GenerationFailed"
+      }
+      MarkPublicationFailure = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = local.lambda_function_arn
+          Payload = {
+            action             = "fail"
+            "generation_id.$"  = "$.registration.result.generation_id"
+            failure_stage      = "PUBLICATION"
+            "failure_code.$"   = "States.JsonToString($.failure)"
+          }
+        }
+        Retry = local.lambda_retry
+        Next = "GenerationFailed"
+      }
+      GenerationFailed = {
+        Type  = "Fail"
+        Error = "GENERATION_FAILED"
+        Cause = "Generation failed before atomic publication"
       }
     }
   })

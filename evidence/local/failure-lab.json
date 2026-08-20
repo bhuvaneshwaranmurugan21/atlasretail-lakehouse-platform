@@ -24,7 +24,7 @@
     {
       "check": "idempotent_batch_replay",
       "passed": true,
-      "proof": "5410268697d2e82c6b758c4bf0fb1348d7672e749a7d547ffcaf20bc75838547"
+      "proof": "c31a52b46e76a38b67e9cd699269ac9663d08119c692d58dd5c87d320150a73a"
     },
     {
       "check": "conflicting_batch_identity",
@@ -64,7 +64,7 @@
     {
       "check": "deterministic_recovery",
       "passed": true,
-      "proof": "3d7e7fc5fff617e65428a1a2ded579fa8251c8570dceba67bddd82c11cb1d880"
+      "proof": "26ed316085521100afeb1f70ad2f2f3e45919e7886f196a0b246aaca94006978"
     },
     {
       "check": "stale_publication_blocked",
@@ -83,7 +83,7 @@
     }
   ],
   "claim_level": "LOCAL_VERIFIED",
-  "evidence_digest": "a19c48e56688fb46c38ad09c065758ba70f8e2c9791a8376b27c92804443bf37",
+  "evidence_digest": "0a1c2d4891c12adb4e35bfd616d80eea86f6e8ff5e462d615d01be3a8ce2695b",
   "metrics": {
     "checks_passed": 14,
     "checks_total": 14

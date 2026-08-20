@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import io
+import json
 import os
 import sys
 import types
@@ -13,6 +15,15 @@ class FakeClientError(Exception):
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.response = {"Error": {"Code": code}}
+
+
+def decode(value: dict[str, Any]) -> Any:
+    for name in ("S", "N", "BOOL"):
+        if name in value:
+            if name == "N":
+                return int(value[name])
+            return value[name]
+    raise AssertionError(value)
 
 
 class FakeTable:
@@ -28,28 +39,55 @@ class FakeTable:
         item = self.items.get((Key["pk"], Key["sk"]))
         return {"Item": dict(item)} if item else {}
 
-    def put_item(self, *, Item: dict[str, Any], ConditionExpression: str) -> None:
-        del ConditionExpression
-        key = (Item["pk"], Item["sk"])
-        if key in self.items:
+    def update_item(
+        self,
+        *,
+        Key: dict[str, str],
+        UpdateExpression: str,
+        ConditionExpression: str,
+        ExpressionAttributeNames: dict[str, str],
+        ExpressionAttributeValues: dict[str, Any],
+        ReturnValues: str,
+    ) -> dict[str, Any]:
+        del ConditionExpression, ReturnValues
+        item = self.items[(Key["pk"], Key["sk"])]
+        if item["status"] != ExpressionAttributeValues[":current"]:
             raise FakeClientError("ConditionalCheckFailedException")
-        self.items[key] = dict(Item)
+        item["status"] = ExpressionAttributeValues[":target"]
+        item["updated_at"] = ExpressionAttributeValues[":updated"]
+        if "attempt =" in UpdateExpression:
+            item["attempt"] = int(item.get("attempt", 0)) + 1
+        for token, name in ExpressionAttributeNames.items():
+            if not token.startswith("#extra"):
+                continue
+            index = token.removeprefix("#extra")
+            item[name] = ExpressionAttributeValues[f":extra{index}"]
+        return {"Attributes": dict(item)}
 
     def transact_write_items(self, *, TransactItems: list[dict[str, Any]]) -> None:
-        pointer_update, batch_update = (item["Update"] for item in TransactItems)
+        if all("Put" in operation for operation in TransactItems):
+            decoded = []
+            for operation in TransactItems:
+                item = {key: decode(value) for key, value in operation["Put"]["Item"].items()}
+                key = (item["pk"], item["sk"])
+                if key in self.items:
+                    raise FakeClientError("TransactionCanceledException")
+                decoded.append((key, item))
+            self.items.update(decoded)
+            return
+
+        pointer_update, generation_update = (item["Update"] for item in TransactItems)
         pointer_values = pointer_update["ExpressionAttributeValues"]
         expected = int(pointer_values[":expected"]["N"])
         current_pointer = self.items.get(("CONTROL", "ACTIVE"))
         actual = int(current_pointer["pointer_version"]) if current_pointer else 0
-        batch_key = (
-            batch_update["Key"]["pk"]["S"],
-            batch_update["Key"]["sk"]["S"],
+        generation_key = (
+            generation_update["Key"]["pk"]["S"],
+            generation_update["Key"]["sk"]["S"],
         )
-        batch = self.items[batch_key]
-        generation = batch_update["ExpressionAttributeValues"][":generation"]["S"]
-        if actual != expected or batch["generation_id"] != generation:
+        generation = self.items[generation_key]
+        if actual != expected or generation["status"] != "VALIDATED":
             raise FakeClientError("TransactionCanceledException")
-
         self.items[("CONTROL", "ACTIVE")] = {
             "pk": "CONTROL",
             "sk": "ACTIVE",
@@ -57,16 +95,26 @@ class FakeTable:
             "pointer_version": int(pointer_values[":next"]["N"]),
             "published_at": int(pointer_values[":published_at"]["N"]),
         }
-        batch_values = batch_update["ExpressionAttributeValues"]
-        batch["status"] = batch_values[":published"]["S"]
-        batch["published_at"] = int(batch_values[":published_at"]["N"])
+        generation["status"] = "PUBLISHED"
+        generation["published_at"] = int(
+            generation_update["ExpressionAttributeValues"][":published_at"]["N"]
+        )
+
+
+class FakeS3:
+    def __init__(self) -> None:
+        self.objects: dict[tuple[str, str], bytes] = {}
+
+    def get_object(self, *, Bucket: str, Key: str) -> dict[str, Any]:
+        return {"Body": io.BytesIO(self.objects[(Bucket, Key)])}
 
 
 FAKE_TABLE = FakeTable()
+FAKE_S3 = FakeS3()
 
 
 class FakeResource:
-    def Table(self, name: str) -> FakeTable:  # noqa: N802 - boto3 interface
+    def Table(self, name: str) -> FakeTable:  # noqa: N802
         if name != "control-table":
             raise AssertionError(name)
         return FAKE_TABLE
@@ -81,7 +129,14 @@ def fake_resource(service: str) -> FakeResource:
     return FakeResource()
 
 
+def fake_client(service: str) -> FakeS3:
+    if service != "s3":
+        raise AssertionError(service)
+    return FAKE_S3
+
+
 fake_boto3.resource = fake_resource  # type: ignore[attr-defined]
+fake_boto3.client = fake_client  # type: ignore[attr-defined]
 fake_botocore = types.ModuleType("botocore")
 fake_exceptions = types.ModuleType("botocore.exceptions")
 fake_exceptions.ClientError = FakeClientError  # type: ignore[attr-defined]
@@ -103,54 +158,122 @@ spec.loader.exec_module(control)
 class LambdaControlTests(unittest.TestCase):
     def setUp(self) -> None:
         FAKE_TABLE.reset()
+        FAKE_S3.objects.clear()
         self.event = {
             "action": "register",
             "batch_id": "b-1",
-            "generation_id": "g-b-1",
             "manifest_digest": "a" * 64,
+            "manifest_uri": "s3://landing/runs/b-1/manifest.json",
+            "manifest_version_id": "version-1",
         }
 
-    def test_register_publish_and_replay(self) -> None:
-        registered = control.handler(self.event, None)
-        self.assertEqual("REGISTERED", registered["status"])
+    def register(self, event: dict[str, Any] | None = None) -> dict[str, Any]:
+        return control.handler(event or self.event, None)
+
+    def start_and_validate(self, event: dict[str, Any] | None = None) -> tuple[str, int]:
+        registered = self.register(event)
+        generation_id = registered["generation_id"]
+        build = control.handler(
+            {"action": "start_build", "generation_id": generation_id, "execution_arn": "arn:1"},
+            None,
+        )
+        evidence = {
+            "generation_id": generation_id,
+            "manifest_digest": (event or self.event)["manifest_digest"],
+            "tables": {
+                name: {"snapshot_id": index + 1, "rows": 10}
+                for index, name in enumerate(sorted(control.EXPECTED_TABLES))
+            },
+        }
+        FAKE_S3.objects[("evidence", f"validation/{generation_id}.json")] = json.dumps(
+            evidence
+        ).encode()
+        validated = control.handler(
+            {
+                "action": "validate",
+                "generation_id": generation_id,
+                "validation_uri": f"s3://evidence/validation/{generation_id}.json",
+                "glue_job_run_id": "jr-test",
+            },
+            None,
+        )
+        self.assertEqual("VALIDATED", validated["status"])
+        return generation_id, int(build["attempt"])
+
+    def test_registration_owns_generation_identity_and_replay(self) -> None:
+        generation_id, attempt = self.start_and_validate()
+        self.assertEqual(1, attempt)
         published = control.handler(
             {
                 "action": "publish",
-                "batch_id": "b-1",
-                "generation_id": "g-b-1",
+                "generation_id": generation_id,
                 "expected_pointer_version": 0,
             },
             None,
         )
-        self.assertEqual(
-            {"status": "PUBLISHED", "generation_id": "g-b-1", "pointer_version": 1}, published
+        self.assertEqual("PUBLISHED", published["status"])
+        self.assertEqual("REPLAYED", self.register()["status"])
+        resolved = control.handler({"action": "resolve"}, None)
+        self.assertEqual(generation_id, resolved["generation_id"])
+        self.assertEqual(1, resolved["pointer_version"])
+
+    def test_failed_generation_recovers_with_same_identity(self) -> None:
+        registered = self.register()
+        generation_id = registered["generation_id"]
+        control.handler({"action": "start_build", "generation_id": generation_id}, None)
+        control.handler(
+            {
+                "action": "fail",
+                "generation_id": generation_id,
+                "failure_stage": "GLUE",
+                "failure_code": "INJECTED",
+            },
+            None,
         )
-        self.assertEqual("REPLAYED", control.handler(self.event, None)["status"])
+        recovered = self.register()
+        self.assertEqual("RECOVERING", recovered["status"])
+        self.assertEqual(generation_id, recovered["generation_id"])
+        restarted = control.handler({"action": "start_build", "generation_id": generation_id}, None)
+        self.assertEqual(2, restarted["attempt"])
 
-    def test_failed_registration_recovers(self) -> None:
-        control.handler(self.event, None)
-        self.assertEqual("RECOVERING", control.handler(self.event, None)["status"])
-
-    def test_conflicting_batch_is_rejected(self) -> None:
-        control.handler(self.event, None)
-        conflict = dict(self.event, manifest_digest="b" * 64)
+    def test_conflicting_batch_and_location_are_rejected(self) -> None:
+        self.register()
         with self.assertRaisesRegex(ValueError, "CONFLICT"):
-            control.handler(conflict, None)
+            self.register(dict(self.event, manifest_digest="b" * 64))
+        with self.assertRaisesRegex(ValueError, "CONFLICT"):
+            self.register(dict(self.event, manifest_version_id="version-2"))
 
-    def test_stale_publication_is_rejected(self) -> None:
-        control.handler(self.event, None)
-        with self.assertRaisesRegex(ValueError, "STALE_PUBLISHER"):
+    def test_publication_requires_validation(self) -> None:
+        generation_id = self.register()["generation_id"]
+        with self.assertRaisesRegex(ValueError, "NOT_VALIDATED"):
             control.handler(
                 {
                     "action": "publish",
-                    "batch_id": "b-1",
-                    "generation_id": "g-b-1",
-                    "expected_pointer_version": 1,
+                    "generation_id": generation_id,
+                    "expected_pointer_version": 0,
                 },
                 None,
             )
-        self.assertEqual("REGISTERED", FAKE_TABLE.items[("BATCH#b-1", "IDENTITY")]["status"])
-        self.assertNotIn(("CONTROL", "ACTIVE"), FAKE_TABLE.items)
+
+    def test_stale_publication_is_rejected(self) -> None:
+        first, _ = self.start_and_validate()
+        control.handler(
+            {"action": "publish", "generation_id": first, "expected_pointer_version": 0}, None
+        )
+        second_event = dict(
+            self.event,
+            batch_id="b-2",
+            manifest_digest="b" * 64,
+            manifest_uri="s3://landing/runs/b-2/manifest.json",
+            manifest_version_id="version-2",
+        )
+        second, _ = self.start_and_validate(second_event)
+        with self.assertRaisesRegex(ValueError, "STALE_PUBLISHER"):
+            control.handler(
+                {"action": "publish", "generation_id": second, "expected_pointer_version": 0},
+                None,
+            )
+        self.assertEqual(first, control.handler({"action": "resolve"}, None)["generation_id"])
 
 
 if __name__ == "__main__":

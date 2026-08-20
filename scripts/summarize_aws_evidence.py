@@ -21,8 +21,12 @@ statuses = {row["name"].split("-")[0]: row["status"] for row in execution_rows}
 expected = {
     "success": "SUCCEEDED",
     "replay": "SUCCEEDED",
+    "conflict": "FAILED",
     "failure": "FAILED",
     "recovery": "SUCCEEDED",
+    "tamper": "FAILED",
+    "temporal": "FAILED",
+    "financial": "FAILED",
 }
 execution_checks = {
     name: {"expected": status, "actual": statuses.get(name), "passed": statuses.get(name) == status}
@@ -37,13 +41,16 @@ for run in glue_runs:
     else:
         dpu_seconds += float(run.get("ExecutionTime", 0)) * float(run.get("NumberOfWorkers", 2))
 
-athena = load("athena-orders.json")
-statistics = athena.get("QueryExecution", {}).get("Statistics", {})
-athena_bytes = int(statistics.get("DataScannedInBytes", 0))
+athena_queries = [load("athena-orders.json"), load("athena-six-table-serving.json")]
+athena_scans = [
+    int(query.get("QueryExecution", {}).get("Statistics", {}).get("DataScannedInBytes", 0))
+    for query in athena_queries
+]
+athena_bytes = sum(athena_scans)
 
 # Immediate metered estimate, not an invoice. Reference rates are in cost-model.md.
 glue_estimate_usd = dpu_seconds / 3600 * 0.44
-athena_billable_bytes = max(athena_bytes, 10 * 1024 * 1024) if athena_bytes else 0
+athena_billable_bytes = sum(max(value, 10 * 1024 * 1024) for value in athena_scans if value)
 athena_estimate_usd = athena_billable_bytes / 1_000_000_000_000 * 5.0
 
 pointer_unchanged = False
@@ -54,6 +61,33 @@ if before.exists() and after.exists():
 
 athena_validation = load("athena-validation.json")
 athena_matches = athena_validation.get("result") == "PASS"
+serving_resolution = load("serving-resolution.json")
+serving_resolved = (
+    serving_resolution.get("status") == "RESOLVED"
+    and bool(serving_resolution.get("generation_id"))
+    and int(serving_resolution.get("pointer_version", 0)) > 0
+)
+serving_rows = load("athena-six-table-serving-results.json").get("ResultSet", {}).get("Rows", [])
+serving_headers = []
+if serving_rows:
+    serving_headers = [
+        cell.get("VarCharValue")
+        for cell in serving_rows[0].get("Data", [])
+        if isinstance(cell, dict)
+    ]
+six_table_serving = (
+    serving_headers
+    == [
+        "orders",
+        "order_lines",
+        "payments",
+        "returns",
+        "inventory_movements",
+        "products",
+    ]
+    and len(serving_rows) == 2
+)
+stale_publisher_rejected = load("stale-publisher/summary.json").get("result") == "PASS"
 cloudwatch_files = (
     "glue-cloudwatch-events.json",
     "states-cloudwatch-events.json",
@@ -65,6 +99,9 @@ checks_passed = (
     all(value["passed"] for value in execution_checks.values())
     and pointer_unchanged
     and athena_matches
+    and serving_resolved
+    and six_table_serving
+    and stale_publisher_rejected
     and cloudwatch_evidence_complete
 )
 
@@ -83,6 +120,9 @@ summary = {
         "executions": execution_checks,
         "failure_did_not_move_pointer": pointer_unchanged,
         "athena_result_matches_expected": athena_matches,
+        "serving_generation_resolved_once": serving_resolved,
+        "six_table_serving_query_completed": six_table_serving,
+        "stale_publisher_rejected": stale_publisher_rejected,
         "cloudwatch_exports": cloudwatch_exports,
     },
     "business_result": athena_validation,
@@ -90,6 +130,7 @@ summary = {
         "glue_job_runs": len(glue_runs),
         "glue_dpu_seconds": round(dpu_seconds, 3),
         "athena_bytes_scanned": athena_bytes,
+        "athena_queries": sum(1 for value in athena_scans if value),
         "workflow_to_evidence_seconds": elapsed_seconds,
     },
     "immediate_cost_estimate_usd": {
@@ -97,7 +138,7 @@ summary = {
         "athena": round(athena_estimate_usd, 6),
         "partial_total": round(glue_estimate_usd + athena_estimate_usd, 6),
         "scope": (
-            "Glue compute and one Athena query only; billing data and minor service charges "
+            "Glue compute and bounded Athena queries only; billing data and minor service charges "
             "settle later."
         ),
     },

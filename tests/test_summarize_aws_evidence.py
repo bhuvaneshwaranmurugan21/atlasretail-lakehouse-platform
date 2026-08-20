@@ -22,8 +22,12 @@ def complete_evidence(path: Path) -> None:
             "executions": [
                 {"name": "success-1", "status": "SUCCEEDED"},
                 {"name": "replay-1", "status": "SUCCEEDED"},
+                {"name": "conflict-1", "status": "FAILED"},
                 {"name": "failure-1", "status": "FAILED"},
                 {"name": "recovery-1", "status": "SUCCEEDED"},
+                {"name": "tamper-1", "status": "FAILED"},
+                {"name": "temporal-1", "status": "FAILED"},
+                {"name": "financial-1", "status": "FAILED"},
             ]
         },
     )
@@ -33,7 +37,43 @@ def complete_evidence(path: Path) -> None:
         "athena-orders.json",
         {"QueryExecution": {"Statistics": {"DataScannedInBytes": 4096}}},
     )
+    write(
+        path,
+        "athena-six-table-serving.json",
+        {"QueryExecution": {"Statistics": {"DataScannedInBytes": 8192}}},
+    )
     write(path, "athena-validation.json", {"result": "PASS"})
+    write(
+        path,
+        "serving-resolution.json",
+        {"status": "RESOLVED", "generation_id": "g-recovery-1", "pointer_version": 2},
+    )
+    write(
+        path,
+        "athena-six-table-serving-results.json",
+        {
+            "ResultSet": {
+                "Rows": [
+                    {
+                        "Data": [
+                            {"VarCharValue": name}
+                            for name in (
+                                "orders",
+                                "order_lines",
+                                "payments",
+                                "returns",
+                                "inventory_movements",
+                                "products",
+                            )
+                        ]
+                    },
+                    {"Data": [{"VarCharValue": "1"}] * 6},
+                ]
+            }
+        },
+    )
+    (path / "stale-publisher").mkdir()
+    write(path / "stale-publisher", "summary.json", {"result": "PASS"})
     for name in (
         "glue-cloudwatch-events.json",
         "states-cloudwatch-events.json",

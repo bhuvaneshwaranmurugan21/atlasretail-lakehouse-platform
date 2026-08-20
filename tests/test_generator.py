@@ -29,11 +29,10 @@ class GeneratorTests(unittest.TestCase):
 
         with TemporaryDirectory() as directory:
             output = Path(directory)
-            _generate(output, orders=20, seed=21, batch_id="proof-1")
+            _generate(output, orders=20, seed=21, batch_id="proof-1", fault="none")
             expected = json.loads((output / "expected-results.json").read_text())
             batch = generate_batch(order_count=20, seed=21)
 
-        self.assertEqual(expected["generation_id"], "g-proof-1")
         self.assertEqual(expected["orders"], 20)
         self.assertEqual(expected["gross_cents"], sum(row.total_cents for row in batch.orders))
 

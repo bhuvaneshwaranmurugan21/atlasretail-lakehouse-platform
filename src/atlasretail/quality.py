@@ -54,9 +54,26 @@ def resolve_product(
         and (version.effective_to is None or event_time < version.effective_to)
         and version.loaded_at <= knowledge_time
     ]
-    if not candidates:
+    if len(candidates) != 1:
         return None
-    return max(candidates, key=lambda value: (value.loaded_at, value.effective_from))
+    return candidates[0]
+
+
+def product_match_count(
+    versions: Iterable[ProductVersion],
+    *,
+    product_id: str,
+    event_time: int,
+    knowledge_time: int,
+) -> int:
+    return sum(
+        1
+        for version in versions
+        if version.product_id == product_id
+        and version.effective_from <= event_time
+        and (version.effective_to is None or event_time < version.effective_to)
+        and version.loaded_at <= knowledge_time
+    )
 
 
 def validate(batch: RetailBatch, *, knowledge_time: int) -> QualityReport:
@@ -168,18 +185,26 @@ def validate(batch: RetailBatch, *, knowledge_time: int) -> QualityReport:
         if parent_order is None:
             violations.append(Violation("ORPHAN_LINE", line.line_id, "order is missing"))
             continue
-        version = resolve_product(
+        matches = product_match_count(
             batch.products,
             product_id=line.product_id,
             event_time=parent_order.order_ts,
             knowledge_time=knowledge_time,
         )
-        if version is None:
+        if matches == 0:
             violations.append(
                 Violation(
                     "MISSING_DIMENSION",
                     line.product_id,
                     "no knowable product version for order time",
+                )
+            )
+        elif matches > 1:
+            violations.append(
+                Violation(
+                    "AMBIGUOUS_DIMENSION",
+                    line.product_id,
+                    "multiple knowable product versions overlap at order time",
                 )
             )
 
