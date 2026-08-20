@@ -144,3 +144,29 @@ def test_broad_trust_or_managed_policy_fails() -> None:
 
     assert result["result"] == "FAIL"
     assert len(result["errors"]) == 2
+    assert result["trust_observations"][0]["subjects"] == ["repo:bhuvaneshwaranmurugan21/*"]
+
+
+def test_permission_difference_is_reported_without_full_documents() -> None:
+    tracked = {
+        "Version": "2012-10-17",
+        "Statement": [{"Effect": "Allow", "Action": "service:Required", "Resource": "arn:proof"}],
+    }
+    live = {
+        "Version": "2012-10-17",
+        "Statement": [{"Effect": "Allow", "Action": "service:Extra", "Resource": "arn:proof"}],
+    }
+    result = MODULE.verify(
+        tracked,
+        {"Role": {"RoleName": MODULE.ROLE_NAME, "AssumeRolePolicyDocument": trust()}},
+        {"PolicyNames": [MODULE.POLICY_NAME]},
+        {"AttachedPolicies": []},
+        {
+            "RoleName": MODULE.ROLE_NAME,
+            "PolicyName": MODULE.POLICY_NAME,
+            "PolicyDocument": live,
+        },
+    )
+
+    assert result["missing_permission_atoms"][0]["Action"] == "service:Required"
+    assert result["extra_permission_atoms"][0]["Action"] == "service:Extra"
