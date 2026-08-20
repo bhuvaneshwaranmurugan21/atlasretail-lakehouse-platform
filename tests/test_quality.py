@@ -8,6 +8,7 @@ from atlasretail.generator import (
     with_excess_refund,
     with_missing_dimension,
     with_negative_inventory,
+    with_overlapping_dimension,
 )
 from atlasretail.quality import resolve_product, validate
 
@@ -47,6 +48,20 @@ class QualityTests(unittest.TestCase):
         )
         self.assertIsNotNone(resolved)
         self.assertIn("MISSING_DIMENSION", self._codes(with_missing_dimension(self.batch)))
+
+    def test_overlapping_dimension_is_rejected_instead_of_ranked(self) -> None:
+        overlapping = with_overlapping_dimension(self.batch)
+        self.assertIn("AMBIGUOUS_DIMENSION", self._codes(overlapping))
+        line = overlapping.order_lines[0]
+        order = overlapping.orders[0]
+        self.assertIsNone(
+            resolve_product(
+                overlapping.products,
+                product_id=line.product_id,
+                event_time=order.order_ts,
+                knowledge_time=self.knowledge_time,
+            )
+        )
 
 
 if __name__ == "__main__":

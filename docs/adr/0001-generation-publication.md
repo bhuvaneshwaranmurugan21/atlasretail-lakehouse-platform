@@ -42,5 +42,5 @@ validation, while retaining failed generations for diagnosis.
 ## Current boundary
 
 The local model validates publication, stale-writer rejection, replay, rollback, and backfill
-isolation. The AWS control plane exists, but the managed workload and a complete analyst-facing
-generation resolver have not yet completed end-to-end verification.
+isolation. The managed control plane now requires a validated six-table snapshot set and exposes a
+generation-pinned resolver. Its end-to-end AWS behaviour remains unverified until the bounded run.

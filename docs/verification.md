@@ -16,10 +16,11 @@ environment that produced it.
 | Area | Level | Basis |
 |---|---|---|
 | Domain and retail invariants | `LOCAL_VERIFIED` | Unit, behavioural, and deterministic failure-scenario tests |
-| Local generation publication model | `LOCAL_VERIFIED` | Replay, rollback, backfill isolation, and stale-writer tests |
+| Immutable object manifest | `LOCAL_VERIFIED` | Canonical digest and exact S3 identity contract tests |
+| Managed lifecycle and serving resolver | `LOCAL_VERIFIED` | Conditional-transition, publication, recovery, and query-boundary tests |
 | GitHub OIDC identity | `AWS_VERIFIED` | Short-lived credentials issued to the repository's `main` branch |
 | Terraform safety and teardown | `AWS_VERIFIED` | Saved plans, explicit resource checks, empty state, and recorded rescue runs |
-| Glue, Iceberg, Step Functions data path | `DESIGNED` | Infrastructure reached Glue creation, but the managed workload did not execute |
+| Glue, Iceberg, Step Functions data path | `DESIGNED` | Hardened managed path exists, but the new workload has not executed |
 | Runtime, throughput, Athena scan, and workload cost | `DESIGNED` | Collection code exists; no successful managed measurement exists |
 | Sustained production operation | Not established | No continuous workload or operational-history evidence |
 

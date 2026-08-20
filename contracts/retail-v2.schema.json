@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/contracts/retail-v2.schema.json",
+  "title": "AtlasRetail immutable batch manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "batch_id",
+    "contract_version",
+    "produced_at",
+    "as_of_knowledge_time",
+    "tables",
+    "identity_digest"
+  ],
+  "properties": {
+    "batch_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "contract_version": {"const": "retail-v2"},
+    "produced_at": {"type": "integer", "minimum": 0},
+    "as_of_knowledge_time": {"type": "integer", "minimum": 0},
+    "identity_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "tables": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "orders",
+        "order_lines",
+        "payments",
+        "returns",
+        "inventory_movements",
+        "products"
+      ],
+      "properties": {
+        "orders": {"$ref": "#/$defs/tableProof"},
+        "order_lines": {"$ref": "#/$defs/tableProof"},
+        "payments": {"$ref": "#/$defs/tableProof"},
+        "returns": {"$ref": "#/$defs/tableProof"},
+        "inventory_movements": {"$ref": "#/$defs/tableProof"},
+        "products": {"$ref": "#/$defs/tableProof"}
+      }
+    }
+  },
+  "$defs": {
+    "objectProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bucket", "key", "version_id", "size_bytes", "sha256", "etag"],
+      "properties": {
+        "bucket": {"type": "string", "minLength": 3},
+        "key": {"type": "string", "minLength": 1},
+        "version_id": {"type": "string", "minLength": 1},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "etag": {"type": "string", "minLength": 1}
+      }
+    },
+    "tableProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rows", "sha256", "objects"],
+      "properties": {
+        "rows": {"type": "integer", "minimum": 0},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "objects": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/objectProof"}
+        }
+      }
+    }
+  }
+}

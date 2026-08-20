@@ -159,6 +159,17 @@ def with_missing_dimension(batch: RetailBatch) -> RetailBatch:
     )
 
 
+def with_overlapping_dimension(batch: RetailBatch) -> RetailBatch:
+    first = batch.products[0]
+    overlap = replace(
+        first,
+        category="overlapping-version",
+        effective_from=first.effective_from + 1,
+        loaded_at=first.loaded_at + 1,
+    )
+    return replace(batch, products=(*batch.products, overlap))
+
+
 def with_negative_inventory(batch: RetailBatch) -> RetailBatch:
     line = batch.order_lines[0]
     order = batch.orders[0]

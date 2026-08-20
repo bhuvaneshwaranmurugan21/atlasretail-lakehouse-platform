@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added the `retail-v2` manifest contract with exact S3 object-version and checksum binding.
+- Added registration-owned generation identity and conditional managed lifecycle transitions.
+- Required six-table snapshot evidence before compare-and-swap publication.
+- Added exactly-one temporal matching and a generation-pinned six-table serving resolver.
+- Expanded the bounded AWS lab with conflict, object-tamper, temporal, financial, recovery, and
+  managed stale-publisher proofs.
 - Reconciled the checked-in IAM contract with Step Functions definition validation used by the
   deployed GitHub OIDC role.
 - Consolidated system behaviour, correctness boundaries, verification status, operational history,

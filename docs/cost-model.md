@@ -6,8 +6,8 @@ completed.
 
 | Driver | Bound | Control |
 |---|---:|---|
-| Glue | Success, injected failure, and recovery | G.1X, two workers, per-run timeout |
-| Step Functions | Fewer than 50 transitions per scenario | Standard workflow and bounded scenarios |
+| Glue | Success, injected failure, recovery, and invalid-data gates | G.1X, two workers, per-run timeout |
+| Step Functions | Bounded transitions per named scenario | Standard workflow and execution timeout |
 | S3 | Synthetic input and compact Iceberg output | Lifecycle expiry and teardown |
 | DynamoDB | Small on-demand control and lease tables | On-demand capacity and teardown |
 | Athena | Exact validation queries only | Workgroup byte cutoff |

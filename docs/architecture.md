@@ -19,16 +19,19 @@ flowchart TD
 
 ## Data plane
 
-S3 stores synthetic source objects and Iceberg warehouse data. Glue 5 reads the manifest and six
-retail datasets, applies Spark validation, and writes rows with a generation identifier. Athena
-executes bounded validation queries through a workgroup with a scan cutoff.
+S3 stores synthetic source objects and Iceberg warehouse data. The `retail-v2` manifest binds each
+dataset to an exact S3 key, version, size, ETag, and SHA-256 checksum. Glue verifies those
+attributes, copies the registered versions into a generation-isolated read prefix, applies Spark
+validation, and writes rows with the registration-owned generation identifier. Athena executes
+generation-pinned queries through a workgroup with a scan cutoff.
 
 ## Control plane
 
-DynamoDB records the first accepted identity for each batch. After the transformation and
-reconciliation succeed, a transactional compare-and-swap advances the active-generation pointer
-and marks the batch published. Step Functions coordinates registration, transformation, and
-publication. CloudWatch captures workflow, Lambda, and Glue signals.
+DynamoDB atomically creates the immutable batch identity and its generation record. Conditional
+transitions enforce `REGISTERED -> BUILDING -> VALIDATED -> PUBLISHED` or `FAILED`. Publication is
+a transaction that requires `VALIDATED`, advances the active pointer with compare-and-swap, and
+marks the generation published. Step Functions routes managed failures into the lifecycle record.
+CloudWatch captures workflow, Lambda, and Glue signals.
 
 ## Correctness boundaries
 
@@ -53,10 +56,10 @@ succeeds and the control-plane pointer advances. The alternatives and consequenc
 
 ## Serving boundary
 
-The active pointer is implemented in DynamoDB. The current AWS workflow uses Athena for exact
-post-run validation, not as a fully protected analyst interface. A generation-aware query resolver
-is required before consumers can be prevented from querying physical tables without the active
-generation filter.
+The active pointer is implemented in DynamoDB. The control Lambda resolves it with a consistent
+read and returns the generation, pointer version, and validation digest. The serving module builds
+one six-table Athena query from that single resolution. Direct physical-table access can still
+bypass the resolver, so IAM separation remains necessary for a protected production interface.
 
 ## Deployment boundary
 

@@ -29,7 +29,6 @@ ALLOWED_MAXIMUMS = {
     "aws_s3_bucket_versioning": 3,
     "aws_s3_object": 1,
     "aws_sfn_state_machine": 1,
-    "random_id": 1,
 }
 
 REQUIRED_APPLY_TYPES = {

@@ -10,10 +10,10 @@ identical retry from a producer reusing an identifier for different content.
 
 ## Decision
 
-The manifest contains the batch ID, contract version, knowledge-time boundary, row counts, and
-canonical SHA-256 digests for all six datasets. DynamoDB stores the first accepted manifest digest
-for each batch ID. The same ID and digest is an idempotent delivery; the same ID with another digest
-is rejected.
+The manifest contains the batch ID, contract version, knowledge-time boundary, row counts, logical
+digests, and exact S3 key/version/size/ETag/SHA-256 evidence for all six datasets. DynamoDB stores
+the first accepted manifest digest and exact manifest location for each batch ID. The same identity
+is idempotent; a changed digest or manifest location is rejected.
 
 ## Alternatives considered
 
@@ -39,6 +39,6 @@ explicit conflict.
 
 ## Current boundary
 
-The local implementation recalculates table digests. The Glue path currently validates identity
-fields and row counts but does not yet verify exact S3 object versions and checksums. Managed input
-immutability therefore remains incomplete until that validation is added.
+The local implementation verifies canonical manifest identity. The Glue path reads the manifest by
+version, checks registered object versions and checksums, and copies those exact versions into an
+isolated read prefix. Managed execution of that path remains unverified until the bounded run.

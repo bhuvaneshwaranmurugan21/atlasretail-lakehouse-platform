@@ -4,18 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       order_count:
-        description: Synthetic orders per scenario (100-10000)
+        description: Synthetic orders per managed scenario (100-2000)
         required: true
-        default: "1000"
+        default: "500"
       confirm_destroy:
         description: Type DESTROY to confirm automatic teardown
         required: true
         default: "DESTROY"
-  push:
-    branches:
-      - main
-    paths:
-      - .github/atlas-lab-authorizations/run-003.json
+      budget_ceiling_usd:
+        description: Maximum planned gross cost for this bounded run (1-10 USD)
+        required: true
+        default: "5"
 
 permissions:
   id-token: write
@@ -27,13 +26,8 @@ concurrency:
 
 jobs:
   execute:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' &&
-      startsWith(github.event.head_commit.message,
-      'Execute Atlas bounded lab after rescue: 1000 orders'))
     runs-on: ubuntu-24.04
-    timeout-minutes: 55
+    timeout-minutes: 100
     env:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
@@ -41,9 +35,9 @@ jobs:
       RUN_ID: ${{ github.run_id }}
       TF_DIR: infra/atlas
       EVIDENCE_DIR: evidence/aws/${{ github.run_id }}
-      ORDER_COUNT: ${{ github.event_name == 'workflow_dispatch' && inputs.order_count || '1000' }}
-      CONFIRM_DESTROY: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_destroy || 'DESTROY' }}
-      PUSH_BEFORE: ${{ github.event.before }}
+      ORDER_COUNT: ${{ inputs.order_count }}
+      CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
+      BUDGET_CEILING_USD: ${{ inputs.budget_ceiling_usd }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -66,7 +60,10 @@ jobs:
           test "${CONFIRM_DESTROY}" = "DESTROY"
           [[ "${ORDER_COUNT}" =~ ^[0-9]+$ ]]
           test "${ORDER_COUNT}" -ge 100
-          test "${ORDER_COUNT}" -le 10000
+          test "${ORDER_COUNT}" -le 2000
+          [[ "${BUDGET_CEILING_USD}" =~ ^[0-9]+$ ]]
+          test "${BUDGET_CEILING_USD}" -ge 1
+          test "${BUDGET_CEILING_USD}" -le 10
           test "${AWS_REGION}" = "ap-south-1"
           account="$(aws sts get-caller-identity --query Account --output text)"
           test "${account}" = "887720497919"
@@ -74,40 +71,11 @@ jobs:
           date +%s > "${EVIDENCE_DIR}/workflow-started-epoch.txt"
           aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
           printf '%s' "${ORDER_COUNT}" > "${EVIDENCE_DIR}/order-count.txt"
-          if [[ "${GITHUB_EVENT_NAME}" = "push" ]]; then
-            test "${PUSH_BEFORE}" = "5f4634816d136dbb0a91b051b5b88eb7f2677d2a"
-            python - <<'PY'
-          import json
-          from pathlib import Path
-
-          authorization = json.loads(
-              Path(".github/atlas-lab-authorizations/run-003.json").read_text()
-          )
-          expected = {
-              "schema_version": "1.0",
-              "project": "AtlasRetail",
-              "operation": "bounded-lab",
-              "order_count": 1000,
-              "confirm_destroy": "DESTROY",
-              "authorization": "ONE_TIME",
-              "budget_ceiling_usd": 5,
-              "authorized_base_commit": "5f4634816d136dbb0a91b051b5b88eb7f2677d2a",
-              "prior_failed_run": 31807122381,
-              "rescue_run": 31808958248,
-              "rescue_evidence_digest": (
-                  "sha256:93621ac080e9c49e57d521eacf084093"
-                  "adc010e13b65b49258ea0986f89f3887"
-              ),
-              "clean_preflight_run": 31809853275,
-              "clean_preflight_evidence_digest": (
-                  "sha256:33ac289c917ef405701931b0398007dc"
-                  "6d42696f6a860a3cb75aa67195013744"
-              ),
-          }
-          if authorization != expected:
-              raise SystemExit("Invalid one-time Atlas lab authorization")
-          PY
-          fi
+          printf '%s' "${BUDGET_CEILING_USD}" > "${EVIDENCE_DIR}/budget-ceiling-usd.txt"
+          aws budgets describe-budget \
+            --account-id "${account}" \
+            --budget-name portfolio-labs-monthly-cost \
+            > "${EVIDENCE_DIR}/account-budget.json"
       - name: Acquire the account-wide lease
         run: |
           bash scripts/acquire_lock.sh
@@ -158,6 +126,20 @@ jobs:
             --mode apply \
             --plan "${EVIDENCE_DIR}/terraform-apply-plan.json" \
             --output "${EVIDENCE_DIR}/terraform-apply-plan-validation.json"
+          python scripts/extract_state_machine_definition.py \
+            "${EVIDENCE_DIR}/terraform-apply-plan.json" \
+            "${EVIDENCE_DIR}/state-machine-definition.json"
+          aws stepfunctions validate-state-machine-definition \
+            --definition "file://${EVIDENCE_DIR}/state-machine-definition.json" \
+            --type STANDARD \
+            --severity WARNING \
+            > "${EVIDENCE_DIR}/state-machine-validation.json"
+          python - "${EVIDENCE_DIR}/state-machine-validation.json" <<'PY'
+          import json, sys
+          result = json.load(open(sys.argv[1]))
+          if result.get("result") != "OK":
+              raise SystemExit(f"Step Functions validation failed: {result}")
+          PY
       - name: Apply only the validated saved plan
         run: |
           set -euo pipefail
@@ -170,54 +152,81 @@ jobs:
           set -euo pipefail
           landing="$(terraform -chdir="${TF_DIR}" output -raw landing_bucket)"
           kms_key="$(terraform -chdir="${TF_DIR}" output -raw kms_key_arn)"
-          for scenario in success failure; do
+          for specification in \
+            "success:21:none" \
+            "failure:84:none" \
+            "tamper:77:none" \
+            "temporal:42:temporal-overlap" \
+            "financial:63:financial"; do
+            IFS=: read -r scenario seed fault <<< "${specification}"
             batch="${scenario}-${RUN_ID}"
             python -m atlasretail.cli generate \
               --output ".artifacts/aws/${batch}" \
               --orders "${ORDER_COUNT}" \
-              --seed "$([[ "${scenario}" = success ]] && echo 21 || echo 84)" \
-              --batch-id "${batch}"
-            cp ".artifacts/aws/${batch}/manifest.json" \
-              "${EVIDENCE_DIR}/${scenario}-manifest.json"
+              --seed "${seed}" \
+              --batch-id "${batch}" \
+              --fault "${fault}"
+            python scripts/upload_immutable_batch.py \
+              --directory ".artifacts/aws/${batch}" \
+              --bucket "${landing}" \
+              --prefix "runs/${batch}" \
+              --kms-key "${kms_key}" \
+              --output "${EVIDENCE_DIR}/${scenario}-registration.json"
+            cp ".artifacts/aws/${batch}/managed-manifest.json" \
+              "${EVIDENCE_DIR}/${scenario}-managed-manifest.json"
             cp ".artifacts/aws/${batch}/expected-results.json" \
               "${EVIDENCE_DIR}/${scenario}-expected-results.json"
-            aws s3 cp ".artifacts/aws/${batch}" "s3://${landing}/runs/${batch}" \
-              --recursive \
-              --only-show-errors \
-              --sse aws:kms \
-              --sse-kms-key-id "${kms_key}"
           done
       - name: Execute success and replay proofs
         run: |
           set -euo pipefail
-          landing="$(terraform -chdir="${TF_DIR}" output -raw landing_bucket)"
           machine="$(terraform -chdir="${TF_DIR}" output -raw state_machine_arn)"
           batch="success-${RUN_ID}"
-          digest="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["identity_digest"])' ".artifacts/aws/${batch}/manifest.json")"
+          registration="${EVIDENCE_DIR}/success-registration.json"
+          readarray -t identity < <(python - "${registration}" <<'PY'
+          import json, sys
+          value = json.load(open(sys.argv[1]))
+          print(value["manifest_uri"])
+          print(value["manifest_version_id"])
+          print(value["identity_digest"])
+          PY
+          )
           read -r success_arn success_status < <(bash scripts/start_execution.sh \
-            "success-${RUN_ID}" "${machine}" "s3://${landing}/runs/${batch}" \
-            "s3://${landing}/runs/${batch}/manifest.json" "${batch}" "${digest}" false)
+            "success-${RUN_ID}" "${machine}" "${identity[0]}" \
+            "${identity[1]}" "${batch}" "${identity[2]}" false)
           test "${success_status}" = "SUCCEEDED"
           read -r replay_arn replay_status < <(bash scripts/start_execution.sh \
-            "replay-${RUN_ID}" "${machine}" "s3://${landing}/runs/${batch}" \
-            "s3://${landing}/runs/${batch}/manifest.json" "${batch}" "${digest}" false)
+            "replay-${RUN_ID}" "${machine}" "${identity[0]}" \
+            "${identity[1]}" "${batch}" "${identity[2]}" false)
           test "${replay_status}" = "SUCCEEDED"
+          read -r conflict_arn conflict_status < <(bash scripts/start_execution.sh \
+            "conflict-${RUN_ID}" "${machine}" "${identity[0]}" \
+            "${identity[1]}" "${batch}" "$(printf 'f%.0s' {1..64})" false)
+          test "${conflict_status}" = "FAILED"
           printf '%s' "${success_arn}" > "${EVIDENCE_DIR}/success-execution-arn.txt"
           printf '%s' "${replay_arn}" > "${EVIDENCE_DIR}/replay-execution-arn.txt"
+          printf '%s' "${conflict_arn}" > "${EVIDENCE_DIR}/conflict-execution-arn.txt"
       - name: Prove failure isolation and deterministic recovery
         run: |
           set -euo pipefail
-          landing="$(terraform -chdir="${TF_DIR}" output -raw landing_bucket)"
           machine="$(terraform -chdir="${TF_DIR}" output -raw state_machine_arn)"
           table="$(terraform -chdir="${TF_DIR}" output -raw control_table)"
           batch="failure-${RUN_ID}"
-          digest="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["identity_digest"])' ".artifacts/aws/${batch}/manifest.json")"
+          registration="${EVIDENCE_DIR}/failure-registration.json"
+          readarray -t identity < <(python - "${registration}" <<'PY'
+          import json, sys
+          value = json.load(open(sys.argv[1]))
+          print(value["manifest_uri"])
+          print(value["manifest_version_id"])
+          print(value["identity_digest"])
+          PY
+          )
           aws dynamodb get-item --table-name "${table}" \
             --key '{"pk":{"S":"CONTROL"},"sk":{"S":"ACTIVE"}}' \
             --consistent-read > "${EVIDENCE_DIR}/pointer-before-failure.json"
           read -r failure_arn failure_status < <(bash scripts/start_execution.sh \
-            "failure-${RUN_ID}" "${machine}" "s3://${landing}/runs/${batch}" \
-            "s3://${landing}/runs/${batch}/manifest.json" "${batch}" "${digest}" true)
+            "failure-${RUN_ID}" "${machine}" "${identity[0]}" \
+            "${identity[1]}" "${batch}" "${identity[2]}" true)
           test "${failure_status}" = "FAILED"
           aws dynamodb get-item --table-name "${table}" \
             --key '{"pk":{"S":"CONTROL"},"sk":{"S":"ACTIVE"}}' \
@@ -225,17 +234,119 @@ jobs:
           diff -u "${EVIDENCE_DIR}/pointer-before-failure.json" \
             "${EVIDENCE_DIR}/pointer-after-failure.json"
           read -r recovery_arn recovery_status < <(bash scripts/start_execution.sh \
-            "recovery-${RUN_ID}" "${machine}" "s3://${landing}/runs/${batch}" \
-            "s3://${landing}/runs/${batch}/manifest.json" "${batch}" "${digest}" false)
+            "recovery-${RUN_ID}" "${machine}" "${identity[0]}" \
+            "${identity[1]}" "${batch}" "${identity[2]}" false)
           test "${recovery_status}" = "SUCCEEDED"
           printf '%s' "${failure_arn}" > "${EVIDENCE_DIR}/failure-execution-arn.txt"
           printf '%s' "${recovery_arn}" > "${EVIDENCE_DIR}/recovery-execution-arn.txt"
+      - name: Reject temporal overlap and financial imbalance
+        run: |
+          set -euo pipefail
+          machine="$(terraform -chdir="${TF_DIR}" output -raw state_machine_arn)"
+          for scenario in temporal financial; do
+            batch="${scenario}-${RUN_ID}"
+            registration="${EVIDENCE_DIR}/${scenario}-registration.json"
+            readarray -t identity < <(python - "${registration}" <<'PY'
+          import json, sys
+          value = json.load(open(sys.argv[1]))
+          print(value["manifest_uri"])
+          print(value["manifest_version_id"])
+          print(value["identity_digest"])
+          PY
+            )
+            read -r execution_arn execution_status < <(bash scripts/start_execution.sh \
+              "${scenario}-${RUN_ID}" "${machine}" "${identity[0]}" \
+              "${identity[1]}" "${batch}" "${identity[2]}" false)
+            test "${execution_status}" = "FAILED"
+            printf '%s' "${execution_arn}" \
+              > "${EVIDENCE_DIR}/${scenario}-execution-arn.txt"
+          done
+      - name: Reject an S3 version whose bytes contradict registered evidence
+        run: |
+          set -euo pipefail
+          landing="$(terraform -chdir="${TF_DIR}" output -raw landing_bucket)"
+          kms_key="$(terraform -chdir="${TF_DIR}" output -raw kms_key_arn)"
+          machine="$(terraform -chdir="${TF_DIR}" output -raw state_machine_arn)"
+          batch="tamper-${RUN_ID}"
+          registration="${EVIDENCE_DIR}/tamper-registration.json"
+          object_key="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["tables"]["orders"][0]["key"])' "${registration}")"
+          python -c 'from pathlib import Path; Path(".artifacts/tampered-bytes").write_bytes(b"deliberately-corrupted-object")'
+          aws s3api put-object \
+            --bucket "${landing}" \
+            --key "${object_key}" \
+            --body .artifacts/tampered-bytes \
+            --server-side-encryption aws:kms \
+            --ssekms-key-id "${kms_key}" \
+            --checksum-algorithm SHA256 \
+            > "${EVIDENCE_DIR}/tampered-object-put.json"
+          tampered_version="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["VersionId"])' "${EVIDENCE_DIR}/tampered-object-put.json")"
+          python scripts/create_tampered_manifest.py \
+            --input ".artifacts/aws/${batch}/managed-manifest.json" \
+            --table orders \
+            --version-id "${tampered_version}" \
+            --output ".artifacts/aws/${batch}/tampered-manifest.json"
+          aws s3api put-object \
+            --bucket "${landing}" \
+            --key "runs/${batch}/tampered-manifest.json" \
+            --body ".artifacts/aws/${batch}/tampered-manifest.json" \
+            --server-side-encryption aws:kms \
+            --ssekms-key-id "${kms_key}" \
+            --checksum-algorithm SHA256 \
+            > "${EVIDENCE_DIR}/tampered-manifest-put.json"
+          python - \
+            ".artifacts/aws/${batch}/tampered-manifest.json" \
+            "${EVIDENCE_DIR}/tampered-manifest-put.json" \
+            "s3://${landing}/runs/${batch}/tampered-manifest.json" \
+            "${EVIDENCE_DIR}/tamper-execution-registration.json" <<'PY'
+          import json, sys
+          from pathlib import Path
+          manifest = json.loads(Path(sys.argv[1]).read_text())
+          uploaded = json.loads(Path(sys.argv[2]).read_text())
+          result = {
+              "manifest_uri": sys.argv[3],
+              "manifest_version_id": uploaded["VersionId"],
+              "identity_digest": manifest["identity_digest"],
+          }
+          Path(sys.argv[4]).write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+          PY
+          readarray -t identity < <(python - "${EVIDENCE_DIR}/tamper-execution-registration.json" <<'PY'
+          import json, sys
+          value = json.load(open(sys.argv[1]))
+          print(value["manifest_uri"])
+          print(value["manifest_version_id"])
+          print(value["identity_digest"])
+          PY
+          )
+          read -r tamper_arn tamper_status < <(bash scripts/start_execution.sh \
+            "tamper-${RUN_ID}" "${machine}" "${identity[0]}" \
+            "${identity[1]}" "${batch}" "${identity[2]}" false)
+          test "${tamper_status}" = "FAILED"
+          printf '%s' "${tamper_arn}" > "${EVIDENCE_DIR}/tamper-execution-arn.txt"
+      - name: Prove stale publisher compare-and-swap rejection
+        run: |
+          set -euo pipefail
+          function="$(terraform -chdir="${TF_DIR}" output -raw lambda_function_name)"
+          evidence_bucket="$(terraform -chdir="${TF_DIR}" output -raw evidence_bucket)"
+          kms_key="$(terraform -chdir="${TF_DIR}" output -raw kms_key_arn)"
+          python scripts/prove_stale_publisher.py \
+            --function "${function}" \
+            --evidence-bucket "${evidence_bucket}" \
+            --kms-key "${kms_key}" \
+            --source-registration "${EVIDENCE_DIR}/success-registration.json" \
+            --run-id "${RUN_ID}" \
+            --output-directory "${EVIDENCE_DIR}/stale-publisher"
       - name: Run and validate bounded Athena verification
         run: |
           set -euo pipefail
           workgroup="$(terraform -chdir="${TF_DIR}" output -raw athena_workgroup)"
           database="$(terraform -chdir="${TF_DIR}" output -raw glue_database)"
-          generation="g-failure-${RUN_ID}"
+          function="$(terraform -chdir="${TF_DIR}" output -raw lambda_function_name)"
+          aws lambda invoke \
+            --function-name "${function}" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"action":"resolve"}' \
+            "${EVIDENCE_DIR}/serving-resolution.json" >/dev/null
+          generation="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["generation_id"])' "${EVIDENCE_DIR}/serving-resolution.json")"
           bash scripts/wait_athena.sh "${workgroup}" "${database}" \
             "SELECT count(*) AS orders, sum(total_cents) AS gross_cents FROM orders WHERE generation_id='${generation}'" \
             "${EVIDENCE_DIR}/athena-orders.json"
@@ -243,6 +354,12 @@ jobs:
             "${EVIDENCE_DIR}/failure-expected-results.json" \
             "${EVIDENCE_DIR}/athena-orders-results.json" \
             "${EVIDENCE_DIR}/athena-validation.json"
+          serving_sql="$(atlasretail serving-query \
+            --resolution "${EVIDENCE_DIR}/serving-resolution.json" \
+            --database "${database}")"
+          bash scripts/wait_athena.sh "${workgroup}" "${database}" \
+            "${serving_sql}" \
+            "${EVIDENCE_DIR}/athena-six-table-serving.json"
       - name: Collect AWS execution and CloudWatch evidence
         if: always()
         run: |
@@ -262,7 +379,7 @@ jobs:
             printf '{"executions":[],"collection":"SKIPPED_NO_DEPLOYMENT"}\n' \
               > "${EVIDENCE_DIR}/stepfunctions-executions.json"
           fi
-          for kind in success replay failure recovery; do
+          for kind in success replay conflict failure recovery tamper temporal financial; do
             arn_file="${EVIDENCE_DIR}/${kind}-execution-arn.txt"
             if [[ -s "${arn_file}" ]]; then
               aws stepfunctions get-execution-history \

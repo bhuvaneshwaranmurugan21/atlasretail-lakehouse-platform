@@ -8,8 +8,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .generator import generate_batch
+from .generator import generate_batch, with_broken_total, with_overlapping_dimension
 from .manifest import build_manifest
+from .serving import ServingResolution, six_table_count_query
 from .simulator import write_evidence
 
 
@@ -20,8 +21,12 @@ def _write_ndjson_gzip(path: Path, rows: list[dict[str, Any]]) -> None:
             stream.write(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n")
 
 
-def _generate(output: Path, *, orders: int, seed: int, batch_id: str) -> None:
+def _generate(output: Path, *, orders: int, seed: int, batch_id: str, fault: str) -> None:
     batch = generate_batch(order_count=orders, seed=seed)
+    if fault == "financial":
+        batch = with_broken_total(batch)
+    elif fault == "temporal-overlap":
+        batch = with_overlapping_dimension(batch)
     manifest = build_manifest(
         batch,
         batch_id=batch_id,
@@ -37,7 +42,6 @@ def _generate(output: Path, *, orders: int, seed: int, batch_id: str) -> None:
     (output / "expected-results.json").write_text(
         json.dumps(
             {
-                "generation_id": f"g-{batch_id}",
                 "gross_cents": sum(order.total_cents for order in batch.orders),
                 "orders": len(batch.orders),
             },
@@ -59,6 +63,16 @@ def parser() -> argparse.ArgumentParser:
     generate.add_argument("--orders", type=int, default=10_000)
     generate.add_argument("--seed", type=int, default=21)
     generate.add_argument("--batch-id", default="aws-lab-001")
+    generate.add_argument(
+        "--fault",
+        choices=("none", "financial", "temporal-overlap"),
+        default="none",
+    )
+    serving = commands.add_parser(
+        "serving-query", help="build a six-table query from one resolved generation"
+    )
+    serving.add_argument("--resolution", type=Path, required=True)
+    serving.add_argument("--database", required=True)
     return root
 
 
@@ -75,8 +89,14 @@ def main() -> None:
             orders=arguments.orders,
             seed=arguments.seed,
             batch_id=arguments.batch_id,
+            fault=arguments.fault,
         )
         print(json.dumps({"result": "PASS", "output": str(arguments.output)}))
+    elif arguments.command == "serving-query":
+        resolution = ServingResolution.from_control_response(
+            json.loads(arguments.resolution.read_text(encoding="utf-8"))
+        )
+        print(six_table_count_query(arguments.database, resolution))
 
 
 if __name__ == "__main__":

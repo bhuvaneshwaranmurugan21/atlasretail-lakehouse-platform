@@ -2,30 +2,31 @@
 set -euo pipefail
 
 if [[ "$#" -ne 7 ]]; then
-  echo "usage: start_execution.sh NAME STATE_MACHINE SOURCE_URI MANIFEST_URI BATCH_ID DIGEST INJECT_FAILURE" >&2
+  echo "usage: start_execution.sh NAME STATE_MACHINE MANIFEST_URI MANIFEST_VERSION BATCH_ID DIGEST INJECT_FAILURE" >&2
   exit 64
 fi
 
 execution_name="$1"
 state_machine_arn="$2"
-source_uri="$3"
-manifest_uri="$4"
+manifest_uri="$3"
+manifest_version_id="$4"
 batch_id="$5"
 manifest_digest="$6"
 inject_failure="$7"
-generation_id="g-${batch_id}"
-
-input="$(python - "${source_uri}" "${manifest_uri}" "${batch_id}" "${generation_id}" "${manifest_digest}" "${inject_failure}" <<'PY'
+source_commit="${GITHUB_SHA:-unknown}"
+workflow_run_id="${GITHUB_RUN_ID:-unknown}"
+input="$(python - "${manifest_uri}" "${manifest_version_id}" "${batch_id}" "${manifest_digest}" "${inject_failure}" "${source_commit}" "${workflow_run_id}" <<'PY'
 import json
 import sys
 
 print(json.dumps({
-    "source_uri": sys.argv[1],
-    "manifest_uri": sys.argv[2],
+    "manifest_uri": sys.argv[1],
+    "manifest_version_id": sys.argv[2],
     "batch_id": sys.argv[3],
-    "generation_id": sys.argv[4],
-    "manifest_digest": sys.argv[5],
-    "inject_failure": sys.argv[6],
+    "manifest_digest": sys.argv[4],
+    "inject_failure": sys.argv[5],
+    "source_commit": sys.argv[6],
+    "workflow_run_id": sys.argv[7],
 }, separators=(",", ":")))
 PY
 )"
