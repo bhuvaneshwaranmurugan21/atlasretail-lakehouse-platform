@@ -19,6 +19,7 @@ environment that produced it.
 | Immutable object manifest | `LOCAL_VERIFIED` | Canonical digest and exact S3 identity contract tests |
 | Managed lifecycle and serving resolver | `LOCAL_VERIFIED` | Conditional-transition, publication, recovery, and query-boundary tests |
 | GitHub OIDC identity | `AWS_VERIFIED` | Short-lived credentials issued to the repository's `main` branch |
+| Plan-only environment proof | `AWS_VERIFIED` | Live IAM parity, account and budget gates, fresh create-only plan, AWS definition validation, and unchanged post-plan inventory |
 | Terraform safety and teardown | `AWS_VERIFIED` | Saved plans, explicit resource checks, empty state, and recorded rescue runs |
 | Glue, Iceberg, Step Functions data path | `DESIGNED` | Hardened managed path exists, but the new workload has not executed |
 | Runtime, throughput, Athena scan, and workload cost | `DESIGNED` | Collection code exists; no successful managed measurement exists |
@@ -33,3 +34,7 @@ is a failed validation run.
 
 Sanitized summaries may be committed under `evidence/`. Detailed logs remain attached to their
 GitHub Actions runs and must not contain credentials or customer data.
+
+The plan-only artifact excludes the binary saved plan and raw expanded resource values. It retains
+the source commit, run identifier, resource address/type/action inventory, validation results,
+budget envelope, before/after baseline proof, and SHA-256 digests of the unabridged ephemeral plan.
