@@ -350,6 +350,10 @@ resource "aws_iam_role_policy" "states" {
 }
 
 resource "aws_sfn_state_machine" "retail" {
+  # The role ARN alone does not make Terraform wait for its inline policy.
+  # Enforce policy attachment before Step Functions validates log delivery.
+  depends_on = [aws_iam_role_policy.states]
+
   name     = "${local.prefix}-pipeline"
   role_arn = aws_iam_role.states.arn
 

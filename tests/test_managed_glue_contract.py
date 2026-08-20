@@ -29,3 +29,10 @@ def test_state_machine_uses_registration_identity_and_failure_handlers() -> None
     assert '"MarkGlueFailure"' in TERRAFORM
     assert "action" in TERRAFORM and '"validate"' in TERRAFORM
     assert "failure_stage" in TERRAFORM and '"PUBLICATION"' in TERRAFORM
+
+
+def test_state_machine_waits_for_execution_role_policy() -> None:
+    resource = TERRAFORM.split(
+        'resource "aws_sfn_state_machine" "retail" {', maxsplit=1
+    )[1].split("\n}", maxsplit=1)[0]
+    assert "depends_on = [aws_iam_role_policy.states]" in resource
