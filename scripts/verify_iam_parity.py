@@ -41,21 +41,32 @@ def canonical(value: object) -> object:
     return value
 
 
-def semantic_policy(value: dict[str, Any]) -> object:
-    """Compare permissions while ignoring descriptive, non-semantic statement SIDs."""
+def permission_atoms(value: dict[str, Any]) -> set[str]:
+    """Flatten statement grouping into effective action/resource/condition permissions."""
     statements = value.get("Statement", [])
     if isinstance(statements, dict):
         statements = [statements]
-    normalized = []
+    atoms: set[str] = set()
     for statement in statements if isinstance(statements, list) else []:
-        if isinstance(statement, dict):
-            normalized.append(
-                canonical({key: item for key, item in statement.items() if key != "Sid"})
-            )
-    return {
-        "Version": value.get("Version"),
-        "Statement": sorted(normalized, key=lambda item: json.dumps(item, sort_keys=True)),
-    }
+        if not isinstance(statement, dict):
+            continue
+        actions = values(statement.get("Action"))
+        resources = values(statement.get("Resource"))
+        condition = canonical(statement.get("Condition", {}))
+        for action in actions:
+            for resource in resources:
+                atoms.add(
+                    json.dumps(
+                        {
+                            "Effect": statement.get("Effect"),
+                            "Action": action,
+                            "Resource": resource,
+                            "Condition": condition,
+                        },
+                        sort_keys=True,
+                    )
+                )
+    return atoms
 
 
 def values(value: object) -> set[str]:
@@ -95,18 +106,19 @@ def verify(
         condition = statement.get("Condition", {})
         if not isinstance(principal, dict) or not isinstance(condition, dict):
             continue
-        equals = condition.get("StringEquals", {})
-        likes = condition.get("StringLike", {})
-        if not isinstance(equals, dict) or not isinstance(likes, dict):
-            continue
+        audience: set[str] = set()
+        subjects: set[str] = set()
+        for operator, clauses in condition.items():
+            if not isinstance(operator, str) or not isinstance(clauses, dict):
+                continue
+            if not (operator.endswith("StringEquals") or operator.endswith("StringLike")):
+                continue
+            audience |= values(clauses.get("token.actions.githubusercontent.com:aud"))
+            subjects |= values(clauses.get("token.actions.githubusercontent.com:sub"))
         action = values(statement.get("Action"))
-        audience = values(equals.get("token.actions.githubusercontent.com:aud"))
-        subjects = values(equals.get("token.actions.githubusercontent.com:sub")) | values(
-            likes.get("token.actions.githubusercontent.com:sub")
-        )
         if (
             statement.get("Effect") == "Allow"
-            and principal.get("Federated") == OIDC_PROVIDER
+            and OIDC_PROVIDER in values(principal.get("Federated"))
             and "sts:AssumeRoleWithWebIdentity" in action
             and audience == {"sts.amazonaws.com"}
             and subjects == {EXPECTED_SUBJECT}
@@ -126,7 +138,7 @@ def verify(
         errors.append("Retrieved inline policy identity is unexpected")
     try:
         live = policy_document(live_payload.get("PolicyDocument"))
-        policies_match = semantic_policy(tracked) == semantic_policy(live)
+        policies_match = permission_atoms(tracked) == permission_atoms(live)
     except (ValueError, json.JSONDecodeError):
         policies_match = False
     if not policies_match:

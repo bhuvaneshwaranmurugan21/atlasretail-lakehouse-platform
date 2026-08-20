@@ -11,7 +11,10 @@ SPEC.loader.exec_module(MODULE)
 
 
 def trust(
-    subject: str = MODULE.EXPECTED_SUBJECT, *, subject_operator: str = "StringLike"
+    subject: str = MODULE.EXPECTED_SUBJECT,
+    *,
+    subject_operator: str = "StringLike",
+    federated_as_list: bool = False,
 ) -> dict[str, object]:
     conditions: dict[str, object] = {
         "StringEquals": {"token.actions.githubusercontent.com:aud": "sts.amazonaws.com"},
@@ -27,7 +30,11 @@ def trust(
         "Statement": [
             {
                 "Effect": "Allow",
-                "Principal": {"Federated": MODULE.OIDC_PROVIDER},
+                "Principal": {
+                    "Federated": [MODULE.OIDC_PROVIDER]
+                    if federated_as_list
+                    else MODULE.OIDC_PROVIDER
+                },
                 "Action": "sts:AssumeRoleWithWebIdentity",
                 "Condition": conditions,
             }
@@ -66,7 +73,9 @@ def test_exact_string_equals_subject_is_accepted() -> None:
         {
             "Role": {
                 "RoleName": MODULE.ROLE_NAME,
-                "AssumeRolePolicyDocument": trust(subject_operator="StringEquals"),
+                "AssumeRolePolicyDocument": trust(
+                    subject_operator="StringEquals", federated_as_list=True
+                ),
             }
         },
         {"PolicyNames": [MODULE.POLICY_NAME]},
@@ -75,6 +84,39 @@ def test_exact_string_equals_subject_is_accepted() -> None:
             "RoleName": MODULE.ROLE_NAME,
             "PolicyName": MODULE.POLICY_NAME,
             "PolicyDocument": tracked,
+        },
+    )
+
+    assert result["result"] == "PASS"
+
+
+def test_equivalent_statement_grouping_is_accepted() -> None:
+    tracked = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Action": ["service:ReadA", "service:ReadB"],
+                "Resource": "arn:proof",
+            }
+        ],
+    }
+    live = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {"Effect": "Allow", "Action": "service:ReadA", "Resource": "arn:proof"},
+            {"Effect": "Allow", "Action": "service:ReadB", "Resource": "arn:proof"},
+        ],
+    }
+    result = MODULE.verify(
+        tracked,
+        {"Role": {"RoleName": MODULE.ROLE_NAME, "AssumeRolePolicyDocument": trust()}},
+        {"PolicyNames": [MODULE.POLICY_NAME]},
+        {"AttachedPolicies": []},
+        {
+            "RoleName": MODULE.ROLE_NAME,
+            "PolicyName": MODULE.POLICY_NAME,
+            "PolicyDocument": live,
         },
     )
 
