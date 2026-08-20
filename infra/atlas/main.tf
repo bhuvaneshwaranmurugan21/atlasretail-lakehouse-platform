@@ -3,14 +3,14 @@ data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 
 locals {
-  prefix               = "atlasretail-${var.run_id}"
-  landing_bucket_name  = "${local.prefix}-landing-${data.aws_caller_identity.current.account_id}"
+  prefix                = "atlasretail-${var.run_id}"
+  landing_bucket_name   = "${local.prefix}-landing-${data.aws_caller_identity.current.account_id}"
   warehouse_bucket_name = "${local.prefix}-warehouse-${data.aws_caller_identity.current.account_id}"
-  evidence_bucket_name = "${local.prefix}-evidence-${data.aws_caller_identity.current.account_id}"
-  glue_database_name   = replace("${local.prefix}_retail", "-", "_")
-  glue_job_name        = "${local.prefix}-iceberg"
-  lambda_function_name = "${local.prefix}-control"
-  lambda_function_arn  = "arn:${data.aws_partition.current.partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.lambda_function_name}"
+  evidence_bucket_name  = "${local.prefix}-evidence-${data.aws_caller_identity.current.account_id}"
+  glue_database_name    = replace("${local.prefix}_retail", "-", "_")
+  glue_job_name         = "${local.prefix}-iceberg"
+  lambda_function_name  = "${local.prefix}-control"
+  lambda_function_arn   = "arn:${data.aws_partition.current.partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.lambda_function_name}"
   tags = {
     Project      = "AtlasRetail"
     ManagedBy    = "Terraform"
@@ -369,13 +369,13 @@ resource "aws_sfn_state_machine" "retail" {
         Parameters = {
           FunctionName = local.lambda_function_arn
           Payload = {
-            action                    = "register"
-            "batch_id.$"              = "$.batch_id"
-            "manifest_digest.$"       = "$.manifest_digest"
-            "manifest_uri.$"          = "$.manifest_uri"
-            "manifest_version_id.$"   = "$.manifest_version_id"
-            "source_commit.$"         = "$.source_commit"
-            "workflow_run_id.$"       = "$.workflow_run_id"
+            action                  = "register"
+            "batch_id.$"            = "$.batch_id"
+            "manifest_digest.$"     = "$.manifest_digest"
+            "manifest_uri.$"        = "$.manifest_uri"
+            "manifest_version_id.$" = "$.manifest_version_id"
+            "source_commit.$"       = "$.source_commit"
+            "workflow_run_id.$"     = "$.workflow_run_id"
           }
         }
         ResultSelector = { "result.$" = "$.Payload" }
@@ -402,9 +402,9 @@ resource "aws_sfn_state_machine" "retail" {
         Parameters = {
           FunctionName = local.lambda_function_arn
           Payload = {
-            action              = "start_build"
-            "generation_id.$"   = "$.registration.result.generation_id"
-            "execution_arn.$"   = "$$.Execution.Id"
+            action            = "start_build"
+            "generation_id.$" = "$.registration.result.generation_id"
+            "execution_arn.$" = "$$.Execution.Id"
           }
         }
         ResultSelector = { "result.$" = "$.Payload" }
@@ -442,9 +442,9 @@ resource "aws_sfn_state_machine" "retail" {
         Parameters = {
           FunctionName = local.lambda_function_arn
           Payload = {
-            action            = "validate"
-            "generation_id.$" = "$.registration.result.generation_id"
-            "validation_uri.$" = "States.Format('s3://${local.evidence_bucket_name}/validation/{}.json', $.registration.result.generation_id)"
+            action              = "validate"
+            "generation_id.$"   = "$.registration.result.generation_id"
+            "validation_uri.$"  = "States.Format('s3://${local.evidence_bucket_name}/validation/{}.json', $.registration.result.generation_id)"
             "glue_job_run_id.$" = "$.glue.JobRunId"
           }
         }
@@ -493,14 +493,14 @@ resource "aws_sfn_state_machine" "retail" {
         Parameters = {
           FunctionName = local.lambda_function_arn
           Payload = {
-            action             = "fail"
-            "generation_id.$"  = "$.registration.result.generation_id"
-            failure_stage      = "GLUE"
-            "failure_code.$"   = "States.JsonToString($.failure)"
+            action            = "fail"
+            "generation_id.$" = "$.registration.result.generation_id"
+            failure_stage     = "GLUE"
+            "failure_code.$"  = "States.JsonToString($.failure)"
           }
         }
         Retry = local.lambda_retry
-        Next = "GenerationFailed"
+        Next  = "GenerationFailed"
       }
       MarkValidationFailure = {
         Type     = "Task"
@@ -508,14 +508,14 @@ resource "aws_sfn_state_machine" "retail" {
         Parameters = {
           FunctionName = local.lambda_function_arn
           Payload = {
-            action             = "fail"
-            "generation_id.$"  = "$.registration.result.generation_id"
-            failure_stage      = "VALIDATION"
-            "failure_code.$"   = "States.JsonToString($.failure)"
+            action            = "fail"
+            "generation_id.$" = "$.registration.result.generation_id"
+            failure_stage     = "VALIDATION"
+            "failure_code.$"  = "States.JsonToString($.failure)"
           }
         }
         Retry = local.lambda_retry
-        Next = "GenerationFailed"
+        Next  = "GenerationFailed"
       }
       MarkPublicationFailure = {
         Type     = "Task"
@@ -523,14 +523,14 @@ resource "aws_sfn_state_machine" "retail" {
         Parameters = {
           FunctionName = local.lambda_function_arn
           Payload = {
-            action             = "fail"
-            "generation_id.$"  = "$.registration.result.generation_id"
-            failure_stage      = "PUBLICATION"
-            "failure_code.$"   = "States.JsonToString($.failure)"
+            action            = "fail"
+            "generation_id.$" = "$.registration.result.generation_id"
+            failure_stage     = "PUBLICATION"
+            "failure_code.$"  = "States.JsonToString($.failure)"
           }
         }
         Retry = local.lambda_retry
-        Next = "GenerationFailed"
+        Next  = "GenerationFailed"
       }
       GenerationFailed = {
         Type  = "Fail"
