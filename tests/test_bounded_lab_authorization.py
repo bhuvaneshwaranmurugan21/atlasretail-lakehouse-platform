@@ -72,3 +72,6 @@ def test_phase_two_lab_requires_explicit_manual_dispatch() -> None:
     assert 'test "${CONFIRM_DESTROY}" = "DESTROY"' in scripts
     assert 'test "${ORDER_COUNT}" -le 2000' in scripts
     assert 'test "${BUDGET_CEILING_USD}" -le 10' in scripts
+    assert "aws freetier get-account-plan-state" in scripts
+    assert "python scripts/verify_account_plan.py" in scripts
+    assert "freetier upgrade-account-plan" not in scripts

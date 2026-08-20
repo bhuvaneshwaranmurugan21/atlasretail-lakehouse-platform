@@ -72,6 +72,13 @@ jobs:
           aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
           printf '%s' "${ORDER_COUNT}" > "${EVIDENCE_DIR}/order-count.txt"
           printf '%s' "${BUDGET_CEILING_USD}" > "${EVIDENCE_DIR}/budget-ceiling-usd.txt"
+          aws freetier get-account-plan-state \
+            --region us-east-1 \
+            > "${EVIDENCE_DIR}/account-plan.json"
+          python scripts/verify_account_plan.py \
+            "${EVIDENCE_DIR}/account-plan.json" \
+            "${EVIDENCE_DIR}/account-plan-verification.json" \
+            "${BUDGET_CEILING_USD}"
           aws budgets describe-budget \
             --account-id "${account}" \
             --budget-name portfolio-labs-monthly-cost \

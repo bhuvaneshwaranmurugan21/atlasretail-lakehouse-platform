@@ -100,7 +100,8 @@ Terraform plan, and mandatory teardown.
 
 Before execution:
 
-1. Confirm that the AWS account plan permits Glue job creation.
+1. Require the read-only account-plan gate to record `PAID`, `ACTIVE`, and at least the bounded
+   run's configured cost ceiling in remaining USD credits.
 2. Attach [the checked-in role policy](infra/iam/atlasretail-github-role-policy.json) to
    `AtlasRetailGitHubOidcRole` without broadening the repository-and-branch OIDC trust.
 3. Require a successful read-only preflight and an empty Atlas Terraform state.
