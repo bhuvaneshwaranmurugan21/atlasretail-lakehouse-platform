@@ -85,6 +85,7 @@ def verify(
     live_payload: dict[str, Any],
 ) -> dict[str, Any]:
     errors: list[str] = []
+    trust_observations: list[dict[str, Any]] = []
     role = role_payload.get("Role", {})
     if not isinstance(role, dict) or role.get("RoleName") != ROLE_NAME:
         errors.append("Live IAM role identity does not match AtlasRetailGitHubOidcRole")
@@ -108,14 +109,26 @@ def verify(
             continue
         audience: set[str] = set()
         subjects: set[str] = set()
+        operators: set[str] = set()
         for operator, clauses in condition.items():
             if not isinstance(operator, str) or not isinstance(clauses, dict):
                 continue
             if not (operator.endswith("StringEquals") or operator.endswith("StringLike")):
                 continue
+            operators.add(operator)
             audience |= values(clauses.get("token.actions.githubusercontent.com:aud"))
             subjects |= values(clauses.get("token.actions.githubusercontent.com:sub"))
         action = values(statement.get("Action"))
+        trust_observations.append(
+            {
+                "effect": statement.get("Effect"),
+                "federated_principals": sorted(values(principal.get("Federated"))),
+                "actions": sorted(action),
+                "condition_operators": sorted(operators),
+                "audiences": sorted(audience),
+                "subjects": sorted(subjects),
+            }
+        )
         if (
             statement.get("Effect") == "Allow"
             and OIDC_PROVIDER in values(principal.get("Federated"))
@@ -138,8 +151,12 @@ def verify(
         errors.append("Retrieved inline policy identity is unexpected")
     try:
         live = policy_document(live_payload.get("PolicyDocument"))
-        policies_match = permission_atoms(tracked) == permission_atoms(live)
+        tracked_atoms = permission_atoms(tracked)
+        live_atoms = permission_atoms(live)
+        policies_match = tracked_atoms == live_atoms
     except (ValueError, json.JSONDecodeError):
+        tracked_atoms = permission_atoms(tracked)
+        live_atoms = set()
         policies_match = False
     if not policies_match:
         errors.append("Live inline policy differs from the repository policy")
@@ -150,8 +167,13 @@ def verify(
         "inline_policy_name": POLICY_NAME,
         "trust_subject": EXPECTED_SUBJECT,
         "trust_policy_valid": trust_valid,
+        "trust_observations": trust_observations,
         "no_attached_managed_policies": attached_payload.get("AttachedPolicies") == [],
         "tracked_policy_matches_live": policies_match,
+        "missing_permission_atoms": [
+            json.loads(item) for item in sorted(tracked_atoms - live_atoms)
+        ],
+        "extra_permission_atoms": [json.loads(item) for item in sorted(live_atoms - tracked_atoms)],
         "errors": errors,
     }
 
