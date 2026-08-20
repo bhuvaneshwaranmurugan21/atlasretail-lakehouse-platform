@@ -57,6 +57,10 @@ def test_incident_permissions_are_present_with_required_scope() -> None:
         "arn:aws:glue:ap-south-1:887720497919:userDefinedFunction/atlasretail_*/*"
     ) in glue_resources
 
+    athena = statement("AtlasAthena")
+    assert "athena:ListQueryExecutions" in actions(athena)
+    assert athena["Resource"].endswith(":workgroup/atlasretail-*")
+
 
 def test_policy_avoids_wildcard_actions_and_preserves_atlas_bounds() -> None:
     assert all("*" not in actions(item) for item in STATEMENTS)

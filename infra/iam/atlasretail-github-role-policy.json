@@ -295,6 +295,7 @@
         "athena:GetQueryExecution",
         "athena:GetQueryResults",
         "athena:GetWorkGroup",
+        "athena:ListQueryExecutions",
         "athena:ListTagsForResource",
         "athena:StartQueryExecution",
         "athena:StopQueryExecution",
