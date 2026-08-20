@@ -12,6 +12,11 @@ ROLE_NAME = "AtlasRetailGitHubOidcRole"
 POLICY_NAME = "AtlasRetailBoundedLabPolicy"
 OIDC_PROVIDER = "arn:aws:iam::887720497919:oidc-provider/token.actions.githubusercontent.com"
 EXPECTED_SUBJECT = "repo:bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform:ref:refs/heads/main"
+EXPECTED_STABLE_ID_SUBJECT = (
+    "repo:bhuvaneshwaranmurugan21@276895096/"
+    "atlasretail-lakehouse-platform@1333029962:ref:refs/heads/main"
+)
+ALLOWED_SUBJECTS = {EXPECTED_SUBJECT, EXPECTED_STABLE_ID_SUBJECT}
 
 
 def load(path: str) -> dict[str, Any]:
@@ -134,7 +139,8 @@ def verify(
             and OIDC_PROVIDER in values(principal.get("Federated"))
             and "sts:AssumeRoleWithWebIdentity" in action
             and audience == {"sts.amazonaws.com"}
-            and subjects == {EXPECTED_SUBJECT}
+            and bool(subjects)
+            and subjects <= ALLOWED_SUBJECTS
         ):
             trust_valid = True
             break
@@ -165,7 +171,7 @@ def verify(
         "result": "PASS" if not errors else "FAIL",
         "role_name": ROLE_NAME,
         "inline_policy_name": POLICY_NAME,
-        "trust_subject": EXPECTED_SUBJECT,
+        "allowed_trust_subjects": sorted(ALLOWED_SUBJECTS),
         "trust_policy_valid": trust_valid,
         "trust_observations": trust_observations,
         "no_attached_managed_policies": attached_payload.get("AttachedPolicies") == [],
