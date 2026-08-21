@@ -1,0 +1,104 @@
+name: AWS Glue create/delete capability probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_probe:
+        description: Type PROBE_GLUE_CREATE_DELETE
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: portfolio-aws-account
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      EVIDENCE_DIR: evidence/glue-probe/${{ github.run_id }}
+      EXPECTED_ACCOUNT: "887720497919"
+      EXPECTED_REGION: ap-south-1
+      PROBE_CONFIRMATION: ${{ inputs.confirm_probe }}
+      PROBE_RUN_ID: ${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Enforce owner, branch, confirmation, and region bounds
+        run: |
+          set -euo pipefail
+          test "${GITHUB_ACTOR}" = "${GITHUB_REPOSITORY_OWNER}"
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${PROBE_CONFIRMATION}" = "PROBE_GLUE_CREATE_DELETE"
+          test "${AWS_REGION}" = "${EXPECTED_REGION}"
+          mkdir -p "${EVIDENCE_DIR}"
+      - name: Obtain short-lived AWS credentials
+        id: aws_identity
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: atlasretail-glue-probe-${{ github.run_id }}
+      - name: Verify the exact AWS account
+        id: account_identity
+        run: |
+          set -euo pipefail
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          test "${account}" = "${EXPECTED_ACCOUNT}"
+          aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
+      - name: Create, inspect, and delete an unexecuted Glue job definition
+        run: |
+          set -euo pipefail
+          python scripts/probe_glue_capability.py \
+            --account "${EXPECTED_ACCOUNT}" \
+            --region "${EXPECTED_REGION}" \
+            --run-id "${PROBE_RUN_ID}" \
+            --source-commit "${GITHUB_SHA}" \
+            --output "${EVIDENCE_DIR}/glue-service-probe.json"
+      - name: Independently enforce deletion of probe-only resources
+        if: always() && steps.account_identity.outcome == 'success'
+        run: |
+          set -euo pipefail
+          job="atlasretail-probe-${PROBE_RUN_ID}"
+          role="${job}-glue"
+
+          aws glue delete-job --job-name "${job}" \
+            > "${EVIDENCE_DIR}/cleanup-delete-job.json" \
+            2> "${EVIDENCE_DIR}/cleanup-delete-job.stderr" || true
+          aws iam delete-role --role-name "${role}" \
+            > "${EVIDENCE_DIR}/cleanup-delete-role.json" \
+            2> "${EVIDENCE_DIR}/cleanup-delete-role.stderr" || true
+
+          if aws glue get-job --job-name "${job}" \
+            > "${EVIDENCE_DIR}/cleanup-get-job.json" \
+            2> "${EVIDENCE_DIR}/cleanup-get-job.stderr"; then
+            echo "Probe Glue job still exists" >&2
+            exit 1
+          fi
+          grep -Eq 'EntityNotFoundException|not found' \
+            "${EVIDENCE_DIR}/cleanup-get-job.stderr"
+
+          if aws iam get-role --role-name "${role}" \
+            > "${EVIDENCE_DIR}/cleanup-get-role.json" \
+            2> "${EVIDENCE_DIR}/cleanup-get-role.stderr"; then
+            echo "Probe IAM role still exists" >&2
+            exit 1
+          fi
+          grep -Eq 'NoSuchEntity|cannot be found' \
+            "${EVIDENCE_DIR}/cleanup-get-role.stderr"
+      - name: Upload the bounded probe and cleanup evidence
+        if: always() && steps.account_identity.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-glue-service-probe-${{ github.run_id }}
+          path: evidence/glue-probe/${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 30
