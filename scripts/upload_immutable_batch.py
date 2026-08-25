@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import argparse
 import base64
+import gzip
 import hashlib
 import json
 import subprocess
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+from atlasretail.canonical import digest_records
 from atlasretail.manifest import ObjectProof, bind_objects, manifest_from_dict
 
 
@@ -53,6 +56,17 @@ def upload(path: Path, *, bucket: str, key: str, kms_key: str) -> ObjectProof:
     )
 
 
+def generated_records(paths: list[Path]) -> Iterator[dict[str, Any]]:
+    """Read generated NDJSON in manifest order without retaining a table in memory."""
+    for path in paths:
+        with gzip.open(path, "rt", encoding="utf-8") as stream:
+            for line in stream:
+                value = json.loads(line)
+                if not isinstance(value, dict):
+                    raise RuntimeError(f"generated record is not a JSON object: {path}")
+                yield value
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--directory", type=Path, required=True)
@@ -65,11 +79,19 @@ def main() -> None:
     local_manifest = manifest_from_dict(
         json.loads((arguments.directory / "manifest.json").read_text(encoding="utf-8"))
     )
-    object_map: dict[str, tuple[ObjectProof, ...]] = {}
+    files_by_table: dict[str, list[Path]] = {}
     for table in sorted(local_manifest.tables):
         files = sorted((arguments.directory / table).glob("*.jsonl.gz"))
         if not files:
             raise RuntimeError(f"no generated objects found for {table}")
+        actual_rows, actual_digest = digest_records(generated_records(files))
+        expected = local_manifest.tables[table]
+        if actual_rows != expected.rows or actual_digest != expected.sha256:
+            raise RuntimeError(f"generated table does not match its manifest proof: {table}")
+        files_by_table[table] = files
+
+    object_map: dict[str, tuple[ObjectProof, ...]] = {}
+    for table, files in files_by_table.items():
         object_map[table] = tuple(
             upload(
                 path,

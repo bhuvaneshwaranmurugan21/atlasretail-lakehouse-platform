@@ -16,6 +16,7 @@ active-generation pointer only after the complete generation passes validation.
 
 - Bind a batch identifier to one canonical manifest digest.
 - Bind every managed input to an exact S3 key, version, byte count, ETag, and SHA-256 checksum.
+- Recompute every ordered table digest before upload and independently inside the Glue job.
 - Treat an identical redelivery as idempotent and reject conflicting content reuse.
 - Write orders, lines, payments, returns, inventory movements, and products by generation.
 - Reconcile financial equations, captured payments, refunds, return quantities, inventory, and
@@ -59,7 +60,8 @@ transaction across six business tables. See the [architecture](docs/architecture
 | `infra/foundation` | Shared Terraform state, account lease, and cost budget |
 | `infra/atlas` | Ephemeral, run-tagged AtlasRetail infrastructure |
 | `scripts` | Preflight, execution polling, plan validation, evidence summary, and teardown verification |
-| `tests` | Behavioural and infrastructure-contract tests |
+| `tests` | Behavioural, invariant-parity, immutable-input, and infrastructure-contract tests |
+| `tests/integration` | Executable Glue 5 / Spark 3.5.4 / Iceberg 1.7.1 transformation proof |
 | `evidence` | Reproducible local results and managed-environment operation records |
 
 ## Run locally
@@ -76,16 +78,24 @@ atlasretail generate --output /tmp/atlasretail-input --orders 1000 --batch-id de
 CI regenerates [the deterministic local evidence](evidence/local/failure-lab.json) and rejects an
 unexplained diff.
 
+The separate runtime-integration CI job pins the AWS Glue 5 runtime versions: Python 3.11,
+Spark 3.5.4, and the SHA-512-verified Iceberg 1.7.1 runtime. No AWS credentials are configured. It
+executes the production Spark transformation against a local Iceberg catalog, verifies all six
+physical snapshots, rejects invalid retail inputs, and proves same-generation replay and
+injected-failure recovery. This is runtime-compatible local evidence; it is not a managed AWS
+execution.
+
 ## Verification status
 
 | Capability | Status | Evidence |
 |---|---|---|
 | Domain, immutable-object manifest, and retail invariants | `LOCAL_VERIFIED` | Automated tests and deterministic failure scenarios |
 | Managed lifecycle, recovery, serving resolver, and stale-writer rejection | `LOCAL_VERIFIED` | Control-plane, resolver, and infrastructure-contract tests |
+| Glue 5-compatible Spark transformation and real local Iceberg snapshots | `LOCAL_VERIFIED` | Pinned Glue 5-compatible integration job with isolated Hadoop catalog |
 | GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` |
 | Live IAM parity, budget headroom, create-only plan, and zero-change proof | `AWS_VERIFIED` | Sanitized plan-only workflow artifact attributed to `main` |
 | Saved-plan deployment and exact-state teardown controls | `AWS_VERIFIED` | Recorded partial deployments and successful rescue teardown |
-| Managed Glue and Iceberg transformation | `NOT_YET_VERIFIED` | Hardened implementation exists; the new managed workload has not run |
+| Managed Glue and Iceberg transformation | `NOT_YET_VERIFIED` | Runtime-compatible local execution passes; the AWS-managed workload has not run |
 | Managed replay, conflict, object tamper, failure, recovery, and Athena validation | `NOT_YET_VERIFIED` | Requires the bounded AWS execution |
 | Runtime, throughput, and settled cost | `NOT_YET_MEASURED` | Requires a successful managed execution |
 | Sustained production operation | `OUT_OF_SCOPE` | No long-running workload or operational-tenure claim |

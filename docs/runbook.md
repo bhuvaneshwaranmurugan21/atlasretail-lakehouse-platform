@@ -3,9 +3,11 @@
 ## Current stop condition
 
 Do not dispatch the data-processing workflow unless the read-only preflight records an AWS account
-plan of `PAID` and `ACTIVE` with remaining USD credits at or above the bounded run's cost ceiling.
-The previous Free-plan attempt stopped during Terraform apply; no Glue, Step Functions, or Athena
-workload executed.
+plan of `PAID` and `ACTIVE` with remaining USD credits at or above the bounded run's cost ceiling,
+and the definition-only Glue capability probe creates and deletes its temporary job successfully.
+The probe must report zero Glue job runs and independently verify cleanup. A visible Glue console
+or available CloudShell session is not evidence of `glue:CreateJob` authorization. The previous
+denial stopped during Terraform apply; no Glue, Step Functions, or Athena workload executed.
 
 ## Preconditions
 
@@ -16,10 +18,12 @@ workload executed.
 4. Require a successful identity-only workflow and read-only environment preflight.
 5. Require `freetier:GetAccountPlanState` to return `PAID` and `ACTIVE`, and preserve the response
    plus the fail-closed verification result in the preflight evidence artifact.
-6. Confirm that `atlasretail/main.tfstate` is readable and empty.
-7. Confirm that the shared budget and account lease exist.
-8. Use a unique run ID and begin with 500 synthetic orders.
-9. Review the open correctness boundaries in `docs/correctness.md` before authorizing execution.
+6. Run the definition-only Glue service probe and require successful creation, deletion,
+   independently verified cleanup, and zero job runs.
+7. Confirm that `atlasretail/main.tfstate` is readable and empty.
+8. Confirm that the shared budget and account lease exist.
+9. Use a unique run ID and begin with 500 synthetic orders.
+10. Review the open correctness boundaries in `docs/correctness.md` before authorizing execution.
 
 ## Plan-only approval gate
 

@@ -14,10 +14,15 @@ environment in which it is currently enforced.
 | Manifest agreement | Declared table counts and digests must agree with the supplied records |
 | Object identity | Every managed file is bound to one S3 key, version, size, ETag, and SHA-256 |
 
-The local engine validates row counts and canonical table digests. The managed job reads the
-manifest by exact version, verifies its canonical digest, checks every registered object version
-and checksum, and server-side copies that exact version into a generation-isolated read prefix.
-These rules are locally verified; their Glue execution remains `DESIGNED` until the bounded run.
+The local engine validates row counts and canonical table digests. Before uploading any object,
+the uploader independently streams every generated table and rejects a manifest mismatch. The
+managed job reads the manifest by exact version, verifies its canonical digest, checks every
+registered object version and checksum, independently recomputes each ordered table digest from
+those immutable object versions, and server-side copies the exact versions into a
+generation-isolated read prefix. The ordered digest is streamed with bounded memory and preserves
+the existing `retail-v2` contract. Runtime-compatible local execution is verified against the
+pinned Glue 5 Spark and Iceberg versions; managed AWS execution remains `DESIGNED` until the
+bounded run.
 
 ## Generation lifecycle
 
@@ -34,6 +39,8 @@ rewrites the same generation deterministically.
 
 ## Financial reconciliation
 
+- Supported order currencies are `INR` and `USD`.
+- Every line quantity is positive, and its unit price is non-negative.
 - `line_total_cents = quantity * unit_price_cents` for every order line.
 - `total_cents = subtotal_cents + tax_cents - discount_cents` for every order.
 - The sum of line totals equals the order subtotal.
@@ -44,8 +51,18 @@ Violations prevent publication.
 
 ## Returns
 
-Every return references an existing order line, and cumulative returned quantity must not exceed
-the ordered quantity. Refund validation is applied together with captured-payment validation.
+Every return references an existing order line, has a positive quantity and non-negative refund,
+and cumulative returned quantity must not exceed the ordered quantity. Refund validation is
+applied together with captured-payment validation.
+
+## Local and managed rule parity
+
+Both execution paths enforce `DUPLICATE_ID`, `ORPHAN_LINE`, `ORPHAN_PAYMENT`, `INVALID_LINE`,
+`LINE_TOTAL`, `CURRENCY`, `ORDER_TOTAL`, `ORDER_SUBTOTAL`, `UNDERPAID`, `ORPHAN_RETURN`,
+`INVALID_RETURN`, `EXCESS_REFUND`, `RETURN_QUANTITY`, `NEGATIVE_INVENTORY`, `MISSING_DIMENSION`,
+and `AMBIGUOUS_DIMENSION`. Product identity includes product ID, effective-from timestamp, and
+loaded-at timestamp. CI extracts the emitted codes from both implementations and fails if either
+path adds or drops a business invariant without updating the other.
 
 ## Inventory
 

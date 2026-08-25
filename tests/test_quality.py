@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import replace
 
 from atlasretail.generator import (
     generate_batch,
@@ -36,6 +37,17 @@ class QualityTests(unittest.TestCase):
 
     def test_inventory_conservation(self) -> None:
         self.assertIn("NEGATIVE_INVENTORY", self._codes(with_negative_inventory(self.batch)))
+
+    def test_equal_timestamp_inventory_uses_movement_identity_tie_breaker(self) -> None:
+        first = self.batch.inventory_movements[0]
+        credit = replace(first, movement_id="z-credit", quantity_delta=1)
+        debit = replace(first, movement_id="a-debit", quantity_delta=-1)
+        reordered = replace(self.batch, inventory_movements=(credit, debit))
+        self.assertIn("NEGATIVE_INVENTORY", self._codes(reordered))
+
+    def test_product_identity_must_be_unique(self) -> None:
+        duplicated = replace(self.batch, products=(*self.batch.products, self.batch.products[0]))
+        self.assertIn("DUPLICATE_ID", self._codes(duplicated))
 
     def test_dimension_as_of_resolution(self) -> None:
         line = self.batch.order_lines[0]
