@@ -83,7 +83,8 @@ jobs:
           python scripts/verify_account_plan.py \
             "${EVIDENCE_DIR}/account-plan.json" \
             "${EVIDENCE_DIR}/account-plan-verification.json" \
-            "${BUDGET_CEILING_USD}"
+            "${BUDGET_CEILING_USD}" \
+            evidence/aws/organization-shared-credit-baseline.json
           aws budgets describe-budget \
             --account-id "${account}" \
             --budget-name "${BUDGET_NAME}" \
@@ -112,6 +113,7 @@ jobs:
             > "${CONTROL_DIR}/live-role-policy.json"
           python scripts/verify_iam_parity.py \
             infra/iam/atlasretail-github-role-policy.json \
+            infra/iam/atlasretail-github-role-trust-policy.json \
             "${CONTROL_DIR}/role.json" \
             "${CONTROL_DIR}/inline-policy-names.json" \
             "${CONTROL_DIR}/attached-policies.json" \

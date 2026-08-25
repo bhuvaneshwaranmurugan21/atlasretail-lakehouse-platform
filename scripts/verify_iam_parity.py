@@ -21,7 +21,6 @@ EXPECTED_STABLE_ID_SUBJECT = (
     "repo:bhuvaneshwaranmurugan21@276895096/"
     "atlasretail-lakehouse-platform@1333029962:ref:refs/heads/main"
 )
-ALLOWED_SUBJECTS = {EXPECTED_SUBJECT, EXPECTED_STABLE_ID_SUBJECT}
 
 
 def load(path: str) -> dict[str, Any]:
@@ -87,8 +86,26 @@ def values(value: object) -> set[str]:
     return set()
 
 
+def trust_values(policy: dict[str, Any], claim: str) -> set[str]:
+    collected: set[str] = set()
+    statements = policy.get("Statement", [])
+    if isinstance(statements, dict):
+        statements = [statements]
+    for statement in statements if isinstance(statements, list) else []:
+        if not isinstance(statement, dict):
+            continue
+        condition = statement.get("Condition", {})
+        if not isinstance(condition, dict):
+            continue
+        for clauses in condition.values():
+            if isinstance(clauses, dict):
+                collected |= values(clauses.get(claim))
+    return collected
+
+
 def verify(
     tracked: dict[str, Any],
+    tracked_trust: dict[str, Any],
     role_payload: dict[str, Any],
     inline_payload: dict[str, Any],
     attached_payload: dict[str, Any],
@@ -106,17 +123,42 @@ def verify(
         trust = {}
         errors.append("Live OIDC trust policy is unreadable")
 
-    trust_valid = False
+    allowed_subjects = trust_values(tracked_trust, "token.actions.githubusercontent.com:sub")
+    allowed_audiences = trust_values(tracked_trust, "token.actions.githubusercontent.com:aud")
+    tracked_statements = tracked_trust.get("Statement", [])
+    if isinstance(tracked_statements, dict):
+        tracked_statements = [tracked_statements]
+    tracked_grant = tracked_statements[0] if len(tracked_statements) == 1 else {}
+    tracked_principal = (
+        tracked_grant.get("Principal", {}) if isinstance(tracked_grant, dict) else {}
+    )
+    tracked_contract_valid = bool(
+        isinstance(tracked_grant, dict)
+        and tracked_grant.get("Effect") == "Allow"
+        and values(tracked_grant.get("Action")) == {"sts:AssumeRoleWithWebIdentity"}
+        and isinstance(tracked_principal, dict)
+        and set(tracked_principal) == {"Federated"}
+        and values(tracked_principal.get("Federated")) == {OIDC_PROVIDER}
+    )
+    if not tracked_contract_valid:
+        errors.append("Tracked OIDC trust policy has an unexpected principal or action")
+    if allowed_subjects != {EXPECTED_SUBJECT, EXPECTED_STABLE_ID_SUBJECT}:
+        errors.append("Tracked OIDC trust policy has unexpected AtlasRetail subjects")
+    if allowed_audiences != {"sts.amazonaws.com"}:
+        errors.append("Tracked OIDC trust policy has an unexpected audience")
+
+    trust_valid = True
+    valid_grants = 0
     statements = trust.get("Statement", []) if isinstance(trust, dict) else []
     if isinstance(statements, dict):
         statements = [statements]
     for statement in statements if isinstance(statements, list) else []:
         if not isinstance(statement, dict):
             continue
-        principal = statement.get("Principal", {})
-        condition = statement.get("Condition", {})
-        if not isinstance(principal, dict) or not isinstance(condition, dict):
-            continue
+        principal_value = statement.get("Principal", {})
+        condition_value = statement.get("Condition", {})
+        principal = principal_value if isinstance(principal_value, dict) else {}
+        condition = condition_value if isinstance(condition_value, dict) else {}
         audience: set[str] = set()
         subjects: set[str] = set()
         operators: set[str] = set()
@@ -139,18 +181,23 @@ def verify(
                 "subjects": sorted(subjects),
             }
         )
-        if (
+        valid_statement = (
             statement.get("Effect") == "Allow"
-            and OIDC_PROVIDER in values(principal.get("Federated"))
-            and "sts:AssumeRoleWithWebIdentity" in action
-            and audience == {"sts.amazonaws.com"}
+            and set(principal) == {"Federated"}
+            and values(principal.get("Federated")) == {OIDC_PROVIDER}
+            and action == {"sts:AssumeRoleWithWebIdentity"}
+            and audience == allowed_audiences
             and bool(subjects)
-            and subjects <= ALLOWED_SUBJECTS
-        ):
-            trust_valid = True
-            break
+            and subjects <= allowed_subjects
+        )
+        if statement.get("Effect") == "Allow":
+            if valid_statement:
+                valid_grants += 1
+            else:
+                trust_valid = False
+    trust_valid = trust_valid and valid_grants > 0
     if not trust_valid:
-        errors.append("OIDC trust is not restricted to the AtlasRetail main branch")
+        errors.append("Every OIDC trust grant must be restricted to the AtlasRetail main branch")
 
     inline_names = inline_payload.get("PolicyNames")
     if inline_names != [POLICY_NAME]:
@@ -176,7 +223,7 @@ def verify(
         "result": "PASS" if not errors else "FAIL",
         "role_name": ROLE_NAME,
         "inline_policy_name": POLICY_NAME,
-        "allowed_trust_subjects": sorted(ALLOWED_SUBJECTS),
+        "allowed_trust_subjects": sorted(allowed_subjects),
         "trust_policy_valid": trust_valid,
         "trust_observations": trust_observations,
         "no_attached_managed_policies": attached_payload.get("AttachedPolicies") == [],
@@ -190,18 +237,18 @@ def verify(
 
 
 def main(arguments: list[str]) -> int:
-    if len(arguments) != 7:
+    if len(arguments) != 8:
         print(
-            "usage: verify_iam_parity.py TRACKED ROLE INLINE_NAMES ATTACHED LIVE OUTPUT",
+            "usage: verify_iam_parity.py TRACKED TRUST ROLE INLINE_NAMES ATTACHED LIVE OUTPUT",
             file=sys.stderr,
         )
         return 2
     try:
-        result = verify(*(load(path) for path in arguments[1:6]))
+        result = verify(*(load(path) for path in arguments[1:7]))
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"IAM parity input is unreadable: {error}", file=sys.stderr)
         return 2
-    output = Path(arguments[6])
+    output = Path(arguments[7])
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return 0 if result["result"] == "PASS" else 1

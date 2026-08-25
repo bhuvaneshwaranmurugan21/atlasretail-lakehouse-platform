@@ -1,0 +1,82 @@
+name: AWS IAM baseline verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_read_only:
+        description: Type VERIFY_ATLASRETAIL_IAM
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: atlasretail-iam-baseline
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CONTROL_DIR: .control/iam/${{ github.run_id }}
+      EVIDENCE_DIR: evidence/iam/${{ github.run_id }}
+      POLICY_NAME: AtlasRetailBoundedLabPolicy
+      CONFIRM_READ_ONLY: ${{ inputs.confirm_read_only }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Load and verify the checked-in AWS target
+        id: target
+        run: |
+          python scripts/load_aws_target.py \
+            --github-output "${GITHUB_OUTPUT}" \
+            --github-env "${GITHUB_ENV}" \
+            --expect-role-arn "${{ vars.AWS_ROLE_ARN }}" \
+            --expect-region "${{ vars.AWS_REGION }}" \
+            --expect-repository "${GITHUB_REPOSITORY}" \
+            --expect-ref "${GITHUB_REF}"
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
+          aws-region: ${{ steps.target.outputs.aws_region }}
+          role-session-name: atlasretail-iam-${{ github.run_id }}
+      - name: Verify admission and AWS identity
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${GITHUB_ACTOR}" = "bhuvaneshwaranmurugan21"
+          test "${CONFIRM_READ_ONLY}" = "VERIFY_ATLASRETAIL_IAM"
+          mkdir -p "${CONTROL_DIR}" "${EVIDENCE_DIR}"
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          test "${account}" = "${AWS_ACCOUNT_ID}"
+          aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
+      - name: Prove canonical trust and inline-policy parity
+        run: |
+          set -euo pipefail
+          aws iam get-role --role-name "${OIDC_ROLE_NAME}" \
+            > "${CONTROL_DIR}/role.json"
+          aws iam list-role-policies --role-name "${OIDC_ROLE_NAME}" \
+            > "${CONTROL_DIR}/inline-policy-names.json"
+          aws iam list-attached-role-policies --role-name "${OIDC_ROLE_NAME}" \
+            > "${CONTROL_DIR}/attached-policies.json"
+          aws iam get-role-policy \
+            --role-name "${OIDC_ROLE_NAME}" \
+            --policy-name "${POLICY_NAME}" \
+            > "${CONTROL_DIR}/live-role-policy.json"
+          python scripts/verify_iam_parity.py \
+            infra/iam/atlasretail-github-role-policy.json \
+            infra/iam/atlasretail-github-role-trust-policy.json \
+            "${CONTROL_DIR}/role.json" \
+            "${CONTROL_DIR}/inline-policy-names.json" \
+            "${CONTROL_DIR}/attached-policies.json" \
+            "${CONTROL_DIR}/live-role-policy.json" \
+            "${EVIDENCE_DIR}/iam-parity.json"
+      - name: Upload sanitized IAM evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-iam-baseline-${{ github.run_id }}
+          path: evidence/iam/${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 30

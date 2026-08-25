@@ -58,6 +58,7 @@ transaction across six business tables. See the [architecture](docs/architecture
 | `aws/glue` | Glue 5 / Spark transformation and Iceberg writes |
 | `aws/lambda` | DynamoDB batch registration and conditional publication |
 | `infra/foundation` | Shared Terraform state, account lease, and cost budget |
+| `infra/iam` | Canonical OIDC trust and bounded inline-role policy contracts |
 | `infra/atlas` | Ephemeral, run-tagged AtlasRetail infrastructure |
 | `scripts` | Preflight, execution polling, plan validation, evidence summary, and teardown verification |
 | `tests` | Behavioural, invariant-parity, immutable-input, and infrastructure-contract tests |
@@ -93,7 +94,8 @@ execution.
 | Managed lifecycle, recovery, serving resolver, and stale-writer rejection | `LOCAL_VERIFIED` | Control-plane, resolver, and infrastructure-contract tests |
 | Glue 5-compatible Spark transformation and real local Iceberg snapshots | `LOCAL_VERIFIED` | Pinned Glue 5-compatible integration job with isolated Hadoop catalog |
 | GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` in the current target |
-| Current-target IAM, budget, create-only plan, and zero-change proof | `NOT_YET_VERIFIED` | Workflow is manual-only pending the foundation and safety baseline |
+| Current-target IAM and foundation safety baseline | `NOT_YET_VERIFIED` | Repository controls are locally verified; live IAM parity and foundation deployment remain manual gates |
+| Current-target budget, create-only plan, and zero-change proof | `NOT_YET_VERIFIED` | Plan-only workflow remains blocked until the foundation is AWS-verified |
 | Current-target saved-plan deployment and exact-state teardown | `NOT_YET_VERIFIED` | Controls are locally tested; no deployment has run in the current target |
 | Managed Glue and Iceberg transformation | `NOT_YET_VERIFIED` | Runtime-compatible local execution passes; the AWS-managed workload has not run |
 | Managed replay, conflict, object tamper, failure, recovery, and Athena validation | `NOT_YET_VERIFIED` | Requires the bounded AWS execution |
@@ -116,10 +118,13 @@ Before execution:
 
 1. Require the plan-only proof to verify live IAM parity, an empty baseline, a create-only resource
    envelope, the planned Step Functions definition, and an unchanged post-plan inventory.
-2. Require the read-only account-plan gate to record `PAID`, `ACTIVE`, and at least the bounded
-   run's configured cost ceiling in remaining USD credits.
+2. Require the read-only account-plan gate to record `PAID` and `ACTIVE`, plus either sufficient
+   member-account credit or current owner-attested organization-shared credit for the bounded
+   run ceiling.
 3. Attach [the checked-in role policy](infra/iam/atlasretail-github-role-policy.json) to
-   `AtlasRetailGitHubOidcRole` without broadening the repository-and-branch OIDC trust.
+   `AtlasRetailGitHubOidcRole`, preserve the
+   [canonical trust contract](infra/iam/atlasretail-github-role-trust-policy.json), and run the
+   independent IAM baseline verifier.
 4. Require a successful read-only preflight and an empty Atlas Terraform state.
 5. Begin with 500 orders; the workflow enforces a maximum of 2,000 per managed scenario.
 6. Require both the execution summary and independent teardown report to pass.

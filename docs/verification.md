@@ -20,6 +20,8 @@ environment that produced it.
 | Glue 5 Spark and Iceberg runtime compatibility | `LOCAL_VERIFIED` | Pinned Glue 5-compatible runtime executes Spark validation, real local Iceberg snapshots, replay, and failure recovery |
 | Managed lifecycle and serving resolver | `LOCAL_VERIFIED` | Conditional-transition, publication, recovery, and query-boundary tests |
 | GitHub OIDC identity | `AWS_VERIFIED` | Current-target short-lived credentials issued to the repository's `main` branch |
+| Organization-shared credit safety | `OWNER_ATTESTED` | Management-account credit balance and unrestricted organization sharing were reviewed; the attestation expires quickly and must be refreshed |
+| IAM and persistent foundation | `LOCAL_VERIFIED` | Exact policies, workflow admission, foundation configuration, verifier, and lease contracts pass locally; AWS execution is pending |
 | Current-target plan-only environment proof | `DESIGNED` | Manual-only workflow awaits the current-account IAM and foundation baseline |
 | Current-target Terraform safety and teardown | `DESIGNED` | Locally tested controls; no current-target deployment or teardown evidence exists |
 | Glue, Iceberg, Step Functions data path | `DESIGNED` | Hardened managed path exists, but the new workload has not executed |

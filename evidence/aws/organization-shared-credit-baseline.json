@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "evidence_type": "organization-shared-promotional-credit",
+  "recipient_account_id": "857229544428",
+  "verified_remaining_usd": 120,
+  "credit_sharing_active": true,
+  "credit_level_cost_category_restriction": false,
+  "credit_expiration_date": "2027-08-25",
+  "observed_at": "2026-08-25T00:00:00Z",
+  "valid_until": "2026-09-01T23:59:59Z",
+  "verification_method": "AWS management-account Billing console reviewed by repository owner"
+}

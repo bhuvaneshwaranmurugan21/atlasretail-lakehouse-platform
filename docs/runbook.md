@@ -2,14 +2,16 @@
 
 ## Current stop condition
 
-Part 1 only rebinds executable repository configuration to the target in
-`.github/atlas-target.json`. Do not dispatch the foundation, preflight, plan, probe, deployment, or
-data-processing workflows until their later completion gates are explicitly authorized. The only
-AWS workflow permitted after this rebind is the identity-only OIDC check.
+Part 1 rebinds executable repository configuration to the target in
+`.github/atlas-target.json`. Part 2 must proceed in order: merge the repository hardening, update
+the live inline policy, pass the independent IAM baseline, deploy and verify the persistent
+foundation, and commit its sanitized evidence. Do not dispatch plan, probe, controlled deployment,
+or data-processing workflows before those gates pass.
 
 Before a later bounded execution, do not dispatch the data-processing workflow unless the
 read-only preflight records an AWS account
-plan of `PAID` and `ACTIVE` with remaining USD credits at or above the bounded run's cost ceiling,
+plan of `PAID` and `ACTIVE` with either member-account or current organization-shared credit at or
+above the bounded run's cost ceiling,
 and the definition-only Glue capability probe creates and deletes its temporary job successfully.
 The probe must report zero Glue job runs and independently verify cleanup. A visible Glue console
 or available CloudShell session is not evidence of `glue:CreateJob` authorization. The previous
@@ -20,17 +22,33 @@ denial stopped during Terraform apply; no Glue, Step Functions, or Athena worklo
 1. Load account `857229544428`, region `ap-southeast-2`, role, backend, repository, and branch from
    `.github/atlas-target.json`; fail if GitHub variables differ.
 2. Keep the GitHub OIDC trust restricted to this repository's `main` branch.
+   `infra/iam/atlasretail-github-role-trust-policy.json` is the canonical allowed-subject contract.
 3. Confirm that the deployed inline policy matches
    `infra/iam/atlasretail-github-role-policy.json`.
 4. Require a successful identity-only workflow and read-only environment preflight.
-5. Require `freetier:GetAccountPlanState` to return `PAID` and `ACTIVE`, and preserve the response
-   plus the fail-closed verification result in the preflight evidence artifact.
+5. Require `freetier:GetAccountPlanState` to return `PAID` and `ACTIVE`. Accept a zero local credit
+   only while `evidence/aws/organization-shared-credit-baseline.json` is current, targets this
+   member account, attests active unrestricted sharing, and covers the run ceiling.
 6. Run the definition-only Glue service probe and require successful creation, deletion,
    independently verified cleanup, and zero job runs.
 7. Confirm that `atlasretail/main.tfstate` is readable and empty.
 8. Confirm that the shared budget and account lease exist.
 9. Use a unique run ID and begin with 500 synthetic orders.
 10. Review the open correctness boundaries in `docs/correctness.md` before authorizing execution.
+
+## Part 2 foundation gate
+
+1. Merge the repository-only hardening before changing AWS.
+2. Replace the live `AtlasRetailBoundedLabPolicy` with the exact checked-in JSON; the OIDC role
+   cannot update its own permissions.
+3. Dispatch `AWS IAM baseline verification` with `VERIFY_ATLASRETAIL_IAM` and require `PASS`.
+4. Store the alert recipient as the GitHub Actions secret `AWS_BUDGET_ALERT_EMAIL`.
+5. Dispatch `Shared AWS foundation` with `DEPLOY_ATLASRETAIL_FOUNDATION` and budget `20`.
+6. Require exact stack outputs, encrypted and versioned TLS-only state storage, encrypted
+   on-demand PITR tables, lease TTL, three budget alerts, contention/release evidence, an empty
+   Terraform backend, and zero AtlasRetail workload resources.
+7. Commit only sanitized verification summaries. Raw subscriber addresses and live IAM documents
+   remain ephemeral workflow control files.
 
 ## Plan-only approval gate
 
