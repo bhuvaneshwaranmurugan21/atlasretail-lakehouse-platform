@@ -78,11 +78,12 @@ atlasretail generate --output /tmp/atlasretail-input --orders 1000 --batch-id de
 CI regenerates [the deterministic local evidence](evidence/local/failure-lab.json) and rejects an
 unexplained diff.
 
-The separate runtime-integration CI job uses the official AWS Glue 5 container with network access
-disabled and no AWS credentials. It executes the production Spark transformation against a local
-Iceberg catalog, verifies all six physical snapshots, rejects invalid retail inputs, and proves
-same-generation replay and injected-failure recovery. This is runtime-compatible local evidence;
-it is not a managed AWS execution.
+The separate runtime-integration CI job pins the AWS Glue 5 runtime versions: Python 3.11,
+Spark 3.5.4, and the SHA-512-verified Iceberg 1.7.1 runtime. No AWS credentials are configured. It
+executes the production Spark transformation against a local Iceberg catalog, verifies all six
+physical snapshots, rejects invalid retail inputs, and proves same-generation replay and
+injected-failure recovery. This is runtime-compatible local evidence; it is not a managed AWS
+execution.
 
 ## Verification status
 
@@ -90,7 +91,7 @@ it is not a managed AWS execution.
 |---|---|---|
 | Domain, immutable-object manifest, and retail invariants | `LOCAL_VERIFIED` | Automated tests and deterministic failure scenarios |
 | Managed lifecycle, recovery, serving resolver, and stale-writer rejection | `LOCAL_VERIFIED` | Control-plane, resolver, and infrastructure-contract tests |
-| Glue 5-compatible Spark transformation and real local Iceberg snapshots | `LOCAL_VERIFIED` | Official Glue runtime integration job with isolated Hadoop catalog |
+| Glue 5-compatible Spark transformation and real local Iceberg snapshots | `LOCAL_VERIFIED` | Pinned Glue 5-compatible integration job with isolated Hadoop catalog |
 | GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` |
 | Live IAM parity, budget headroom, create-only plan, and zero-change proof | `AWS_VERIFIED` | Sanitized plan-only workflow artifact attributed to `main` |
 | Saved-plan deployment and exact-state teardown controls | `AWS_VERIFIED` | Recorded partial deployments and successful rescue teardown |

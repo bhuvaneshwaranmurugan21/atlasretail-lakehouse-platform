@@ -47,8 +47,9 @@ CloudWatch captures workflow, Lambda, and Glue signals.
 | Recovery | The accepted identity and generation remain stable | The same generation is rebuilt |
 
 The local kernel and Glue transformation expose the same business failure codes. A parity test
-compares their emitted codes directly, and the official Glue 5 runtime executes the Spark rules and
-real Iceberg writes in an isolated local catalog. See [the correctness model](correctness.md).
+compares their emitted codes directly, and the pinned Glue 5-compatible runtime executes the Spark
+rules and real Iceberg writes in an isolated local catalog. See
+[the correctness model](correctness.md).
 
 ## Why Iceberg is not the publication authority
 

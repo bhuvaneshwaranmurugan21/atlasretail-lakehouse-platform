@@ -20,8 +20,9 @@ managed job reads the manifest by exact version, verifies its canonical digest, 
 registered object version and checksum, independently recomputes each ordered table digest from
 those immutable object versions, and server-side copies the exact versions into a
 generation-isolated read prefix. The ordered digest is streamed with bounded memory and preserves
-the existing `retail-v2` contract. Runtime-compatible local execution is verified in the official
-Glue 5 container; managed AWS execution remains `DESIGNED` until the bounded run.
+the existing `retail-v2` contract. Runtime-compatible local execution is verified against the
+pinned Glue 5 Spark and Iceberg versions; managed AWS execution remains `DESIGNED` until the
+bounded run.
 
 ## Generation lifecycle
 
