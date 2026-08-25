@@ -4,9 +4,10 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKFLOW = ROOT / ".github" / "workflows" / "aws-rescue-teardown.yml"
-HISTORICAL_AUTHORIZATION = ROOT / ".github" / "atlas-lab-authorizations" / "rescue-31807122381.json"
-AUTHORIZATION = ROOT / ".github" / "atlas-lab-authorizations" / "rescue-31810378794.json"
+ARCHIVE = ROOT / "docs" / "incidents" / "legacy"
+WORKFLOW = ARCHIVE / "aws-rescue-teardown.yml"
+HISTORICAL_AUTHORIZATION = ARCHIVE / "authorizations" / "rescue-31807122381.json"
+AUTHORIZATION = ARCHIVE / "authorizations" / "rescue-31810378794.json"
 
 
 def test_rescue_authorization_is_exactly_scoped() -> None:
@@ -47,3 +48,7 @@ def test_rescue_push_trigger_and_destroy_plan_are_guarded() -> None:
     assert "validate_terraform_plan.py" in scripts
     assert 'terraform -chdir="${TF_DIR}" apply -auto-approve rescue.tfplan' in scripts
     assert 'test "${PUSH_BEFORE}" = "0665a4b85dc498327bd48f288fe6f430a113abf8"' in scripts
+
+
+def test_legacy_rescue_workflow_is_not_executable() -> None:
+    assert not (ROOT / ".github" / "workflows" / "aws-rescue-teardown.yml").exists()

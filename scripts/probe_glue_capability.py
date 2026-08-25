@@ -12,9 +12,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
-EXPECTED_ACCOUNT = "887720497919"
-EXPECTED_REGION = "ap-south-1"
-SCRIPT_LOCATION = "s3://portfolio-lab-tfstate-887720497919-ap-south-1/glue-probe/never-run.py"
+TARGET = json.loads(
+    (Path(__file__).resolve().parents[1] / ".github" / "atlas-target.json").read_text(
+        encoding="utf-8"
+    )
+)
+EXPECTED_ACCOUNT = TARGET["aws_account_id"]
+EXPECTED_REGION = TARGET["aws_region"]
+SCRIPT_LOCATION = f"s3://{TARGET['terraform_state_bucket']}/glue-probe/never-run.py"
 ROLE_PROPAGATION_ATTEMPTS = 5
 
 

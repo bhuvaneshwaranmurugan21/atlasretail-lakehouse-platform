@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added one validated source of truth for the current AtlasRetail AWS account, region, OIDC role,
+  backend, repository, branch, budget, and run ceiling.
+- Rebound active workflows, Terraform guards, IAM policy documents, scripts, tests, and CI to the
+  current target while preserving legacy incident evidence unchanged.
+- Made plan-only and read-only-preflight workflows manual-only, strengthened the identity-only
+  workflow's exact assertions, and archived the legacy rescue workflow outside executable paths.
 - Added the `retail-v2` manifest contract with exact S3 object-version and checksum binding.
 - Added registration-owned generation identity and conditional managed lifecycle transitions.
 - Required six-table snapshot evidence before compare-and-swap publication.

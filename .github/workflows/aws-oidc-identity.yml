@@ -5,7 +5,9 @@ on:
   push:
     branches: [main]
     paths:
+      - .github/atlas-target.json
       - .github/workflows/aws-oidc-identity.yml
+      - scripts/load_aws_target.py
 
 permissions:
   contents: read
@@ -20,23 +22,40 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Assume repository-specific AWS role
-        uses: aws-actions/configure-aws-credentials@v6.2.3
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
-          role-session-name: github-oidc-identity-check
-          mask-aws-account-id: true
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      - name: Verify caller role
-        env:
-          EXPECTED_ROLE: AtlasRetailGitHubOidcRole
+      - name: Load and verify the checked-in AWS target
+        id: target
         shell: bash
         run: |
           set -euo pipefail
+          python scripts/load_aws_target.py \
+            --github-output "${GITHUB_OUTPUT}" \
+            --expect-role-arn "${{ vars.AWS_ROLE_ARN }}" \
+            --expect-region "${{ vars.AWS_REGION }}" \
+            --expect-repository "${GITHUB_REPOSITORY}" \
+            --expect-ref "${GITHUB_REF}"
+
+      - name: Assume repository-specific AWS role
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
+          aws-region: ${{ steps.target.outputs.aws_region }}
+          role-session-name: github-oidc-identity-check
+          mask-aws-account-id: true
+
+      - name: Verify exact caller identity
+        env:
+          EXPECTED_ACCOUNT: ${{ steps.target.outputs.aws_account_id }}
+          EXPECTED_REGION: ${{ steps.target.outputs.aws_region }}
+          EXPECTED_ROLE: ${{ steps.target.outputs.oidc_role_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${AWS_REGION}" = "${EXPECTED_REGION}"
+          account="$(aws sts get-caller-identity --query Account --output text)"
           caller_arn="$(aws sts get-caller-identity --query Arn --output text)"
-          if [[ "$caller_arn" != *":assumed-role/${EXPECTED_ROLE}/"* ]]; then
-            echo "::error::Unexpected AWS caller role"
-            exit 1
-          fi
-          echo "OIDC identity verified for ${EXPECTED_ROLE}."
+          test "${account}" = "${EXPECTED_ACCOUNT}"
+          test "${caller_arn}" = \
+            "arn:aws:sts::${EXPECTED_ACCOUNT}:assumed-role/${EXPECTED_ROLE}/github-oidc-identity-check"
+          echo "OIDC identity verified for ${EXPECTED_ROLE} in ${EXPECTED_ACCOUNT}/${EXPECTED_REGION}."

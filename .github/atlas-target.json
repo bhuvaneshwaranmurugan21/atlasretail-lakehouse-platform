@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "project": "AtlasRetail",
+  "repository": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
+  "branch_ref": "refs/heads/main",
+  "aws_account_id": "857229544428",
+  "aws_region": "ap-southeast-2",
+  "oidc_role_name": "AtlasRetailGitHubOidcRole",
+  "oidc_role_arn": "arn:aws:iam::857229544428:role/AtlasRetailGitHubOidcRole",
+  "oidc_provider_arn": "arn:aws:iam::857229544428:oidc-provider/token.actions.githubusercontent.com",
+  "terraform_state_bucket": "portfolio-lab-tfstate-857229544428-ap-southeast-2",
+  "terraform_state_key": "atlasretail/main.tfstate",
+  "terraform_lock_table": "portfolio-lab-terraform-locks",
+  "account_lease_table": "portfolio-lab-account-lease",
+  "budget_name": "portfolio-labs-monthly-cost",
+  "monthly_budget_usd": 20,
+  "run_ceiling_usd": 5
+}

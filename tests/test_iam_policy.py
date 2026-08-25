@@ -54,7 +54,7 @@ def test_incident_permissions_are_present_with_required_scope() -> None:
 
     glue_resources = statement("AtlasGlue")["Resource"]
     assert (
-        "arn:aws:glue:ap-south-1:887720497919:userDefinedFunction/atlasretail_*/*"
+        "arn:aws:glue:ap-southeast-2:857229544428:userDefinedFunction/atlasretail_*/*"
     ) in glue_resources
 
     athena = statement("AtlasAthena")

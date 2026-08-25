@@ -2,14 +2,6 @@ name: AWS read-only preflight
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/aws-read-only-preflight.yml
-      - infra/atlas/**
-      - infra/iam/atlasretail-github-role-policy.json
-      - scripts/verify_account_plan.py
-      - scripts/verify_preflight.py
 
 permissions:
   id-token: write
@@ -26,11 +18,20 @@ jobs:
     env:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
-      AWS_REGION: ${{ vars.AWS_REGION }}
       TF_DIR: infra/atlas
       EVIDENCE_DIR: evidence/preflight/${{ github.run_id }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Load and verify the checked-in AWS target
+        id: target
+        run: |
+          python scripts/load_aws_target.py \
+            --github-output "${GITHUB_OUTPUT}" \
+            --github-env "${GITHUB_ENV}" \
+            --expect-role-arn "${{ vars.AWS_ROLE_ARN }}" \
+            --expect-region "${{ vars.AWS_REGION }}" \
+            --expect-repository "${GITHUB_REPOSITORY}" \
+            --expect-ref "${GITHUB_REF}"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
@@ -39,15 +40,16 @@ jobs:
           terraform_version: 1.11.4
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
+          aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-preflight-${{ github.run_id }}
       - name: Prove repository identity and hard bounds
         run: |
           set -euo pipefail
-          test "${AWS_REGION}" = "ap-south-1"
+          python -m json.tool infra/iam/atlasretail-github-role-policy.json > /dev/null
+          test "${AWS_REGION}" = "${{ steps.target.outputs.aws_region }}"
           account="$(aws sts get-caller-identity --query Account --output text)"
-          test "${account}" = "887720497919"
+          test "${account}" = "${{ steps.target.outputs.aws_account_id }}"
           mkdir -p "${EVIDENCE_DIR}"
           aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
           aws freetier get-account-plan-state \
@@ -61,10 +63,10 @@ jobs:
         run: |
           set -euo pipefail
           terraform -chdir="${TF_DIR}" init \
-            -backend-config="bucket=portfolio-lab-tfstate-887720497919-ap-south-1" \
-            -backend-config="key=atlasretail/main.tfstate" \
+            -backend-config="bucket=${TERRAFORM_STATE_BUCKET}" \
+            -backend-config="key=${TERRAFORM_STATE_KEY}" \
             -backend-config="region=${AWS_REGION}" \
-            -backend-config="dynamodb_table=portfolio-lab-terraform-locks" \
+            -backend-config="dynamodb_table=${TERRAFORM_LOCK_TABLE}" \
             -backend-config="encrypt=true" \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-init.log"
           python scripts/verify_preflight.py \

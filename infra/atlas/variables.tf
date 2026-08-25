@@ -1,11 +1,11 @@
 variable "aws_region" {
   description = "Single lab region."
   type        = string
-  default     = "ap-south-1"
+  default     = "ap-southeast-2"
 
   validation {
-    condition     = var.aws_region == "ap-south-1"
-    error_message = "The bounded lab is intentionally restricted to ap-south-1."
+    condition     = var.aws_region == "ap-southeast-2"
+    error_message = "The bounded lab is intentionally restricted to ap-southeast-2."
   }
 }
 

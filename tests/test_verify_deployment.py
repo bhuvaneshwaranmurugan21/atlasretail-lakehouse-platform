@@ -13,16 +13,16 @@ SPEC.loader.exec_module(MODULE)
 
 RUN_ID = "12345"
 COMMIT = "a" * 40
-KMS = "arn:aws:kms:ap-south-1:887720497919:key/example"
+KMS = "arn:aws:kms:ap-southeast-2:857229544428:key/example"
 
 
 def outputs() -> dict[str, dict[str, str]]:
     values = {
-        "landing_bucket": "atlasretail-12345-landing-887720497919",
-        "warehouse_bucket": "atlasretail-12345-warehouse-887720497919",
-        "evidence_bucket": "atlasretail-12345-evidence-887720497919",
+        "landing_bucket": "atlasretail-12345-landing-857229544428",
+        "warehouse_bucket": "atlasretail-12345-warehouse-857229544428",
+        "evidence_bucket": "atlasretail-12345-evidence-857229544428",
         "state_machine_arn": (
-            "arn:aws:states:ap-south-1:887720497919:stateMachine:atlasretail-12345-pipeline"
+            "arn:aws:states:ap-southeast-2:857229544428:stateMachine:atlasretail-12345-pipeline"
         ),
         "glue_job_name": "atlasretail-12345-iceberg",
         "athena_workgroup": "atlasretail-12345-verification",

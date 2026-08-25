@@ -92,9 +92,9 @@ execution.
 | Domain, immutable-object manifest, and retail invariants | `LOCAL_VERIFIED` | Automated tests and deterministic failure scenarios |
 | Managed lifecycle, recovery, serving resolver, and stale-writer rejection | `LOCAL_VERIFIED` | Control-plane, resolver, and infrastructure-contract tests |
 | Glue 5-compatible Spark transformation and real local Iceberg snapshots | `LOCAL_VERIFIED` | Pinned Glue 5-compatible integration job with isolated Hadoop catalog |
-| GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` |
-| Live IAM parity, budget headroom, create-only plan, and zero-change proof | `AWS_VERIFIED` | Sanitized plan-only workflow artifact attributed to `main` |
-| Saved-plan deployment and exact-state teardown controls | `AWS_VERIFIED` | Recorded partial deployments and successful rescue teardown |
+| GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` in the current target |
+| Current-target IAM, budget, create-only plan, and zero-change proof | `NOT_YET_VERIFIED` | Workflow is manual-only pending the foundation and safety baseline |
+| Current-target saved-plan deployment and exact-state teardown | `NOT_YET_VERIFIED` | Controls are locally tested; no deployment has run in the current target |
 | Managed Glue and Iceberg transformation | `NOT_YET_VERIFIED` | Runtime-compatible local execution passes; the AWS-managed workload has not run |
 | Managed replay, conflict, object tamper, failure, recovery, and Athena validation | `NOT_YET_VERIFIED` | Requires the bounded AWS execution |
 | Runtime, throughput, and settled cost | `NOT_YET_MEASURED` | Requires a successful managed execution |
@@ -106,9 +106,11 @@ Verification levels and evidence-handling rules are defined in
 
 ## AWS validation environment
 
-The manual AWS workflow is an ephemeral validation environment, not a continuous deployment path.
-It is bounded to account `887720497919`, region `ap-south-1`, a small synthetic workload, a saved
-Terraform plan, and mandatory teardown.
+The checked-in [AWS target](.github/atlas-target.json) binds the active repository to account
+`857229544428`, region `ap-southeast-2`, and the repository-specific OIDC role. The managed
+workflows are manual, bounded validation paths rather than continuous deployment. Historical
+plan, deployment, and rescue evidence belongs to the previous environment and does not verify the
+current target.
 
 Before execution:
 

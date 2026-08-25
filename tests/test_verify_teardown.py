@@ -22,7 +22,7 @@ OUTPUTS = {
     "glue_database": {"value": "atlasretail_test_retail"},
     "athena_workgroup": {"value": "atlasretail-test-verification"},
     "lambda_function_name": {"value": "atlasretail-test-control"},
-    "state_machine_arn": {"value": "arn:aws:states:ap-south-1:887720497919:stateMachine:test"},
+    "state_machine_arn": {"value": "arn:aws:states:ap-southeast-2:857229544428:stateMachine:test"},
     "glue_role_name": {"value": "atlasretail-test-glue"},
     "states_role_name": {"value": "atlasretail-test-states"},
     "lambda_role_name": {"value": "atlasretail-test-lambda"},
@@ -31,7 +31,7 @@ OUTPUTS = {
     "lambda_log_group_name": {"value": "/aws/lambda/atlasretail-test-control"},
     "pipeline_alarm_name": {"value": "atlasretail-test-pipeline-failed"},
     "kms_alias_name": {"value": "alias/atlasretail-test"},
-    "kms_key_arn": {"value": "arn:aws:kms:ap-south-1:887720497919:key/test"},
+    "kms_key_arn": {"value": "arn:aws:kms:ap-southeast-2:857229544428:key/test"},
 }
 
 
@@ -73,7 +73,7 @@ def clean_runner(*arguments: str) -> tuple[int, str]:
             }
         )
     if "sts get-caller-identity" in command:
-        return 0, json.dumps({"Account": "887720497919"})
+        return 0, json.dumps({"Account": "857229544428"})
     if arguments[0] == "terraform":
         return 0, json.dumps({"format_version": "1.0"})
     if "resourcegroupstaggingapi" in command:
@@ -137,7 +137,7 @@ def test_remaining_resources_fail_all_inventory_layers() -> None:
                     "ResourceTagMappingList": [
                         {
                             "ResourceARN": (
-                                "arn:aws:dynamodb:ap-south-1:887720497919:table/atlasretail-residue"
+                                "arn:aws:dynamodb:ap-southeast-2:857229544428:table/atlasretail-residue"
                             )
                         }
                     ]
