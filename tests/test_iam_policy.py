@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 POLICY_PATH = Path(__file__).parents[1] / "infra" / "iam" / "atlasretail-github-role-policy.json"
+BOOTSTRAP_POLICY_PATH = Path(__file__).parents[1] / "infra" / "foundation" / "bootstrap-policy.json"
 INCIDENT_OUTPUTS_PATH = (
     Path(__file__).parents[1] / "evidence" / "incidents" / "31791499897" / "terraform-outputs.json"
 )
@@ -67,6 +68,19 @@ def test_policy_avoids_wildcard_actions_and_preserves_atlas_bounds() -> None:
     assert statement("AtlasRoles")["Resource"].endswith(":role/atlasretail-*")
     assert statement("AtlasLambda")["Resource"].endswith(":function:atlasretail-*")
     assert "arn:aws:s3:::atlasretail-*" in statement("StateAndLabBuckets")["Resource"]
+
+
+def test_foundation_redeploy_reads_only_the_existing_foundation_stack_summary() -> None:
+    expected_resource = (
+        "arn:aws:cloudformation:ap-southeast-2:857229544428:stack/portfolio-lab-foundation/*"
+    )
+
+    for policy_path in (POLICY_PATH, BOOTSTRAP_POLICY_PATH):
+        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+        foundation = next(item for item in policy["Statement"] if item["Sid"] == "FoundationStack")
+
+        assert "cloudformation:GetTemplateSummary" in actions(foundation)
+        assert foundation["Resource"] == expected_resource
 
 
 def test_incident_manifest_preserves_names_lost_from_partial_state() -> None:

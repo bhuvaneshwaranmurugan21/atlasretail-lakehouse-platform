@@ -14,6 +14,7 @@
         "cloudformation:ListStackResources",
         "cloudformation:ExecuteChangeSet",
         "cloudformation:GetTemplate",
+        "cloudformation:GetTemplateSummary",
         "cloudformation:UpdateStack"
       ],
       "Resource": "arn:aws:cloudformation:ap-southeast-2:857229544428:stack/portfolio-lab-foundation/*"
