@@ -17,6 +17,7 @@ environment that produced it.
 |---|---|---|
 | Domain and retail invariants | `LOCAL_VERIFIED` | Unit, behavioural, and deterministic failure-scenario tests |
 | Immutable object manifest | `LOCAL_VERIFIED` | Canonical digest and exact S3 identity contract tests |
+| Glue 5 Spark and Iceberg runtime compatibility | `LOCAL_VERIFIED` | Official Glue 5 container executes Spark validation, real local Iceberg snapshots, replay, and failure recovery |
 | Managed lifecycle and serving resolver | `LOCAL_VERIFIED` | Conditional-transition, publication, recovery, and query-boundary tests |
 | GitHub OIDC identity | `AWS_VERIFIED` | Short-lived credentials issued to the repository's `main` branch |
 | Plan-only environment proof | `AWS_VERIFIED` | Live IAM parity, account and budget gates, fresh create-only plan, AWS definition validation, and unchanged post-plan inventory |
@@ -24,6 +25,12 @@ environment that produced it.
 | Glue, Iceberg, Step Functions data path | `DESIGNED` | Hardened managed path exists, but the new workload has not executed |
 | Runtime, throughput, Athena scan, and workload cost | `DESIGNED` | Collection code exists; no successful managed measurement exists |
 | Sustained production operation | Not established | No continuous workload or operational-history evidence |
+
+The runtime-integration job uses the AWS-published Glue 5 image, including Spark 3.5.4 and
+Iceberg 1.7.1, with networking disabled and no AWS credentials. Its Iceberg catalog uses local
+filesystem storage. This establishes runtime and table-format compatibility, not the behaviour of
+the managed Glue service, S3, Glue Data Catalog, or Athena. Those services require attributable
+bounded AWS evidence before any claim is promoted to `AWS_VERIFIED`.
 
 ## Evidence requirements
 

@@ -35,6 +35,26 @@ jobs:
           atlasretail simulate --output /tmp/failure-lab.json
           diff -u evidence/local/failure-lab.json /tmp/failure-lab.json
 
+  glue-runtime-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Execute against the official Glue 5 Spark and Iceberg runtime
+        run: |
+          docker run \
+            --rm \
+            --network none \
+            --volume "${GITHUB_WORKSPACE}:/workspace:ro" \
+            --workdir /workspace \
+            --env AWS_EC2_METADATA_DISABLED=true \
+            --env PYTHONPATH=/workspace/src \
+            --env PYTHONDONTWRITEBYTECODE=1 \
+            --env SPARK_LOCAL_IP=127.0.0.1 \
+            --entrypoint /bin/bash \
+            public.ecr.aws/glue/aws-glue-libs:5 \
+            -c 'python3 -m pytest -q -o addopts= tests/integration/test_glue_spark_iceberg.py'
+
   terraform:
     runs-on: ubuntu-24.04
     timeout-minutes: 10

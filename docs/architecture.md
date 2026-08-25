@@ -20,10 +20,12 @@ flowchart TD
 ## Data plane
 
 S3 stores synthetic source objects and Iceberg warehouse data. The `retail-v2` manifest binds each
-dataset to an exact S3 key, version, size, ETag, and SHA-256 checksum. Glue verifies those
-attributes, copies the registered versions into a generation-isolated read prefix, applies Spark
-validation, and writes rows with the registration-owned generation identifier. Athena executes
-generation-pinned queries through a workgroup with a scan cutoff.
+dataset to an exact S3 key, version, size, ETag, and SHA-256 checksum. The uploader verifies every
+ordered table digest before issuing any S3 write. Glue independently replays the same canonical
+digest from each registered object version, verifies object attributes, copies those exact versions
+into a generation-isolated read prefix, applies Spark validation, and writes rows with the
+registration-owned generation identifier. Athena executes generation-pinned queries through a
+workgroup with a scan cutoff.
 
 ## Control plane
 
@@ -44,8 +46,9 @@ CloudWatch captures workflow, Lambda, and Glue signals.
 | Replay | A published identity has one business effect | No second logical generation is created |
 | Recovery | The accepted identity and generation remain stable | The same generation is rebuilt |
 
-See [the correctness model](correctness.md) for known differences between the local and managed
-paths.
+The local kernel and Glue transformation expose the same business failure codes. A parity test
+compares their emitted codes directly, and the official Glue 5 runtime executes the Spark rules and
+real Iceberg writes in an isolated local catalog. See [the correctness model](correctness.md).
 
 ## Why Iceberg is not the publication authority
 

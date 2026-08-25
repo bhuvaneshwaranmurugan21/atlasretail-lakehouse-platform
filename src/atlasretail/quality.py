@@ -85,6 +85,9 @@ def validate(batch: RetailBatch, *, knowledge_time: int) -> QualityReport:
         "payment": [row.payment_id for row in batch.payments],
         "return": [row.return_id for row in batch.returns],
         "movement": [row.movement_id for row in batch.inventory_movements],
+        "product": [
+            f"{row.product_id}:{row.effective_from}:{row.loaded_at}" for row in batch.products
+        ],
     }
     for entity, values in identifiers.items():
         for value in sorted(_duplicates(values)):
@@ -168,7 +171,10 @@ def validate(batch: RetailBatch, *, knowledge_time: int) -> QualityReport:
             )
 
     inventory: dict[tuple[str, str], int] = {}
-    for movement in sorted(batch.inventory_movements, key=lambda value: value.movement_ts):
+    for movement in sorted(
+        batch.inventory_movements,
+        key=lambda value: (value.movement_ts, value.movement_id),
+    ):
         key = (movement.product_id, movement.store_id)
         inventory[key] = inventory.get(key, 0) + movement.quantity_delta
         if inventory[key] < 0:
