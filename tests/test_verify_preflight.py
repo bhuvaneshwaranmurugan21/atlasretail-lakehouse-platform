@@ -12,7 +12,7 @@ assert SPEC and SPEC.loader
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
-PENDING_KEY = "arn:aws:kms:ap-south-1:887720497919:key/historical"
+PENDING_KEY = "arn:aws:kms:ap-southeast-2:857229544428:key/historical"
 
 
 def clean_runner(*arguments: str) -> tuple[int, str]:

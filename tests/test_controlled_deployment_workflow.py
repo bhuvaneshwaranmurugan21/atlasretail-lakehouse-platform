@@ -18,7 +18,7 @@ def test_controlled_deployment_is_manual_and_bounded() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     assert 'test "${GITHUB_REF}" = "refs/heads/main"' in workflow
     assert 'test "${GITHUB_ACTOR}" = "bhuvaneshwaranmurugan21"' in workflow
-    assert 'test "${BUDGET_CEILING_USD}" -le 5' in workflow
+    assert 'test "${BUDGET_CEILING_USD}" -le "${RUN_CEILING_USD}"' in workflow
     assert "DEPLOY_ATLASRETAIL_CANARY" in workflow
     assert "DESTROY_AFTER_VERIFICATION" in workflow
 

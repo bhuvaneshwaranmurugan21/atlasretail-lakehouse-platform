@@ -29,7 +29,7 @@ class FakeAws:
         self.calls.append((service, operation))
         if (service, operation) == ("iam", "create-role"):
             self.role_exists = True
-            return {"Role": {"Arn": "arn:aws:iam::887720497919:role/atlasretail-probe-123-glue"}}
+            return {"Role": {"Arn": "arn:aws:iam::857229544428:role/atlasretail-probe-123-glue"}}
         if (service, operation) == ("iam", "get-role"):
             if not self.role_exists:
                 raise MODULE.AwsCallError(service, operation, "NoSuchEntity: role does not exist")
@@ -42,7 +42,7 @@ class FakeAws:
                 raise MODULE.AwsCallError(
                     service,
                     operation,
-                    "AccessDeniedException: Account 887720497919 is denied access",
+                    "AccessDeniedException: Account 857229544428 is denied access",
                 )
             self.job_exists = True
             return {"Name": "atlasretail-probe-123"}
@@ -63,8 +63,8 @@ class FakeAws:
 def run_probe(aws: FakeAws) -> dict[str, Any]:
     return MODULE.probe(
         aws,
-        account="887720497919",
-        region="ap-south-1",
+        account="857229544428",
+        region="ap-southeast-2",
         run_id="123",
         source_commit="abc123",
     )
@@ -114,9 +114,9 @@ def test_cleanup_failure_overrides_an_otherwise_successful_probe() -> None:
 
 def test_probe_rejects_account_region_and_resource_name_boundary_violations() -> None:
     for account, region, run_id in (
-        ("000000000000", "ap-south-1", "123"),
-        ("887720497919", "us-east-1", "123"),
-        ("887720497919", "ap-south-1", "123-unbounded"),
+        ("000000000000", "ap-southeast-2", "123"),
+        ("857229544428", "us-east-1", "123"),
+        ("857229544428", "ap-southeast-2", "123-unbounded"),
     ):
         aws = FakeAws()
         try:
@@ -140,10 +140,10 @@ def test_workflow_is_manually_authorized_and_cannot_execute_a_workload() -> None
     assert "PROBE_GLUE_CREATE_DELETE" in workflow
     assert 'test "${GITHUB_ACTOR}" = "${GITHUB_REPOSITORY_OWNER}"' in workflow
     assert 'test "${GITHUB_REF}" = "refs/heads/main"' in workflow
-    assert 'test "${AWS_REGION}" = "${EXPECTED_REGION}"' in workflow
+    assert 'test "${AWS_REGION}" = "${{ steps.target.outputs.aws_region }}"' in workflow
     assert "group: portfolio-aws-account" in workflow
-    assert "887720497919" in workflow
-    assert "ap-south-1" in workflow
+    assert "python scripts/load_aws_target.py" in workflow
+    assert 'test "${account}" = "${AWS_ACCOUNT_ID}"' in workflow
     assert "python scripts/probe_glue_capability.py" in workflow
     assert "if: always() && steps.account_identity.outcome == 'success'" in workflow
     assert "actions/upload-artifact@" in workflow

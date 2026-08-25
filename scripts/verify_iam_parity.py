@@ -8,10 +8,15 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
 
-ROLE_NAME = "AtlasRetailGitHubOidcRole"
+TARGET = json.loads(
+    (Path(__file__).resolve().parents[1] / ".github" / "atlas-target.json").read_text(
+        encoding="utf-8"
+    )
+)
+ROLE_NAME = TARGET["oidc_role_name"]
 POLICY_NAME = "AtlasRetailBoundedLabPolicy"
-OIDC_PROVIDER = "arn:aws:iam::887720497919:oidc-provider/token.actions.githubusercontent.com"
-EXPECTED_SUBJECT = "repo:bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform:ref:refs/heads/main"
+OIDC_PROVIDER = TARGET["oidc_provider_arn"]
+EXPECTED_SUBJECT = f"repo:{TARGET['repository']}:ref:{TARGET['branch_ref']}"
 EXPECTED_STABLE_ID_SUBJECT = (
     "repo:bhuvaneshwaranmurugan21@276895096/"
     "atlasretail-lakehouse-platform@1333029962:ref:refs/heads/main"

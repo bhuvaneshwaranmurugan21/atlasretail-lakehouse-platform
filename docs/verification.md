@@ -19,9 +19,9 @@ environment that produced it.
 | Immutable object manifest | `LOCAL_VERIFIED` | Canonical digest and exact S3 identity contract tests |
 | Glue 5 Spark and Iceberg runtime compatibility | `LOCAL_VERIFIED` | Pinned Glue 5-compatible runtime executes Spark validation, real local Iceberg snapshots, replay, and failure recovery |
 | Managed lifecycle and serving resolver | `LOCAL_VERIFIED` | Conditional-transition, publication, recovery, and query-boundary tests |
-| GitHub OIDC identity | `AWS_VERIFIED` | Short-lived credentials issued to the repository's `main` branch |
-| Plan-only environment proof | `AWS_VERIFIED` | Live IAM parity, account and budget gates, fresh create-only plan, AWS definition validation, and unchanged post-plan inventory |
-| Terraform safety and teardown | `AWS_VERIFIED` | Saved plans, explicit resource checks, empty state, and recorded rescue runs |
+| GitHub OIDC identity | `AWS_VERIFIED` | Current-target short-lived credentials issued to the repository's `main` branch |
+| Current-target plan-only environment proof | `DESIGNED` | Manual-only workflow awaits the current-account IAM and foundation baseline |
+| Current-target Terraform safety and teardown | `DESIGNED` | Locally tested controls; no current-target deployment or teardown evidence exists |
 | Glue, Iceberg, Step Functions data path | `DESIGNED` | Hardened managed path exists, but the new workload has not executed |
 | Runtime, throughput, Athena scan, and workload cost | `DESIGNED` | Collection code exists; no successful managed measurement exists |
 | Sustained production operation | Not established | No continuous workload or operational-history evidence |
@@ -31,6 +31,10 @@ the SHA-512-verified Iceberg 1.7.1 runtime. No AWS credentials are configured, a
 catalog uses local filesystem storage. This establishes runtime and table-format compatibility,
 not the behaviour of the managed Glue service, S3, Glue Data Catalog, or Athena. Those services
 require attributable bounded AWS evidence before any claim is promoted to `AWS_VERIFIED`.
+
+Earlier plan, partial-deployment, and rescue runs remain attributable historical evidence for their
+original environment. They establish incident handling and control design, but they do not promote
+the current target's IAM, infrastructure, or managed workloads to `AWS_VERIFIED`.
 
 ## Evidence requirements
 

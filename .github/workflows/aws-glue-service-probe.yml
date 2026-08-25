@@ -21,14 +21,21 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      AWS_REGION: ${{ vars.AWS_REGION }}
       EVIDENCE_DIR: evidence/glue-probe/${{ github.run_id }}
-      EXPECTED_ACCOUNT: "887720497919"
-      EXPECTED_REGION: ap-south-1
       PROBE_CONFIRMATION: ${{ inputs.confirm_probe }}
       PROBE_RUN_ID: ${{ github.run_id }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Load and verify the checked-in AWS target
+        id: target
+        run: |
+          python scripts/load_aws_target.py \
+            --github-output "${GITHUB_OUTPUT}" \
+            --github-env "${GITHUB_ENV}" \
+            --expect-role-arn "${{ vars.AWS_ROLE_ARN }}" \
+            --expect-region "${{ vars.AWS_REGION }}" \
+            --expect-repository "${GITHUB_REPOSITORY}" \
+            --expect-ref "${GITHUB_REF}"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
@@ -38,28 +45,28 @@ jobs:
           test "${GITHUB_ACTOR}" = "${GITHUB_REPOSITORY_OWNER}"
           test "${GITHUB_REF}" = "refs/heads/main"
           test "${PROBE_CONFIRMATION}" = "PROBE_GLUE_CREATE_DELETE"
-          test "${AWS_REGION}" = "${EXPECTED_REGION}"
+          test "${AWS_REGION}" = "${{ steps.target.outputs.aws_region }}"
           mkdir -p "${EVIDENCE_DIR}"
       - name: Obtain short-lived AWS credentials
         id: aws_identity
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
+          aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-glue-probe-${{ github.run_id }}
       - name: Verify the exact AWS account
         id: account_identity
         run: |
           set -euo pipefail
           account="$(aws sts get-caller-identity --query Account --output text)"
-          test "${account}" = "${EXPECTED_ACCOUNT}"
+          test "${account}" = "${AWS_ACCOUNT_ID}"
           aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
       - name: Create, inspect, and delete an unexecuted Glue job definition
         run: |
           set -euo pipefail
           python scripts/probe_glue_capability.py \
-            --account "${EXPECTED_ACCOUNT}" \
-            --region "${EXPECTED_REGION}" \
+            --account "${AWS_ACCOUNT_ID}" \
+            --region "${AWS_REGION}" \
             --run-id "${PROBE_RUN_ID}" \
             --source-commit "${GITHUB_SHA}" \
             --output "${EVIDENCE_DIR}/glue-service-probe.json"

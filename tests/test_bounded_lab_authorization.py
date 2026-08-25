@@ -5,9 +5,10 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "aws-bounded-lab.yml"
-AUTHORIZATION = ROOT / ".github" / "atlas-lab-authorizations" / "run-001.json"
-RETRY_AUTHORIZATION = ROOT / ".github" / "atlas-lab-authorizations" / "run-002.json"
-POST_RESCUE_AUTHORIZATION = ROOT / ".github" / "atlas-lab-authorizations" / "run-003.json"
+ARCHIVE = ROOT / "docs" / "incidents" / "legacy" / "authorizations"
+AUTHORIZATION = ARCHIVE / "run-001.json"
+RETRY_AUTHORIZATION = ARCHIVE / "run-002.json"
+POST_RESCUE_AUTHORIZATION = ARCHIVE / "run-003.json"
 
 
 def test_one_time_authorization_is_exactly_bounded() -> None:
@@ -71,7 +72,7 @@ def test_phase_two_lab_requires_explicit_manual_dispatch() -> None:
     scripts = "\n".join(step.get("run", "") for step in execute["steps"] if isinstance(step, dict))
     assert 'test "${CONFIRM_DESTROY}" = "DESTROY"' in scripts
     assert 'test "${ORDER_COUNT}" -le 2000' in scripts
-    assert 'test "${BUDGET_CEILING_USD}" -le 10' in scripts
+    assert 'test "${BUDGET_CEILING_USD}" -le "${RUN_CEILING_USD}"' in scripts
     assert "aws freetier get-account-plan-state" in scripts
     assert "python scripts/verify_account_plan.py" in scripts
     assert "freetier upgrade-account-plan" not in scripts

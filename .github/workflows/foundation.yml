@@ -21,22 +21,34 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v6.2.3
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Load and verify the checked-in AWS target
+        id: target
+        run: |
+          python scripts/load_aws_target.py \
+            --github-output "${GITHUB_OUTPUT}" \
+            --github-env "${GITHUB_ENV}" \
+            --expect-role-arn "${{ vars.AWS_ROLE_ARN }}" \
+            --expect-region "${{ vars.AWS_REGION }}" \
+            --expect-repository "${GITHUB_REPOSITORY}" \
+            --expect-ref "${GITHUB_REF}"
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
+          aws-region: ${{ steps.target.outputs.aws_region }}
       - name: Prove identity
         run: |
           set -euo pipefail
-          aws sts get-caller-identity
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          test "${account}" = "${AWS_ACCOUNT_ID}"
+          test "${AWS_REGION}" = "${{ steps.target.outputs.aws_region }}"
       - name: Validate and deploy
         env:
           BUDGET_USD: ${{ inputs.monthly_budget_usd }}
         run: |
           set -euo pipefail
           test "${BUDGET_USD}" -ge 1
-          test "${BUDGET_USD}" -le 100
+          test "${BUDGET_USD}" = "${MONTHLY_BUDGET_USD}"
           mkdir -p evidence/foundation
           aws cloudformation validate-template \
             --template-body file://infra/foundation/template.yml \
@@ -56,9 +68,9 @@ jobs:
             --query 'Stacks[0].{StackId:StackId,Status:StackStatus,Outputs:Outputs}' \
             > evidence/foundation/stack.json
           aws dynamodb describe-time-to-live \
-            --table-name portfolio-lab-account-lease \
+            --table-name "${ACCOUNT_LEASE_TABLE}" \
             > evidence/foundation/lease-ttl.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: foundation-evidence-${{ github.run_id }}

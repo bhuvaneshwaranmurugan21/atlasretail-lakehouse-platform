@@ -10,6 +10,12 @@ from pathlib import Path
 from typing import Any
 
 Runner = Callable[..., tuple[int, str]]
+TARGET = json.loads(
+    (Path(__file__).resolve().parents[1] / ".github" / "atlas-target.json").read_text(
+        encoding="utf-8"
+    )
+)
+EXPECTED_REGION = TARGET["aws_region"]
 
 
 def command(*arguments: str) -> tuple[int, str]:
@@ -136,7 +142,7 @@ def verify(
             state_machine_arn = ""
         else:
             state_machine_arn = (
-                f"arn:aws:states:ap-south-1:{account}:stateMachine:{prefix}-pipeline"
+                f"arn:aws:states:{EXPECTED_REGION}:{account}:stateMachine:{prefix}-pipeline"
             )
     if state_machine_arn:
         code, detail = runner(

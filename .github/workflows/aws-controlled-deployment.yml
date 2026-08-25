@@ -29,7 +29,6 @@ jobs:
     env:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
-      AWS_REGION: ${{ vars.AWS_REGION }}
       RUN_ID: ${{ github.run_id }}
       TF_DIR: infra/atlas
       EVIDENCE_DIR: evidence/deployment/${{ github.run_id }}
@@ -37,10 +36,19 @@ jobs:
       CONFIRM_DEPLOY: ${{ inputs.confirm_deploy }}
       CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
       BUDGET_CEILING_USD: ${{ inputs.budget_ceiling_usd }}
-      ROLE_NAME: AtlasRetailGitHubOidcRole
       POLICY_NAME: AtlasRetailBoundedLabPolicy
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Load and verify the checked-in AWS target
+        id: target
+        run: |
+          python scripts/load_aws_target.py \
+            --github-output "${GITHUB_OUTPUT}" \
+            --github-env "${GITHUB_ENV}" \
+            --expect-role-arn "${{ vars.AWS_ROLE_ARN }}" \
+            --expect-region "${{ vars.AWS_REGION }}" \
+            --expect-repository "${GITHUB_REPOSITORY}" \
+            --expect-ref "${GITHUB_REF}"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
@@ -50,8 +58,8 @@ jobs:
           terraform_wrapper: false
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
+          aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-deploy-${{ github.run_id }}
 
       - name: Validate immutable admission bounds
@@ -63,12 +71,12 @@ jobs:
           test "${CONFIRM_DESTROY}" = "DESTROY_AFTER_VERIFICATION"
           [[ "${BUDGET_CEILING_USD}" =~ ^[0-9]+$ ]]
           test "${BUDGET_CEILING_USD}" -ge 1
-          test "${BUDGET_CEILING_USD}" -le 5
-          test "${AWS_REGION}" = "ap-south-1"
+          test "${BUDGET_CEILING_USD}" -le "${RUN_CEILING_USD}"
+          test "${AWS_REGION}" = "${{ steps.target.outputs.aws_region }}"
           mkdir -p "${EVIDENCE_DIR}" "${CONTROL_DIR}"
           date +%s > "${EVIDENCE_DIR}/workflow-started-epoch.txt"
           account="$(aws sts get-caller-identity --query Account --output text)"
-          test "${account}" = "887720497919"
+          test "${account}" = "${{ steps.target.outputs.aws_account_id }}"
           aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
           aws freetier get-account-plan-state --region us-east-1 \
             > "${EVIDENCE_DIR}/account-plan.json"
@@ -78,11 +86,11 @@ jobs:
             "${BUDGET_CEILING_USD}"
           aws budgets describe-budget \
             --account-id "${account}" \
-            --budget-name portfolio-labs-monthly-cost \
+            --budget-name "${BUDGET_NAME}" \
             > "${CONTROL_DIR}/budget-before.json"
           aws budgets describe-notifications-for-budget \
             --account-id "${account}" \
-            --budget-name portfolio-labs-monthly-cost \
+            --budget-name "${BUDGET_NAME}" \
             > "${CONTROL_DIR}/budget-notifications-before.json"
           python scripts/verify_budget.py \
             "${CONTROL_DIR}/budget-before.json" \
@@ -93,13 +101,13 @@ jobs:
       - name: Prove live IAM parity before mutation
         run: |
           set -euo pipefail
-          aws iam get-role --role-name "${ROLE_NAME}" > "${CONTROL_DIR}/role.json"
-          aws iam list-role-policies --role-name "${ROLE_NAME}" \
+          aws iam get-role --role-name "${OIDC_ROLE_NAME}" > "${CONTROL_DIR}/role.json"
+          aws iam list-role-policies --role-name "${OIDC_ROLE_NAME}" \
             > "${CONTROL_DIR}/inline-policy-names.json"
-          aws iam list-attached-role-policies --role-name "${ROLE_NAME}" \
+          aws iam list-attached-role-policies --role-name "${OIDC_ROLE_NAME}" \
             > "${CONTROL_DIR}/attached-policies.json"
           aws iam get-role-policy \
-            --role-name "${ROLE_NAME}" \
+            --role-name "${OIDC_ROLE_NAME}" \
             --policy-name "${POLICY_NAME}" \
             > "${CONTROL_DIR}/live-role-policy.json"
           python scripts/verify_iam_parity.py \
@@ -128,10 +136,10 @@ jobs:
         run: |
           set -euo pipefail
           terraform -chdir="${TF_DIR}" init \
-            -backend-config="bucket=portfolio-lab-tfstate-887720497919-ap-south-1" \
-            -backend-config="key=atlasretail/main.tfstate" \
+            -backend-config="bucket=${TERRAFORM_STATE_BUCKET}" \
+            -backend-config="key=${TERRAFORM_STATE_KEY}" \
             -backend-config="region=${AWS_REGION}" \
-            -backend-config="dynamodb_table=portfolio-lab-terraform-locks" \
+            -backend-config="dynamodb_table=${TERRAFORM_LOCK_TABLE}" \
             -backend-config="encrypt=true" \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-init.log"
           python scripts/verify_preflight.py \
@@ -153,10 +161,10 @@ jobs:
               "repository": os.environ["GITHUB_REPOSITORY"],
               "run_id": os.environ["GITHUB_RUN_ID"],
               "source_commit": os.environ["GITHUB_SHA"],
-              "account": "887720497919",
+              "account": os.environ["AWS_ACCOUNT_ID"],
               "region": os.environ["AWS_REGION"],
-              "backend_bucket": "portfolio-lab-tfstate-887720497919-ap-south-1",
-              "backend_key": "atlasretail/main.tfstate",
+              "backend_bucket": os.environ["TERRAFORM_STATE_BUCKET"],
+              "backend_key": os.environ["TERRAFORM_STATE_KEY"],
               "infrastructure_digest": "sha256:" + digest.hexdigest(),
           }
           pathlib.Path(sys.argv[1]).write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
@@ -249,11 +257,11 @@ jobs:
           account="$(aws sts get-caller-identity --query Account --output text)"
           aws budgets describe-budget \
             --account-id "${account}" \
-            --budget-name portfolio-labs-monthly-cost \
+            --budget-name "${BUDGET_NAME}" \
             > "${CONTROL_DIR}/budget-after-deployment.json"
           aws budgets describe-notifications-for-budget \
             --account-id "${account}" \
-            --budget-name portfolio-labs-monthly-cost \
+            --budget-name "${BUDGET_NAME}" \
             > "${CONTROL_DIR}/budget-notifications-after-deployment.json"
           python scripts/verify_budget.py \
             "${CONTROL_DIR}/budget-after-deployment.json" \
@@ -279,7 +287,6 @@ jobs:
     env:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
-      AWS_REGION: ${{ vars.AWS_REGION }}
       RUN_ID: ${{ github.run_id }}
       TF_DIR: infra/atlas
       EVIDENCE_DIR: evidence/deployment/${{ github.run_id }}
@@ -287,6 +294,16 @@ jobs:
       BUDGET_CEILING_USD: ${{ inputs.budget_ceiling_usd }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Load and verify the checked-in AWS target
+        id: target
+        run: |
+          python scripts/load_aws_target.py \
+            --github-output "${GITHUB_OUTPUT}" \
+            --github-env "${GITHUB_ENV}" \
+            --expect-role-arn "${{ vars.AWS_ROLE_ARN }}" \
+            --expect-region "${{ vars.AWS_REGION }}" \
+            --expect-repository "${GITHUB_REPOSITORY}" \
+            --expect-ref "${GITHUB_REF}"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
@@ -296,8 +313,8 @@ jobs:
           terraform_wrapper: false
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
+          role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
+          aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-deploy-teardown-${{ github.run_id }}
 
       - name: Prepare teardown workspace
@@ -330,8 +347,10 @@ jobs:
           assert value["repository"] == os.environ["GITHUB_REPOSITORY"]
           assert value["run_id"] == os.environ["GITHUB_RUN_ID"]
           assert value["source_commit"] == os.environ["GITHUB_SHA"]
-          assert value["account"] == "887720497919"
-          assert value["region"] == "ap-south-1"
+          assert value["account"] == os.environ["AWS_ACCOUNT_ID"]
+          assert value["region"] == os.environ["AWS_REGION"]
+          assert value["backend_bucket"] == os.environ["TERRAFORM_STATE_BUCKET"]
+          assert value["backend_key"] == os.environ["TERRAFORM_STATE_KEY"]
           PY
             echo "present=true" >> "${GITHUB_OUTPUT}"
           else
@@ -345,10 +364,10 @@ jobs:
         run: |
           set -euo pipefail
           terraform -chdir="${TF_DIR}" init \
-            -backend-config="bucket=portfolio-lab-tfstate-887720497919-ap-south-1" \
-            -backend-config="key=atlasretail/main.tfstate" \
+            -backend-config="bucket=${TERRAFORM_STATE_BUCKET}" \
+            -backend-config="key=${TERRAFORM_STATE_KEY}" \
             -backend-config="region=${AWS_REGION}" \
-            -backend-config="dynamodb_table=portfolio-lab-terraform-locks" \
+            -backend-config="dynamodb_table=${TERRAFORM_LOCK_TABLE}" \
             -backend-config="encrypt=true" \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-teardown-init.log"
           outputs="${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
@@ -412,11 +431,11 @@ jobs:
           account="$(aws sts get-caller-identity --query Account --output text)"
           aws budgets describe-budget \
             --account-id "${account}" \
-            --budget-name portfolio-labs-monthly-cost \
+            --budget-name "${BUDGET_NAME}" \
             > "${CONTROL_DIR}/budget-after-teardown.json"
           aws budgets describe-notifications-for-budget \
             --account-id "${account}" \
-            --budget-name portfolio-labs-monthly-cost \
+            --budget-name "${BUDGET_NAME}" \
             > "${CONTROL_DIR}/budget-notifications-after-teardown.json"
           python scripts/verify_budget.py \
             "${CONTROL_DIR}/budget-after-teardown.json" \

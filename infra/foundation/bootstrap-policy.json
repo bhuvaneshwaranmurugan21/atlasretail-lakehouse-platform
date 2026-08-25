@@ -15,7 +15,7 @@
         "cloudformation:GetTemplate",
         "cloudformation:UpdateStack"
       ],
-      "Resource": "arn:aws:cloudformation:ap-south-1:887720497919:stack/portfolio-lab-foundation/*"
+      "Resource": "arn:aws:cloudformation:ap-southeast-2:857229544428:stack/portfolio-lab-foundation/*"
     },
     {
       "Sid": "ValidateFoundationTemplate",
@@ -41,8 +41,8 @@
         "s3:PutBucketOwnershipControls"
       ],
       "Resource": [
-        "arn:aws:s3:::portfolio-lab-tfstate-887720497919-ap-south-1",
-        "arn:aws:s3:::portfolio-lab-tfstate-887720497919-ap-south-1/*"
+        "arn:aws:s3:::portfolio-lab-tfstate-857229544428-ap-southeast-2",
+        "arn:aws:s3:::portfolio-lab-tfstate-857229544428-ap-southeast-2/*"
       ]
     },
     {
@@ -59,8 +59,8 @@
         "dynamodb:UpdateTimeToLive"
       ],
       "Resource": [
-        "arn:aws:dynamodb:ap-south-1:887720497919:table/portfolio-lab-terraform-locks",
-        "arn:aws:dynamodb:ap-south-1:887720497919:table/portfolio-lab-account-lease"
+        "arn:aws:dynamodb:ap-southeast-2:857229544428:table/portfolio-lab-terraform-locks",
+        "arn:aws:dynamodb:ap-southeast-2:857229544428:table/portfolio-lab-account-lease"
       ]
     },
     {

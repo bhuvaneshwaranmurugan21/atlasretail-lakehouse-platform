@@ -2,7 +2,13 @@
 
 ## Current stop condition
 
-Do not dispatch the data-processing workflow unless the read-only preflight records an AWS account
+Part 1 only rebinds executable repository configuration to the target in
+`.github/atlas-target.json`. Do not dispatch the foundation, preflight, plan, probe, deployment, or
+data-processing workflows until their later completion gates are explicitly authorized. The only
+AWS workflow permitted after this rebind is the identity-only OIDC check.
+
+Before a later bounded execution, do not dispatch the data-processing workflow unless the
+read-only preflight records an AWS account
 plan of `PAID` and `ACTIVE` with remaining USD credits at or above the bounded run's cost ceiling,
 and the definition-only Glue capability probe creates and deletes its temporary job successfully.
 The probe must report zero Glue job runs and independently verify cleanup. A visible Glue console
@@ -11,7 +17,8 @@ denial stopped during Terraform apply; no Glue, Step Functions, or Athena worklo
 
 ## Preconditions
 
-1. Use account `887720497919` and region `ap-south-1`.
+1. Load account `857229544428`, region `ap-southeast-2`, role, backend, repository, and branch from
+   `.github/atlas-target.json`; fail if GitHub variables differ.
 2. Keep the GitHub OIDC trust restricted to this repository's `main` branch.
 3. Confirm that the deployed inline policy matches
    `infra/iam/atlasretail-github-role-policy.json`.
@@ -100,6 +107,8 @@ identity. Do not manually change the active pointer.
 If Terraform apply partially succeeds and normal teardown cannot refresh state, use an
 incident-specific rescue authorization. The rescue path may only initialize the exact backend,
 create and validate a saved destroy-only plan, apply that plan, and independently verify absence.
+The previous environment's rescue workflow and authorizations are a non-executable forensic archive
+under `docs/incidents/legacy/`; they must never be dispatched against the current target.
 
 ## Teardown verification
 

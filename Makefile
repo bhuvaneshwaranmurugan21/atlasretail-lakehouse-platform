@@ -1,7 +1,7 @@
 .PHONY: test quality evidence clean
 
 test:
-	python -m unittest discover -s tests -v
+	python -m pytest
 
 quality:
 	python -m ruff check .
@@ -13,4 +13,3 @@ evidence:
 
 clean:
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +
-
