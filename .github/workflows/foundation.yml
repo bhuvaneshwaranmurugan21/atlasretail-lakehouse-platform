@@ -205,12 +205,14 @@ jobs:
           aws dynamodb get-item \
             --table-name "${ACCOUNT_LEASE_TABLE}" \
             --key '{"lock_id":{"S":"portfolio-lab"}}' \
-            --consistent-read > "${CONTROL_DIR}/lease-after-release.json"
+            --consistent-read \
+            --query '{Item: Item}' \
+            --output json > "${CONTROL_DIR}/lease-after-release.json"
           python - "${CONTROL_DIR}/lease-after-release.json" \
             "${EVIDENCE_DIR}/lease-release.json" <<'PY'
           import json, pathlib, sys
           value = json.load(open(sys.argv[1], encoding="utf-8"))
-          assert "Item" not in value, value
+          assert isinstance(value, dict) and value.get("Item") is None, value
           pathlib.Path(sys.argv[2]).write_text(
               json.dumps({"result": "PASS", "owner_scoped_release": True}, sort_keys=True) + "\n",
               encoding="utf-8",
