@@ -13,6 +13,7 @@ completed.
 | Athena | Exact validation queries only | Workgroup byte cutoff |
 | CloudWatch | Short-lived execution logs | Seven-day retention and teardown |
 | KMS | One temporary data key | Alias deletion and scheduled key deletion |
+| Persistent foundation | Small versioned S3 state plus two empty on-demand DynamoDB tables with PITR | Exact named resources and a $20 gross-cost budget with 50%, 80%, and 100% alerts |
 
 ## Measurement model
 
@@ -27,3 +28,8 @@ included by the immediate calculator can create a difference.
 AWS Budgets provide delayed alerts rather than an instantaneous spending cutoff. The saved-plan
 resource ceiling, workload limit, execution timeout, account lease, and independent teardown are
 the primary runtime controls.
+
+The target member account can show zero locally owned credits while eligible organization credits
+remain available through consolidated billing. A short-lived checked-in attestation records that
+manual management-account verification; it is not a real-time balance API and automatically
+becomes unusable after its `valid_until` timestamp.

@@ -11,7 +11,7 @@ SPEC.loader.exec_module(MODULE)
 
 
 def trust(
-    subject: str = MODULE.EXPECTED_SUBJECT,
+    subject: str | list[str] = MODULE.EXPECTED_SUBJECT,
     *,
     subject_operator: str = "StringLike",
     federated_as_list: bool = False,
@@ -42,6 +42,10 @@ def trust(
     }
 
 
+def tracked_trust() -> dict[str, object]:
+    return trust([MODULE.EXPECTED_SUBJECT, MODULE.EXPECTED_STABLE_ID_SUBJECT])
+
+
 def test_exact_role_policy_and_main_branch_trust_pass() -> None:
     tracked = {
         "Version": "2012-10-17",
@@ -49,6 +53,7 @@ def test_exact_role_policy_and_main_branch_trust_pass() -> None:
     }
     result = MODULE.verify(
         tracked,
+        tracked_trust(),
         {"Role": {"RoleName": MODULE.ROLE_NAME, "AssumeRolePolicyDocument": trust()}},
         {"PolicyNames": [MODULE.POLICY_NAME]},
         {"AttachedPolicies": []},
@@ -70,6 +75,7 @@ def test_exact_string_equals_subject_is_accepted() -> None:
     tracked = {"Version": "2012-10-17", "Statement": []}
     result = MODULE.verify(
         tracked,
+        tracked_trust(),
         {
             "Role": {
                 "RoleName": MODULE.ROLE_NAME,
@@ -94,6 +100,7 @@ def test_stable_owner_and_repository_id_subject_is_accepted() -> None:
     tracked = {"Version": "2012-10-17", "Statement": []}
     result = MODULE.verify(
         tracked,
+        tracked_trust(),
         {
             "Role": {
                 "RoleName": MODULE.ROLE_NAME,
@@ -132,6 +139,7 @@ def test_equivalent_statement_grouping_is_accepted() -> None:
     }
     result = MODULE.verify(
         tracked,
+        tracked_trust(),
         {"Role": {"RoleName": MODULE.ROLE_NAME, "AssumeRolePolicyDocument": trust()}},
         {"PolicyNames": [MODULE.POLICY_NAME]},
         {"AttachedPolicies": []},
@@ -149,6 +157,7 @@ def test_broad_trust_or_managed_policy_fails() -> None:
     tracked = {"Version": "2012-10-17", "Statement": []}
     result = MODULE.verify(
         tracked,
+        tracked_trust(),
         {
             "Role": {
                 "RoleName": MODULE.ROLE_NAME,
@@ -180,6 +189,7 @@ def test_permission_difference_is_reported_without_full_documents() -> None:
     }
     result = MODULE.verify(
         tracked,
+        tracked_trust(),
         {"Role": {"RoleName": MODULE.ROLE_NAME, "AssumeRolePolicyDocument": trust()}},
         {"PolicyNames": [MODULE.POLICY_NAME]},
         {"AttachedPolicies": []},
@@ -192,3 +202,53 @@ def test_permission_difference_is_reported_without_full_documents() -> None:
 
     assert result["missing_permission_atoms"][0]["Action"] == "service:Required"
     assert result["extra_permission_atoms"][0]["Action"] == "service:Extra"
+
+
+def test_additional_broad_allow_cannot_hide_behind_a_valid_statement() -> None:
+    live_trust = trust()
+    live_trust["Statement"].append(trust("repo:bhuvaneshwaranmurugan21/*")["Statement"][0])
+    tracked = {"Version": "2012-10-17", "Statement": []}
+
+    result = MODULE.verify(
+        tracked,
+        tracked_trust(),
+        {"Role": {"RoleName": MODULE.ROLE_NAME, "AssumeRolePolicyDocument": live_trust}},
+        {"PolicyNames": [MODULE.POLICY_NAME]},
+        {"AttachedPolicies": []},
+        {
+            "RoleName": MODULE.ROLE_NAME,
+            "PolicyName": MODULE.POLICY_NAME,
+            "PolicyDocument": tracked,
+        },
+    )
+
+    assert result["result"] == "FAIL"
+    assert result["trust_policy_valid"] is False
+
+
+def test_non_federated_broad_principal_cannot_hide_behind_valid_statement() -> None:
+    live_trust = trust()
+    live_trust["Statement"].append(
+        {
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "sts:AssumeRoleWithWebIdentity",
+        }
+    )
+    tracked = {"Version": "2012-10-17", "Statement": []}
+
+    result = MODULE.verify(
+        tracked,
+        tracked_trust(),
+        {"Role": {"RoleName": MODULE.ROLE_NAME, "AssumeRolePolicyDocument": live_trust}},
+        {"PolicyNames": [MODULE.POLICY_NAME]},
+        {"AttachedPolicies": []},
+        {
+            "RoleName": MODULE.ROLE_NAME,
+            "PolicyName": MODULE.POLICY_NAME,
+            "PolicyDocument": tracked,
+        },
+    )
+
+    assert result["result"] == "FAIL"
+    assert result["trust_policy_valid"] is False

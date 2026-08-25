@@ -2,6 +2,7 @@
 set -euo pipefail
 
 : "${AWS_REGION:?AWS_REGION is required}"
+: "${ACCOUNT_LEASE_TABLE:?ACCOUNT_LEASE_TABLE is required}"
 if [[ -z "${PORTFOLIO_LOCK_OWNER:-}" ]]; then
   exit 0
 fi
@@ -9,7 +10,7 @@ fi
 set +e
 detail="$(aws dynamodb delete-item \
   --region "${AWS_REGION}" \
-  --table-name portfolio-lab-account-lease \
+  --table-name "${ACCOUNT_LEASE_TABLE}" \
   --key '{"lock_id":{"S":"portfolio-lab"}}' \
   --condition-expression "#owner = :owner" \
   --expression-attribute-names '{"#owner":"owner"}' \

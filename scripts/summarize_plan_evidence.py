@@ -36,6 +36,7 @@ def main(arguments: list[str]) -> int:
         "zero_persistent_change": load(root, "no-change-verification.json").get("result") == "PASS",
     }
     budget = load(root, "budget-verification.json")
+    account_plan = load(root, "account-plan-verification.json")
     plan = load(root, "terraform-plan-validation.json")
     result = "PASS" if all(checks.values()) else "FAIL"
     summary = {
@@ -53,8 +54,10 @@ def main(arguments: list[str]) -> int:
         "cost_control": {
             "planned_gross_cost_ceiling_usd": budget.get("planned_gross_cost_ceiling_usd"),
             "budget_headroom_usd": budget.get("budget_headroom_usd"),
-            "remaining_account_credit_usd": load(root, "account-plan-verification.json").get(
-                "remaining_credit_usd"
+            "credit_source": account_plan.get("credit_source"),
+            "remaining_member_account_credit_usd": account_plan.get("remaining_credit_usd"),
+            "verified_organization_shared_credit_usd": account_plan.get(
+                "organization_shared_credit_usd"
             ),
             "measured_workload_cost": False,
         },

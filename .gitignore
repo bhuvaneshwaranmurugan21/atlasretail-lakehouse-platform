@@ -19,3 +19,4 @@ dist/
 build/
 evidence/aws/*
 !evidence/aws/.gitkeep
+!evidence/aws/organization-shared-credit-baseline.json

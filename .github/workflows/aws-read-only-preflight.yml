@@ -58,7 +58,8 @@ jobs:
           python scripts/verify_account_plan.py \
             "${EVIDENCE_DIR}/account-plan.json" \
             "${EVIDENCE_DIR}/account-plan-verification.json" \
-            5
+            5 \
+            evidence/aws/organization-shared-credit-baseline.json
       - name: Read the remote backend without deployment
         run: |
           set -euo pipefail

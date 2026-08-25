@@ -71,6 +71,7 @@ def test_active_aws_workflows_load_the_target_and_pin_credentials_action() -> No
         "aws-bounded-lab.yml",
         "aws-controlled-deployment.yml",
         "aws-glue-service-probe.yml",
+        "aws-iam-baseline.yml",
         "aws-oidc-identity.yml",
         "aws-plan-only.yml",
         "aws-read-only-preflight.yml",
@@ -150,11 +151,13 @@ def test_static_aws_documents_match_the_current_target() -> None:
     terraform = (ROOT / "infra" / "atlas" / "variables.tf").read_text(encoding="utf-8")
     ci = (WORKFLOWS / "ci.yml").read_text(encoding="utf-8")
     iam = (ROOT / "infra" / "iam" / "atlasretail-github-role-policy.json").read_text()
+    trust = (ROOT / "infra" / "iam" / "atlasretail-github-role-trust-policy.json").read_text()
     bootstrap = (ROOT / "infra" / "foundation" / "bootstrap-policy.json").read_text()
 
     assert f'default     = "{region}"' in terraform
     assert f'var.aws_region == "{region}"' in terraform
     assert f"--regions {region}" in ci
     assert f"arn:aws:iam::{account}:role/AtlasRetailGitHubOidcRole" in iam
+    assert f"arn:aws:iam::{account}:oidc-provider/token.actions.githubusercontent.com" in trust
     assert bucket in iam
     assert bucket in bootstrap

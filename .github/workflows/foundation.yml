@@ -3,6 +3,9 @@ name: Shared AWS foundation
 on:
   workflow_dispatch:
     inputs:
+      confirm_deploy:
+        description: Type DEPLOY_ATLASRETAIL_FOUNDATION
+        required: true
       monthly_budget_usd:
         description: Monthly gross-cost guardrail in USD
         required: true
@@ -19,7 +22,17 @@ concurrency:
 jobs:
   deploy-foundation:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_DIR: infra/atlas
+      CONTROL_DIR: .control/foundation/${{ github.run_id }}
+      EVIDENCE_DIR: evidence/foundation/${{ github.run_id }}
+      POLICY_NAME: AtlasRetailBoundedLabPolicy
+      CONFIRM_DEPLOY: ${{ inputs.confirm_deploy }}
+      BUDGET_USD: ${{ inputs.monthly_budget_usd }}
+      BUDGET_ALERT_EMAIL: ${{ secrets.AWS_BUDGET_ALERT_EMAIL }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Load and verify the checked-in AWS target
@@ -32,48 +45,193 @@ jobs:
             --expect-region "${{ vars.AWS_REGION }}" \
             --expect-repository "${GITHUB_REPOSITORY}" \
             --expect-ref "${GITHUB_REF}"
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: 1.11.4
+          terraform_wrapper: false
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
-      - name: Prove identity
+          role-session-name: atlasretail-foundation-${{ github.run_id }}
+      - name: Validate immutable admission bounds
         run: |
           set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${GITHUB_ACTOR}" = "bhuvaneshwaranmurugan21"
+          test "${CONFIRM_DEPLOY}" = "DEPLOY_ATLASRETAIL_FOUNDATION"
+          test "${BUDGET_USD}" = "${MONTHLY_BUDGET_USD}"
+          test -n "${BUDGET_ALERT_EMAIL}"
+          [[ "${BUDGET_ALERT_EMAIL}" == *@*.* ]]
+          mkdir -p "${CONTROL_DIR}" "${EVIDENCE_DIR}"
           account="$(aws sts get-caller-identity --query Account --output text)"
           test "${account}" = "${AWS_ACCOUNT_ID}"
           test "${AWS_REGION}" = "${{ steps.target.outputs.aws_region }}"
-      - name: Validate and deploy
-        env:
-          BUDGET_USD: ${{ inputs.monthly_budget_usd }}
+          aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
+      - name: Prove live IAM parity before foundation mutation
         run: |
           set -euo pipefail
-          test "${BUDGET_USD}" -ge 1
-          test "${BUDGET_USD}" = "${MONTHLY_BUDGET_USD}"
-          mkdir -p evidence/foundation
+          aws iam get-role --role-name "${OIDC_ROLE_NAME}" \
+            > "${CONTROL_DIR}/role.json"
+          aws iam list-role-policies --role-name "${OIDC_ROLE_NAME}" \
+            > "${CONTROL_DIR}/inline-policy-names.json"
+          aws iam list-attached-role-policies --role-name "${OIDC_ROLE_NAME}" \
+            > "${CONTROL_DIR}/attached-policies.json"
+          aws iam get-role-policy \
+            --role-name "${OIDC_ROLE_NAME}" \
+            --policy-name "${POLICY_NAME}" \
+            > "${CONTROL_DIR}/live-role-policy.json"
+          python scripts/verify_iam_parity.py \
+            infra/iam/atlasretail-github-role-policy.json \
+            infra/iam/atlasretail-github-role-trust-policy.json \
+            "${CONTROL_DIR}/role.json" \
+            "${CONTROL_DIR}/inline-policy-names.json" \
+            "${CONTROL_DIR}/attached-policies.json" \
+            "${CONTROL_DIR}/live-role-policy.json" \
+            "${EVIDENCE_DIR}/iam-parity.json"
+      - name: Validate and deploy the exact foundation stack
+        run: |
+          set -euo pipefail
           aws cloudformation validate-template \
             --template-body file://infra/foundation/template.yml \
-            > evidence/foundation/validate-template.json
+            > "${EVIDENCE_DIR}/validate-template.json"
           aws cloudformation deploy \
             --stack-name portfolio-lab-foundation \
             --template-file infra/foundation/template.yml \
-            --parameter-overrides MonthlyBudgetUsd="${BUDGET_USD}" \
+            --parameter-overrides \
+              MonthlyBudgetUsd="${BUDGET_USD}" \
+              BudgetAlertEmail="${BUDGET_ALERT_EMAIL}" \
             --no-fail-on-empty-changeset \
-            2>&1 | tee evidence/foundation/deploy.log
-      - name: Record outputs
+            2>&1 | tee "${EVIDENCE_DIR}/deploy.log"
+      - name: Capture foundation configuration
         run: |
           set -euo pipefail
-          mkdir -p evidence/foundation
           aws cloudformation describe-stacks \
             --stack-name portfolio-lab-foundation \
-            --query 'Stacks[0].{StackId:StackId,Status:StackStatus,Outputs:Outputs}' \
-            > evidence/foundation/stack.json
-          aws dynamodb describe-time-to-live \
+            > "${CONTROL_DIR}/stack.json"
+          aws cloudformation list-stack-resources \
+            --stack-name portfolio-lab-foundation \
+            > "${CONTROL_DIR}/stack-resources.json"
+          aws s3api get-bucket-encryption --bucket "${TERRAFORM_STATE_BUCKET}" \
+            > "${CONTROL_DIR}/bucket-encryption.json"
+          aws s3api get-bucket-versioning --bucket "${TERRAFORM_STATE_BUCKET}" \
+            > "${CONTROL_DIR}/bucket-versioning.json"
+          aws s3api get-bucket-ownership-controls --bucket "${TERRAFORM_STATE_BUCKET}" \
+            > "${CONTROL_DIR}/bucket-ownership.json"
+          aws s3api get-public-access-block --bucket "${TERRAFORM_STATE_BUCKET}" \
+            > "${CONTROL_DIR}/bucket-public-access.json"
+          aws s3api get-bucket-policy --bucket "${TERRAFORM_STATE_BUCKET}" \
+            > "${CONTROL_DIR}/bucket-policy.json"
+          aws s3api get-bucket-lifecycle-configuration --bucket "${TERRAFORM_STATE_BUCKET}" \
+            > "${CONTROL_DIR}/bucket-lifecycle.json"
+          aws dynamodb wait table-exists --table-name "${TERRAFORM_LOCK_TABLE}"
+          aws dynamodb wait table-exists --table-name "${ACCOUNT_LEASE_TABLE}"
+          aws dynamodb describe-table --table-name "${TERRAFORM_LOCK_TABLE}" \
+            > "${CONTROL_DIR}/lock-table.json"
+          aws dynamodb describe-continuous-backups --table-name "${TERRAFORM_LOCK_TABLE}" \
+            > "${CONTROL_DIR}/lock-backups.json"
+          aws dynamodb describe-table --table-name "${ACCOUNT_LEASE_TABLE}" \
+            > "${CONTROL_DIR}/lease-table.json"
+          aws dynamodb describe-continuous-backups --table-name "${ACCOUNT_LEASE_TABLE}" \
+            > "${CONTROL_DIR}/lease-backups.json"
+          for attempt in {1..60}; do
+            aws dynamodb describe-time-to-live --table-name "${ACCOUNT_LEASE_TABLE}" \
+              > "${CONTROL_DIR}/lease-ttl.json"
+            if python - "${CONTROL_DIR}/lease-ttl.json" <<'PY'
+          import json, sys
+          value = json.load(open(sys.argv[1], encoding="utf-8"))
+          raise SystemExit(value.get("TimeToLiveDescription", {}).get("TimeToLiveStatus") != "ENABLED")
+          PY
+            then
+              break
+            fi
+            test "${attempt}" -lt 60
+            sleep 10
+          done
+          aws budgets describe-budget \
+            --account-id "${AWS_ACCOUNT_ID}" \
+            --budget-name "${BUDGET_NAME}" \
+            > "${CONTROL_DIR}/budget.json"
+          aws budgets describe-notifications-for-budget \
+            --account-id "${AWS_ACCOUNT_ID}" \
+            --budget-name "${BUDGET_NAME}" \
+            > "${CONTROL_DIR}/budget-notifications.json"
+          aws budgets describe-subscribers-for-notification \
+            --account-id "${AWS_ACCOUNT_ID}" --budget-name "${BUDGET_NAME}" \
+            --notification 'NotificationType=ACTUAL,ComparisonOperator=GREATER_THAN,Threshold=50,ThresholdType=PERCENTAGE' \
+            > "${CONTROL_DIR}/budget-subscribers-actual-50.json"
+          aws budgets describe-subscribers-for-notification \
+            --account-id "${AWS_ACCOUNT_ID}" --budget-name "${BUDGET_NAME}" \
+            --notification 'NotificationType=ACTUAL,ComparisonOperator=GREATER_THAN,Threshold=80,ThresholdType=PERCENTAGE' \
+            > "${CONTROL_DIR}/budget-subscribers-actual-80.json"
+          aws budgets describe-subscribers-for-notification \
+            --account-id "${AWS_ACCOUNT_ID}" --budget-name "${BUDGET_NAME}" \
+            --notification 'NotificationType=FORECASTED,ComparisonOperator=GREATER_THAN,Threshold=100,ThresholdType=PERCENTAGE' \
+            > "${CONTROL_DIR}/budget-subscribers-forecasted-100.json"
+      - name: Prove empty AtlasRetail backend and zero workload resources
+        run: |
+          set -euo pipefail
+          terraform -chdir="${TF_DIR}" init \
+            -backend-config="bucket=${TERRAFORM_STATE_BUCKET}" \
+            -backend-config="key=${TERRAFORM_STATE_KEY}" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=${TERRAFORM_LOCK_TABLE}" \
+            -backend-config="encrypt=true" \
+            2>&1 | tee "${EVIDENCE_DIR}/terraform-init.log"
+          python scripts/verify_preflight.py \
+            "${TF_DIR}" "${EVIDENCE_DIR}/zero-workload-preflight.json"
+      - name: Acquire the account lease
+        run: bash scripts/acquire_lock.sh
+      - name: Prove lease contention
+        run: |
+          set -euo pipefail
+          now_epoch="$(date +%s)"
+          expires_at="$((now_epoch + 300))"
+          set +e
+          detail="$(aws dynamodb put-item \
             --table-name "${ACCOUNT_LEASE_TABLE}" \
-            > evidence/foundation/lease-ttl.json
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+            --item "{\"lock_id\":{\"S\":\"portfolio-lab\"},\"owner\":{\"S\":\"contender/${GITHUB_RUN_ID}\"},\"expires_at\":{\"N\":\"${expires_at}\"}}" \
+            --condition-expression 'attribute_not_exists(lock_id)' 2>&1)"
+          status="$?"
+          set -e
+          test "${status}" -ne 0
+          [[ "${detail}" == *"ConditionalCheckFailedException"* ]]
+          printf '{"result":"PASS","contention_blocked":true}\n' \
+            > "${EVIDENCE_DIR}/lease-contention.json"
+      - name: Release and verify the account lease
+        run: |
+          set -euo pipefail
+          bash scripts/release_lock.sh
+          aws dynamodb get-item \
+            --table-name "${ACCOUNT_LEASE_TABLE}" \
+            --key '{"lock_id":{"S":"portfolio-lab"}}' \
+            --consistent-read > "${CONTROL_DIR}/lease-after-release.json"
+          python - "${CONTROL_DIR}/lease-after-release.json" \
+            "${EVIDENCE_DIR}/lease-release.json" <<'PY'
+          import json, pathlib, sys
+          value = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert "Item" not in value, value
+          pathlib.Path(sys.argv[2]).write_text(
+              json.dumps({"result": "PASS", "owner_scoped_release": True}, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+      - name: Verify the complete foundation and lease evidence
+        run: |
+          python scripts/verify_foundation.py \
+            "${CONTROL_DIR}" \
+            "${EVIDENCE_DIR}/zero-workload-preflight.json" \
+            "${EVIDENCE_DIR}/lease-contention.json" \
+            "${EVIDENCE_DIR}/lease-release.json" \
+            "${EVIDENCE_DIR}/foundation-verification.json"
+      - name: Release this run's lease after any failure
         if: always()
+        run: bash scripts/release_lock.sh
+      - name: Upload sanitized foundation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: foundation-evidence-${{ github.run_id }}
-          path: evidence/foundation
+          name: atlasretail-foundation-${{ github.run_id }}
+          path: evidence/foundation/${{ github.run_id }}
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30

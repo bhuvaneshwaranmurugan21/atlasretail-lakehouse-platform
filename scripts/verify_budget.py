@@ -55,7 +55,7 @@ def verify(
     notifications = notification_payload.get("Notifications")
     notification_count = len(notifications) if isinstance(notifications, list) else 0
     if notification_count == 0:
-        warnings.append("Budget has no configured notifications; runtime bounds remain primary")
+        errors.append("Budget must have configured notifications")
 
     return {
         "result": "PASS" if not errors else "FAIL",

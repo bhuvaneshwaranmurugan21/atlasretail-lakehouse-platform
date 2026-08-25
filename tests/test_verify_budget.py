@@ -22,13 +22,13 @@ def budget(limit: str = "20", actual: str = "1.25") -> dict[str, object]:
     }
 
 
-def test_budget_headroom_passes_without_notifications_as_warning() -> None:
-    result = MODULE.verify(budget(), {"Notifications": []}, 5)
+def test_budget_headroom_and_notifications_pass() -> None:
+    result = MODULE.verify(budget(), {"Notifications": [{"Threshold": 50}]}, 5)
 
     assert result["result"] == "PASS"
     assert result["budget_headroom_usd"] == 18.75
-    assert result["notification_count"] == 0
-    assert result["warnings"]
+    assert result["notification_count"] == 1
+    assert result["warnings"] == []
 
 
 def test_insufficient_headroom_fails_closed() -> None:
@@ -36,3 +36,10 @@ def test_insufficient_headroom_fails_closed() -> None:
 
     assert result["result"] == "FAIL"
     assert "headroom" in result["errors"][0]
+
+
+def test_missing_notifications_fail_closed() -> None:
+    result = MODULE.verify(budget(), {"Notifications": []}, 5)
+
+    assert result["result"] == "FAIL"
+    assert "notifications" in result["errors"][-1]

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Hardened the persistent AWS foundation with email budget alerts, two encrypted PITR-enabled
+  DynamoDB control tables, TTL-backed account leases, exact post-deployment verification, and
+  manual mutation confirmation.
+- Added a canonical OIDC trust contract, an independent read-only IAM-parity workflow, and
+  fail-closed rejection of any additional broad trust grant.
+- Added short-lived, owner-attested organization-shared credit evidence so a zero member-account
+  balance no longer hides valid consolidated-billing coverage or silently bypasses credit checks.
 - Added one validated source of truth for the current AtlasRetail AWS account, region, OIDC role,
   backend, repository, branch, budget, and run ceiling.
 - Rebound active workflows, Terraform guards, IAM policy documents, scripts, tests, and CI to the
