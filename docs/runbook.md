@@ -9,10 +9,10 @@ foundation, and commit its sanitized evidence. Do not dispatch plan, probe, cont
 or data-processing workflows before those gates pass.
 
 Before a later bounded execution, do not dispatch the data-processing workflow unless the
-read-only preflight records an AWS account
-plan of `PAID` and `ACTIVE` with either member-account or current organization-shared credit at or
-above the bounded run's cost ceiling,
-and the definition-only Glue capability probe creates and deletes its temporary job successfully.
+read-only preflight records `PAID` and `ACTIVE` when AWS exposes an account-plan record, or records
+the exact AWS missing-data response for this member account with current organization-shared
+credit at or above the bounded run's cost ceiling. The definition-only Glue capability probe must
+also create and delete its temporary job successfully.
 The probe must report zero Glue job runs and independently verify cleanup. A visible Glue console
 or available CloudShell session is not evidence of `glue:CreateJob` authorization. The previous
 denial stopped during Terraform apply; no Glue, Step Functions, or Athena workload executed.
@@ -26,9 +26,10 @@ denial stopped during Terraform apply; no Glue, Step Functions, or Athena worklo
 3. Confirm that the deployed inline policy matches
    `infra/iam/atlasretail-github-role-policy.json`.
 4. Require a successful identity-only workflow and read-only environment preflight.
-5. Require `freetier:GetAccountPlanState` to return `PAID` and `ACTIVE`. Accept a zero local credit
-   only while `evidence/aws/organization-shared-credit-baseline.json` is current, targets this
-   member account, attests active unrestricted sharing, and covers the run ceiling.
+5. Require `freetier:GetAccountPlanState` to return `PAID` and `ACTIVE` when a plan record exists.
+   If AWS returns the exact `ResourceNotFoundException` missing-data response for this member
+   account, accept only while `evidence/aws/organization-shared-credit-baseline.json` is current,
+   targets this account, attests active unrestricted sharing, and covers the run ceiling.
 6. Run the definition-only Glue service probe and require successful creation, deletion,
    independently verified cleanup, and zero job runs.
 7. Confirm that `atlasretail/main.tfstate` is readable and empty.
@@ -55,8 +56,10 @@ denial stopped during Terraform apply; no Glue, Step Functions, or Athena worklo
 The `AWS plan-only proof` workflow runs before any deployment authorization. It:
 
 1. Obtains short-lived credentials through the repository-and-branch-bound OIDC role.
-2. Verifies the paid account state, remaining credits, monthly budget, current spend, and a
-   five-dollar gross run ceiling.
+2. Verifies the paid account state when AWS exposes a plan record. For an organization member
+   account with no plan record, it accepts only the exact AWS missing-data response plus current,
+   account-bound organization-shared credit. It also verifies the monthly budget, current spend,
+   and a five-dollar gross run ceiling.
 3. Compares the live inline role policy with the checked-in policy and rejects managed-policy
    attachments or broader OIDC trust.
 4. Reads the locked remote backend and proves that state and tagged inventory are clean.

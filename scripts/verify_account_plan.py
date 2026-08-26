@@ -81,10 +81,24 @@ def verify(
     plan_status = payload.get("accountPlanStatus")
     credit = payload.get("accountPlanRemainingCredits")
 
-    if plan_type != "PAID":
-        errors.append("AWS account plan is not PAID")
-    if plan_status != "ACTIVE":
-        errors.append("AWS account plan is not ACTIVE")
+    lookup_result = payload.get("accountPlanLookupResult")
+    if lookup_result is None and (plan_type is not None or plan_status is not None):
+        lookup_result = "FOUND"
+    plan_state_found = lookup_result == "FOUND"
+    plan_state_missing = (
+        lookup_result == "NOT_FOUND"
+        and payload.get("errorCode") == "ResourceNotFoundException"
+        and payload.get("accountId") == TARGET["aws_account_id"]
+    )
+
+    if not plan_state_found and not plan_state_missing:
+        errors.append("AWS account-plan lookup result is invalid or targets another account")
+
+    if plan_state_found:
+        if plan_type != "PAID":
+            errors.append("AWS account plan is not PAID")
+        if plan_status != "ACTIVE":
+            errors.append("AWS account plan is not ACTIVE")
 
     amount: float | None = None
     unit: str | None = None
@@ -96,7 +110,9 @@ def verify(
         except (TypeError, ValueError):
             amount = None
 
-    local_credit_sufficient = unit == "USD" and amount is not None and amount >= minimum_credit_usd
+    local_credit_sufficient = (
+        plan_state_found and unit == "USD" and amount is not None and amount >= minimum_credit_usd
+    )
     organization_credit, organization_errors = shared_credit_amount(
         shared_credit_evidence, minimum_credit_usd, checked_at
     )
@@ -114,6 +130,8 @@ def verify(
 
     return {
         "result": "PASS" if not errors else "FAIL",
+        "account_plan_lookup_result": lookup_result,
+        "account_plan_api_available": plan_state_found,
         "account_plan_type": plan_type,
         "account_plan_status": plan_status,
         "remaining_credit_usd": amount,

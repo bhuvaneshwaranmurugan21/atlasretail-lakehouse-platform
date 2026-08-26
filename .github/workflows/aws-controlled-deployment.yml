@@ -78,8 +78,8 @@ jobs:
           account="$(aws sts get-caller-identity --query Account --output text)"
           test "${account}" = "${{ steps.target.outputs.aws_account_id }}"
           aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
-          aws freetier get-account-plan-state --region us-east-1 \
-            > "${EVIDENCE_DIR}/account-plan.json"
+          python scripts/capture_account_plan.py \
+            "${EVIDENCE_DIR}/account-plan.json" "${account}"
           python scripts/verify_account_plan.py \
             "${EVIDENCE_DIR}/account-plan.json" \
             "${EVIDENCE_DIR}/account-plan-verification.json" \

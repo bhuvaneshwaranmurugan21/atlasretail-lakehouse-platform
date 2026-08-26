@@ -92,6 +92,59 @@ def test_current_organization_shared_credit_replaces_zero_member_balance() -> No
     assert result["organization_shared_credit_usd"] == 120.0
 
 
+def test_missing_member_plan_uses_current_organization_shared_credit() -> None:
+    result = MODULE.verify(
+        {
+            "accountId": "857229544428",
+            "accountPlanLookupResult": "NOT_FOUND",
+            "errorCode": "ResourceNotFoundException",
+        },
+        5.0,
+        shared_credit(),
+        datetime(2026, 8, 25, 12, tzinfo=UTC),
+    )
+
+    assert result["result"] == "PASS"
+    assert result["account_plan_api_available"] is False
+    assert result["account_plan_type"] is None
+    assert result["account_plan_status"] is None
+    assert result["credit_source"] == "organization-shared"
+
+
+def test_missing_member_plan_without_current_shared_credit_fails() -> None:
+    result = MODULE.verify(
+        {
+            "accountId": "857229544428",
+            "accountPlanLookupResult": "NOT_FOUND",
+            "errorCode": "ResourceNotFoundException",
+        },
+        5.0,
+        None,
+        datetime(2026, 8, 25, 12, tzinfo=UTC),
+    )
+
+    assert result["result"] == "FAIL"
+    assert result["credit_source"] is None
+
+
+def test_missing_plan_marker_for_another_account_fails() -> None:
+    result = MODULE.verify(
+        {
+            "accountId": "111122223333",
+            "accountPlanLookupResult": "NOT_FOUND",
+            "errorCode": "ResourceNotFoundException",
+        },
+        5.0,
+        shared_credit(),
+        datetime(2026, 8, 25, 12, tzinfo=UTC),
+    )
+
+    assert result["result"] == "FAIL"
+    assert (
+        "AWS account-plan lookup result is invalid or targets another account" in result["errors"]
+    )
+
+
 def test_stale_organization_shared_credit_fails_closed() -> None:
     result = MODULE.verify(
         payload(amount=0),
