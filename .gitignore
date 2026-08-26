@@ -20,3 +20,13 @@ build/
 evidence/aws/*
 !evidence/aws/.gitkeep
 !evidence/aws/organization-shared-credit-baseline.json
+!evidence/aws/foundation/
+evidence/aws/foundation/*
+!evidence/aws/foundation/*/
+evidence/aws/foundation/*/*
+!evidence/aws/foundation/*/manifest.json
+!evidence/aws/foundation/*/foundation-verification.json
+!evidence/aws/foundation/*/iam-parity.json
+!evidence/aws/foundation/*/zero-workload-preflight.json
+!evidence/aws/foundation/*/lease-contention.json
+!evidence/aws/foundation/*/lease-release.json

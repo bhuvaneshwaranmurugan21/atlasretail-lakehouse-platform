@@ -1,0 +1,35 @@
+{
+  "allowed_trust_subjects": [
+    "repo:bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform:ref:refs/heads/main",
+    "repo:bhuvaneshwaranmurugan21@276895096/atlasretail-lakehouse-platform@1333029962:ref:refs/heads/main"
+  ],
+  "errors": [],
+  "extra_permission_atoms": [],
+  "inline_policy_name": "AtlasRetailBoundedLabPolicy",
+  "missing_permission_atoms": [],
+  "no_attached_managed_policies": true,
+  "result": "PASS",
+  "role_name": "AtlasRetailGitHubOidcRole",
+  "tracked_policy_matches_live": true,
+  "trust_observations": [
+    {
+      "actions": [
+        "sts:AssumeRoleWithWebIdentity"
+      ],
+      "audiences": [
+        "sts.amazonaws.com"
+      ],
+      "condition_operators": [
+        "StringEquals"
+      ],
+      "effect": "Allow",
+      "federated_principals": [
+        "arn:aws:iam::857229544428:oidc-provider/token.actions.githubusercontent.com"
+      ],
+      "subjects": [
+        "repo:bhuvaneshwaranmurugan21@276895096/atlasretail-lakehouse-platform@1333029962:ref:refs/heads/main"
+      ]
+    }
+  ],
+  "trust_policy_valid": true
+}
