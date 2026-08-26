@@ -1,0 +1,11 @@
+{
+  "checks": {
+    "glue_job_absent_after_cleanup": true,
+    "iam_role_absent_after_cleanup": true,
+    "workflow_cleanup_step_passed": true
+  },
+  "errors": [],
+  "glue_job_lookup_result": "EntityNotFoundException",
+  "iam_role_lookup_result": "NoSuchEntity",
+  "result": "PASS"
+}

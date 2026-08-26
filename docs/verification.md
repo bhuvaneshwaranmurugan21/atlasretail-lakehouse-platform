@@ -23,6 +23,7 @@ environment that produced it.
 | Organization-shared credit safety | `OWNER_ATTESTED` | Management-account credit balance and unrestricted organization sharing were reviewed; the attestation expires quickly and must be refreshed |
 | IAM and persistent foundation | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) verified exact live IAM parity, hardened persistent resources, budget alerts, lease contention and release, an empty backend, and zero AtlasRetail workload resources |
 | Current-target plan-only environment proof | `AWS_VERIFIED` | [Run 32929299555](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32929299555) verified organization-shared credit, budget headroom, exact IAM parity, a bounded create-only plan, the managed definition, and zero persistent change |
+| Current-target Glue definition capability | `AWS_VERIFIED` | [Run 32930567869](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32930567869) verified bounded `glue:CreateJob` access without starting a workload, then independently verified deletion of the probe job and temporary IAM role |
 | Current-target Terraform safety and teardown | `DESIGNED` | Locally tested controls; no current-target deployment or teardown evidence exists |
 | Glue, Iceberg, Step Functions data path | `DESIGNED` | Hardened managed path exists, but the new workload has not executed |
 | Runtime, throughput, Athena scan, and workload cost | `DESIGNED` | Collection code exists; no successful managed measurement exists |
@@ -51,3 +52,6 @@ GitHub Actions runs and must not contain credentials or customer data.
 The plan-only artifact excludes the binary saved plan and raw expanded resource values. It retains
 the source commit, run identifier, resource address/type/action inventory, validation results,
 budget envelope, before/after baseline proof, and SHA-256 digests of the unabridged ephemeral plan.
+
+The Glue capability artifact proves only definition-plane access and cleanup. It records zero job
+runs and no workload execution, so it does not promote the managed transformation or data path.

@@ -45,3 +45,10 @@ evidence/aws/plan/*/*
 !evidence/aws/plan/*/preflight-after.json
 !evidence/aws/plan/*/no-change-verification.json
 !evidence/aws/plan/*/summary.json
+!evidence/aws/glue-probe/
+evidence/aws/glue-probe/*
+!evidence/aws/glue-probe/*/
+evidence/aws/glue-probe/*/*
+!evidence/aws/glue-probe/*/manifest.json
+!evidence/aws/glue-probe/*/glue-service-probe.json
+!evidence/aws/glue-probe/*/cleanup-verification.json
