@@ -30,7 +30,7 @@ def test_workflow_checks_identity_budget_iam_and_managed_definition() -> None:
 
     required = (
         "aws sts get-caller-identity",
-        "aws freetier get-account-plan-state",
+        "python scripts/capture_account_plan.py",
         "aws budgets describe-budget",
         "aws iam get-role-policy",
         "python scripts/verify_iam_parity.py",

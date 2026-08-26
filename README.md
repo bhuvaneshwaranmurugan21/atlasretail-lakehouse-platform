@@ -118,9 +118,10 @@ Before execution:
 
 1. Require the plan-only proof to verify live IAM parity, an empty baseline, a create-only resource
    envelope, the planned Step Functions definition, and an unchanged post-plan inventory.
-2. Require the read-only account-plan gate to record `PAID` and `ACTIVE`, plus either sufficient
-   member-account credit or current owner-attested organization-shared credit for the bounded
-   run ceiling.
+2. Require the read-only account-plan gate to record `PAID` and `ACTIVE` when AWS exposes a plan
+   record. Organization member accounts with no plan record must return the exact AWS
+   `ResourceNotFoundException` and present current, account-bound organization-shared credit for
+   the bounded run ceiling.
 3. Attach [the checked-in role policy](infra/iam/atlasretail-github-role-policy.json) to
    `AtlasRetailGitHubOidcRole`, preserve the
    [canonical trust contract](infra/iam/atlasretail-github-role-trust-policy.json), and run the
