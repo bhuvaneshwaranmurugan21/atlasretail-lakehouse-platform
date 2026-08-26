@@ -96,6 +96,7 @@ execution.
 | GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` in the current target |
 | Current-target IAM and foundation safety baseline | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) proved exact live IAM parity, the hardened persistent foundation, lease safety, budget alerts, an empty backend, and zero workload resources |
 | Current-target budget, create-only plan, and zero-change proof | `AWS_VERIFIED` | [Run 32929299555](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32929299555) verified shared credit, budget headroom, exact IAM parity, a bounded 40-resource create-only plan, the managed definition, and unchanged empty before/after inventories |
+| Current-target Glue job-definition access and cleanup | `AWS_VERIFIED` | [Run 32930567869](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32930567869) created, inspected, and deleted one unexecuted probe job and its temporary IAM role; zero Glue job runs occurred and independent cleanup checks passed |
 | Current-target saved-plan deployment and exact-state teardown | `NOT_YET_VERIFIED` | Controls are locally tested; no deployment has run in the current target |
 | Managed Glue and Iceberg transformation | `NOT_YET_VERIFIED` | Runtime-compatible local execution passes; the AWS-managed workload has not run |
 | Managed replay, conflict, object tamper, failure, recovery, and Athena validation | `NOT_YET_VERIFIED` | Requires the bounded AWS execution |
@@ -127,8 +128,10 @@ Before execution:
    [canonical trust contract](infra/iam/atlasretail-github-role-trust-policy.json), and run the
    independent IAM baseline verifier.
 4. Require a successful read-only preflight and an empty Atlas Terraform state.
-5. Begin with 500 orders; the workflow enforces a maximum of 2,000 per managed scenario.
-6. Require both the execution summary and independent teardown report to pass.
+5. Require the definition-only Glue capability probe to create, inspect, and delete its temporary
+   job and IAM role with zero Glue job runs.
+6. Begin with 500 orders; the workflow enforces a maximum of 2,000 per managed scenario.
+7. Require both the execution summary and independent teardown report to pass.
 
 The complete procedure and stop conditions are in the [AWS runbook](docs/runbook.md).
 

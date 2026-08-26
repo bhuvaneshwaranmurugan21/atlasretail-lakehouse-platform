@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "project": "AtlasRetail",
+  "evidence_type": "glue-definition-capability-probe",
+  "result": "PASS",
+  "repository": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
+  "workflow": "AWS Glue create/delete capability probe",
+  "run_id": 32930567869,
+  "run_number": 2,
+  "run_url": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32930567869",
+  "source_commit": "bca352732cb9e5d82627edc32321003ad5e0676e",
+  "aws_account_id": "857229544428",
+  "aws_region": "ap-southeast-2",
+  "artifact": {
+    "id": 9593056302,
+    "name": "atlasretail-glue-service-probe-32930567869",
+    "size_bytes": 2309,
+    "sha256": "768416fc1c1fbdc4c2b2cd40f7a1796ed519442a4205872b8d78f8a2f05db04c",
+    "expires_at": "2026-09-25T04:32:20Z"
+  },
+  "excluded_raw_evidence_sha256": {
+    "caller-identity.json": "4ea3b3237e87527438afae901db32ccae862e6b2ac2f855f1e6c947b33eedd9e",
+    "cleanup-get-job.stderr": "01bbaa11a38526f5806c1b5a05e30f8b4987f985ea1739978b3cd313952d22d7",
+    "cleanup-get-role.stderr": "b3d6c4fd37211254f6a3678c83bffcb188f043f89ef1463f88c80035f940669c"
+  },
+  "committed_summaries": {
+    "glue-service-probe.json": "d7a62a5047cbde990bb2894fabc86870e18518861ffd97b31d60240b2326579d",
+    "cleanup-verification.json": "3731068989b60b23cbc916f9c71025244d58f9ae9d02921d1a307caad57e34b1"
+  }
+}
