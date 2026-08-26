@@ -22,7 +22,7 @@ environment that produced it.
 | GitHub OIDC identity | `AWS_VERIFIED` | Current-target short-lived credentials issued to the repository's `main` branch |
 | Organization-shared credit safety | `OWNER_ATTESTED` | Management-account credit balance and unrestricted organization sharing were reviewed; the attestation expires quickly and must be refreshed |
 | IAM and persistent foundation | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) verified exact live IAM parity, hardened persistent resources, budget alerts, lease contention and release, an empty backend, and zero AtlasRetail workload resources |
-| Current-target plan-only environment proof | `DESIGNED` | Manual-only workflow awaits the current-account IAM and foundation baseline |
+| Current-target plan-only environment proof | `AWS_VERIFIED` | [Run 32929299555](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32929299555) verified organization-shared credit, budget headroom, exact IAM parity, a bounded create-only plan, the managed definition, and zero persistent change |
 | Current-target Terraform safety and teardown | `DESIGNED` | Locally tested controls; no current-target deployment or teardown evidence exists |
 | Glue, Iceberg, Step Functions data path | `DESIGNED` | Hardened managed path exists, but the new workload has not executed |
 | Runtime, throughput, Athena scan, and workload cost | `DESIGNED` | Collection code exists; no successful managed measurement exists |

@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "project": "AtlasRetail",
+  "evidence_type": "plan-only-proof",
+  "result": "PASS",
+  "repository": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
+  "workflow": "AWS plan-only proof",
+  "run_id": 32929299555,
+  "run_number": 9,
+  "run_url": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32929299555",
+  "source_commit": "8d94d3726d2d1976d849c582316ed503a7ae7762",
+  "aws_account_id": "857229544428",
+  "aws_region": "ap-southeast-2",
+  "started_at": "2026-08-26T04:11:55Z",
+  "artifact": {
+    "id": 9592637466,
+    "name": "atlasretail-plan-only-32929299555",
+    "size_bytes": 13650,
+    "sha256": "40aaa40a166122437ac18caa4531c5ee67fe97d78b02cbf3ec34f6412563030a",
+    "expires_at": "2026-09-25T04:12:48Z"
+  },
+  "ephemeral_plan_sha256": {
+    "binary_saved_plan": "0aaeb0742686c618d1f9c603e4113ad5fa4f582c3c8b88ec696399e29924c720",
+    "expanded_json": "db74ceda7a0309347fd4856297a22f311a3b07ebec9296d615348bb33858f5a9",
+    "rendered_text": "474ab55692d447e3aeef6d26cc493a4e94554767a5c12d4ead9f06c236659de3"
+  },
+  "committed_summaries": {
+    "account-plan-verification.json": "518ebcffb860527483566463401e776af30ab6956c12ab9d6ca9e526f7e69a76",
+    "budget-verification.json": "543f69e345dbcde8a13b3ade950a222f214d3cdeac0b598d08ab03d2d02e0ab7",
+    "iam-parity.json": "ef99989938f10b89b62ead5e8f388c1236770a21c5d1275674625133f71b1def",
+    "preflight-before.json": "a7f335b1b69db1e2a8114532a1f0a210a6b44e0231e39545a9fe0110780258e0",
+    "terraform-plan-validation.json": "1ebfa7b61b3fd577552d745bece45b8947b3add368319bd1455ae4ec8b9090c4",
+    "terraform-plan-inventory.json": "883e917c801b872f69e04483c540ee3e44e686a782d14b94c0100db53825e652",
+    "state-machine-validation.json": "879791633925d8409600ffe69add049ef148403895969e0c9d03d92c5da88f83",
+    "preflight-after.json": "a7f335b1b69db1e2a8114532a1f0a210a6b44e0231e39545a9fe0110780258e0",
+    "no-change-verification.json": "4be2f271f6410ec6e6533cd9d73b9b84271ef6a1fd3151d678e03f310bb9b416",
+    "summary.json": "3849024858362645f5b039a0133059d1acc107feb75f37e4e78e95f28bc4a24a"
+  }
+}
