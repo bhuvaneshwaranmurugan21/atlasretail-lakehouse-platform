@@ -1,0 +1,7 @@
+{
+  "allowed_pending_deletion_kms_keys": [],
+  "errors": [],
+  "result": "PASS",
+  "terraform_state_resources": [],
+  "unexpected_resources": []
+}

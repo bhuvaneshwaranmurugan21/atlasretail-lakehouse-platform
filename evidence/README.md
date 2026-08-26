@@ -9,6 +9,7 @@ establish data-processing correctness.
 | Deterministic retail failure scenarios | Local and CI | Reproducible | Pass |
 | GitHub OIDC identity, current target | AWS | `32848093194` | Pass |
 | IAM and persistent foundation, current target | AWS | `32926893305` | Pass |
+| Budget, create-only plan, and zero-change proof, current target | AWS | `32929299555` | Pass |
 | Initial partial-apply recovery, legacy target | AWS | `31794022586` and corrected continuation | Resolved |
 | Free-plan denial exact-state recovery, legacy target | AWS | `31812211040` | Pass |
 | Glue and Iceberg transformation | AWS | — | Not executed |
@@ -25,6 +26,9 @@ establish data-processing correctness.
 - `aws/foundation/32926893305/` preserves the sanitized PASS summaries and digest manifest from
   the current-target IAM and persistent-foundation verification. Raw logs, subscriber addresses,
   and live IAM documents remain only in the expiring workflow control data.
+- `aws/plan/32929299555/` preserves the sanitized PASS summaries, create-only resource inventory,
+  ephemeral plan hashes, and digest manifest from the current-target plan-only proof. The binary
+  plan, expanded raw plan, caller identity, and logs remain outside Git.
 - `incidents/31791499897/terraform-outputs.json` preserves the exact resource identifiers required
   for recovery after partial Terraform state removal.
 - `../docs/incidents/legacy/` preserves the former rescue workflow and its exact authorization
@@ -34,6 +38,7 @@ establish data-processing correctness.
 
 - [Current-target OIDC identity 32848093194](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32848093194)
 - [Current-target IAM and persistent foundation 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305)
+- [Current-target budget and create-only plan proof 32929299555](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32929299555)
 - The following plan/deployment/recovery runs are legacy-target evidence only:
 - [Initial failed deployment 31791499897](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/31791499897)
 - [First recovery attempt 31794022586](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/31794022586)

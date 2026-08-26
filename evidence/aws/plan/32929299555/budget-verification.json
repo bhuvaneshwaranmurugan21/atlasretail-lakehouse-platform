@@ -1,0 +1,11 @@
+{
+  "budget_headroom_usd": 20.0,
+  "budget_limit_usd": 20.0,
+  "budget_name": "portfolio-labs-monthly-cost",
+  "current_spend_usd": 0.0,
+  "errors": [],
+  "notification_count": 3,
+  "planned_gross_cost_ceiling_usd": 5.0,
+  "result": "PASS",
+  "warnings": []
+}
