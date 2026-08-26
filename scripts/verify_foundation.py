@@ -221,7 +221,11 @@ def verify(
         except (TypeError, ValueError):
             continue
         actual_notifications.add(
-            (str(item.get("NotificationType")), threshold, str(item.get("ThresholdType")))
+            (
+                str(item.get("NotificationType")),
+                threshold,
+                str(item.get("ThresholdType", "PERCENTAGE")),
+            )
         )
     if actual_notifications != expected_notifications:
         errors.append("Budget notification thresholds are incomplete or unexpected")
@@ -262,6 +266,14 @@ def verify(
         "outputs": outputs,
         "resource_types": resource_types,
         "budget_notification_count": len(actual_notifications),
+        "budget_notifications": [
+            {
+                "notification_type": notification_type,
+                "threshold": threshold,
+                "threshold_type": threshold_type,
+            }
+            for notification_type, threshold, threshold_type in sorted(actual_notifications)
+        ],
         "email_subscriber_counts": subscriber_counts,
         "zero_workload_verified": zero_workload_verified,
         "lease_contention_blocked": lease_contention.get("contention_blocked") is True,
@@ -291,6 +303,8 @@ def main(arguments: list[str]) -> int:
     output = Path(arguments[5])
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    for error in result["errors"]:
+        print(f"foundation verification failed: {error}", file=sys.stderr)
     return 0 if result["result"] == "PASS" else 1
 
 

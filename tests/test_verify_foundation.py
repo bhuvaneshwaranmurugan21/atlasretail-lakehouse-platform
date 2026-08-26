@@ -4,6 +4,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).parents[1] / "scripts" / "verify_foundation.py"
 SPEC = importlib.util.spec_from_file_location("verify_foundation", SCRIPT)
 assert SPEC and SPEC.loader
@@ -193,6 +195,73 @@ def test_exact_hardened_foundation_passes(tmp_path: Path) -> None:
     assert result["result"] == "PASS"
     assert result["budget_notification_count"] == 3
     assert result["zero_workload_verified"] is True
+
+
+def test_budget_notifications_without_optional_threshold_type_pass(tmp_path: Path) -> None:
+    populate(tmp_path)
+    write(
+        tmp_path,
+        "budget-notifications.json",
+        {
+            "Notifications": [
+                {"NotificationType": "ACTUAL", "Threshold": 50},
+                {"NotificationType": "ACTUAL", "Threshold": 80},
+                {"NotificationType": "FORECASTED", "Threshold": 100},
+            ]
+        },
+    )
+
+    result = MODULE.verify(
+        tmp_path,
+        {"result": "PASS", "unexpected_resources": []},
+        {"result": "PASS", "contention_blocked": True},
+        {"result": "PASS", "owner_scoped_release": True},
+    )
+
+    assert result["result"] == "PASS"
+    assert all(item["threshold_type"] == "PERCENTAGE" for item in result["budget_notifications"])
+
+
+def test_absolute_value_budget_notification_remains_rejected(tmp_path: Path) -> None:
+    populate(tmp_path)
+    notifications_path = tmp_path / "budget-notifications.json"
+    notifications = json.loads(notifications_path.read_text(encoding="utf-8"))
+    notifications["Notifications"][0]["ThresholdType"] = "ABSOLUTE_VALUE"
+    write(tmp_path, "budget-notifications.json", notifications)
+
+    result = MODULE.verify(
+        tmp_path,
+        {"result": "PASS", "unexpected_resources": []},
+        {"result": "PASS", "contention_blocked": True},
+        {"result": "PASS", "owner_scoped_release": True},
+    )
+
+    assert result["result"] == "FAIL"
+    assert "Budget notification thresholds are incomplete or unexpected" in result["errors"]
+
+
+def test_failed_foundation_verification_reports_errors(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    populate(tmp_path)
+    write(tmp_path, "budget-notifications.json", {"Notifications": []})
+    write(tmp_path, "preflight.json", {"result": "PASS", "unexpected_resources": []})
+    write(tmp_path, "contention.json", {"result": "PASS", "contention_blocked": True})
+    write(tmp_path, "release.json", {"result": "PASS", "owner_scoped_release": True})
+
+    status = MODULE.main(
+        [
+            "verify_foundation.py",
+            str(tmp_path),
+            str(tmp_path / "preflight.json"),
+            str(tmp_path / "contention.json"),
+            str(tmp_path / "release.json"),
+            str(tmp_path / "foundation-verification.json"),
+        ]
+    )
+
+    assert status == 1
+    assert "Budget notification thresholds are incomplete or unexpected" in capsys.readouterr().err
 
 
 def test_public_bucket_or_workload_resource_fails(tmp_path: Path) -> None:
