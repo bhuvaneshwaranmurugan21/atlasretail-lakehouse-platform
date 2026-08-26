@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "project": "AtlasRetail",
+  "evidence_type": "persistent-foundation-verification",
+  "result": "PASS",
+  "repository": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
+  "workflow": "Shared AWS foundation",
+  "run_id": 32926893305,
+  "run_number": 9,
+  "run_url": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305",
+  "source_commit": "5a420249e5314c41202d066fad8f6a7682c447b3",
+  "aws_account_id": "857229544428",
+  "aws_region": "ap-southeast-2",
+  "started_at": "2026-08-26T03:33:29Z",
+  "artifact": {
+    "id": 9591852432,
+    "name": "atlasretail-foundation-32926893305",
+    "sha256": "f16ca956ace02d397786a12a4e4df6eb0e2251a3e66c7806ab08df79bf04d49b",
+    "retention_days": 30
+  },
+  "committed_summaries": {
+    "foundation-verification.json": "2d5faa15af2a4118386969f73009342873e2f21ffa7b307c6e289a6ad5fd2828",
+    "iam-parity.json": "ef99989938f10b89b62ead5e8f388c1236770a21c5d1275674625133f71b1def",
+    "zero-workload-preflight.json": "a7f335b1b69db1e2a8114532a1f0a210a6b44e0231e39545a9fe0110780258e0",
+    "lease-contention.json": "44e7160e3132fd51c3b4f68d0be7aca6ae735b4b3632760c38149d5606e2f0a6",
+    "lease-release.json": "206e87744d33bc72f7609fc36cceeb92f70739e1fe82e62d3d05466b04c165c2"
+  }
+}

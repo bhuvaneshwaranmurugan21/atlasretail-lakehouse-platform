@@ -94,7 +94,7 @@ execution.
 | Managed lifecycle, recovery, serving resolver, and stale-writer rejection | `LOCAL_VERIFIED` | Control-plane, resolver, and infrastructure-contract tests |
 | Glue 5-compatible Spark transformation and real local Iceberg snapshots | `LOCAL_VERIFIED` | Pinned Glue 5-compatible integration job with isolated Hadoop catalog |
 | GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` in the current target |
-| Current-target IAM and foundation safety baseline | `NOT_YET_VERIFIED` | Repository controls are locally verified; live IAM parity and foundation deployment remain manual gates |
+| Current-target IAM and foundation safety baseline | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) proved exact live IAM parity, the hardened persistent foundation, lease safety, budget alerts, an empty backend, and zero workload resources |
 | Current-target budget, create-only plan, and zero-change proof | `NOT_YET_VERIFIED` | Plan-only workflow remains blocked until the foundation is AWS-verified |
 | Current-target saved-plan deployment and exact-state teardown | `NOT_YET_VERIFIED` | Controls are locally tested; no deployment has run in the current target |
 | Managed Glue and Iceberg transformation | `NOT_YET_VERIFIED` | Runtime-compatible local execution passes; the AWS-managed workload has not run |

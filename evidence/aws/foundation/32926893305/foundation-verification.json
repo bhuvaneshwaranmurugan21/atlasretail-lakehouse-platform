@@ -1,0 +1,44 @@
+{
+  "budget_notification_count": 3,
+  "budget_notifications": [
+    {
+      "notification_type": "ACTUAL",
+      "threshold": 50.0,
+      "threshold_type": "PERCENTAGE"
+    },
+    {
+      "notification_type": "ACTUAL",
+      "threshold": 80.0,
+      "threshold_type": "PERCENTAGE"
+    },
+    {
+      "notification_type": "FORECASTED",
+      "threshold": 100.0,
+      "threshold_type": "PERCENTAGE"
+    }
+  ],
+  "email_subscriber_counts": {
+    "budget-subscribers-actual-50.json": 1,
+    "budget-subscribers-actual-80.json": 1,
+    "budget-subscribers-forecasted-100.json": 1
+  },
+  "errors": [],
+  "lease_contention_blocked": true,
+  "lease_owner_release_verified": true,
+  "outputs": {
+    "AccountLeaseTable": "portfolio-lab-account-lease",
+    "BudgetName": "portfolio-labs-monthly-cost",
+    "TerraformLockTable": "portfolio-lab-terraform-locks",
+    "TerraformStateBucket": "portfolio-lab-tfstate-857229544428-ap-southeast-2"
+  },
+  "resource_types": [
+    "AWS::Budgets::Budget",
+    "AWS::DynamoDB::Table",
+    "AWS::DynamoDB::Table",
+    "AWS::S3::Bucket",
+    "AWS::S3::BucketPolicy"
+  ],
+  "result": "PASS",
+  "stack_status": "CREATE_COMPLETE",
+  "zero_workload_verified": true
+}
