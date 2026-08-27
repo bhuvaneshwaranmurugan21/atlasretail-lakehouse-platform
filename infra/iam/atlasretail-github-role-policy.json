@@ -276,6 +276,7 @@
         "states:DescribeStateMachine",
         "states:GetExecutionHistory",
         "states:ListExecutions",
+        "states:ListStateMachineVersions",
         "states:ListTagsForResource",
         "states:StartExecution",
         "states:StopExecution",
