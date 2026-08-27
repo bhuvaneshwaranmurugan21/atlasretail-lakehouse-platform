@@ -1,0 +1,376 @@
+{
+  "format_version": "1.2",
+  "raw_plan_sha256": "246dcc981e8bccdf24a5a181896cdba678c865ae4a3f331d101a0321569420d7",
+  "resource_change_count": 46,
+  "resource_changes": [
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_athena_workgroup.verification",
+      "mode": "managed",
+      "type": "aws_athena_workgroup"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_cloudwatch_log_group.glue",
+      "mode": "managed",
+      "type": "aws_cloudwatch_log_group"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_cloudwatch_log_group.lambda",
+      "mode": "managed",
+      "type": "aws_cloudwatch_log_group"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_cloudwatch_log_group.states",
+      "mode": "managed",
+      "type": "aws_cloudwatch_log_group"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_cloudwatch_metric_alarm.pipeline_failed",
+      "mode": "managed",
+      "type": "aws_cloudwatch_metric_alarm"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_dynamodb_table.control",
+      "mode": "managed",
+      "type": "aws_dynamodb_table"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_glue_catalog_database.retail",
+      "mode": "managed",
+      "type": "aws_glue_catalog_database"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_glue_job.retail",
+      "mode": "managed",
+      "type": "aws_glue_job"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_iam_role.glue",
+      "mode": "managed",
+      "type": "aws_iam_role"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_iam_role.lambda",
+      "mode": "managed",
+      "type": "aws_iam_role"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_iam_role.states",
+      "mode": "managed",
+      "type": "aws_iam_role"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_iam_role_policy.glue",
+      "mode": "managed",
+      "type": "aws_iam_role_policy"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_iam_role_policy.lambda",
+      "mode": "managed",
+      "type": "aws_iam_role_policy"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_iam_role_policy.states",
+      "mode": "managed",
+      "type": "aws_iam_role_policy"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_kms_alias.lab",
+      "mode": "managed",
+      "type": "aws_kms_alias"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_kms_key.lab",
+      "mode": "managed",
+      "type": "aws_kms_key"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_lambda_function.control",
+      "mode": "managed",
+      "type": "aws_lambda_function"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_s3_object.glue_script",
+      "mode": "managed",
+      "type": "aws_s3_object"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "aws_sfn_state_machine.retail",
+      "mode": "managed",
+      "type": "aws_sfn_state_machine"
+    },
+    {
+      "actions": [
+        "read"
+      ],
+      "address": "data.aws_iam_policy_document.glue",
+      "mode": "data",
+      "type": "aws_iam_policy_document"
+    },
+    {
+      "actions": [
+        "read"
+      ],
+      "address": "data.aws_iam_policy_document.lambda",
+      "mode": "data",
+      "type": "aws_iam_policy_document"
+    },
+    {
+      "actions": [
+        "read"
+      ],
+      "address": "data.aws_iam_policy_document.states",
+      "mode": "data",
+      "type": "aws_iam_policy_document"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.evidence_bucket.aws_s3_bucket.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.evidence_bucket.aws_s3_bucket_lifecycle_configuration.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_lifecycle_configuration"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.evidence_bucket.aws_s3_bucket_ownership_controls.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_ownership_controls"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.evidence_bucket.aws_s3_bucket_policy.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_policy"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.evidence_bucket.aws_s3_bucket_public_access_block.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_public_access_block"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.evidence_bucket.aws_s3_bucket_server_side_encryption_configuration.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_server_side_encryption_configuration"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.evidence_bucket.aws_s3_bucket_versioning.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_versioning"
+    },
+    {
+      "actions": [
+        "read"
+      ],
+      "address": "module.evidence_bucket.data.aws_iam_policy_document.tls",
+      "mode": "data",
+      "type": "aws_iam_policy_document"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.landing_bucket.aws_s3_bucket.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.landing_bucket.aws_s3_bucket_lifecycle_configuration.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_lifecycle_configuration"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.landing_bucket.aws_s3_bucket_ownership_controls.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_ownership_controls"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.landing_bucket.aws_s3_bucket_policy.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_policy"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.landing_bucket.aws_s3_bucket_public_access_block.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_public_access_block"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.landing_bucket.aws_s3_bucket_server_side_encryption_configuration.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_server_side_encryption_configuration"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.landing_bucket.aws_s3_bucket_versioning.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_versioning"
+    },
+    {
+      "actions": [
+        "read"
+      ],
+      "address": "module.landing_bucket.data.aws_iam_policy_document.tls",
+      "mode": "data",
+      "type": "aws_iam_policy_document"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.warehouse_bucket.aws_s3_bucket.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.warehouse_bucket.aws_s3_bucket_lifecycle_configuration.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_lifecycle_configuration"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.warehouse_bucket.aws_s3_bucket_ownership_controls.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_ownership_controls"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.warehouse_bucket.aws_s3_bucket_policy.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_policy"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.warehouse_bucket.aws_s3_bucket_public_access_block.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_public_access_block"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.warehouse_bucket.aws_s3_bucket_server_side_encryption_configuration.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_server_side_encryption_configuration"
+    },
+    {
+      "actions": [
+        "create"
+      ],
+      "address": "module.warehouse_bucket.aws_s3_bucket_versioning.this",
+      "mode": "managed",
+      "type": "aws_s3_bucket_versioning"
+    },
+    {
+      "actions": [
+        "read"
+      ],
+      "address": "module.warehouse_bucket.data.aws_iam_policy_document.tls",
+      "mode": "data",
+      "type": "aws_iam_policy_document"
+    }
+  ],
+  "terraform_version": "1.11.4"
+}

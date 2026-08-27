@@ -1,0 +1,13 @@
+{
+  "account_plan_api_available": false,
+  "account_plan_lookup_result": "NOT_FOUND",
+  "account_plan_status": null,
+  "account_plan_type": null,
+  "credit_source": "organization-shared",
+  "errors": [],
+  "minimum_credit_usd": 5.0,
+  "organization_credit_errors": [],
+  "organization_shared_credit_usd": 120.0,
+  "remaining_credit_usd": null,
+  "result": "PASS"
+}
