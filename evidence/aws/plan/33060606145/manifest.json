@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0",
+  "project": "AtlasRetail",
+  "repository": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
+  "evidence_type": "plan-only-proof",
+  "workflow": "AWS plan-only proof",
+  "result": "PASS",
+  "run_id": 33060606145,
+  "run_number": 12,
+  "run_url": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33060606145",
+  "source_commit": "256fb8bb317b52595a1a093069c0b379d11bcb87",
+  "started_at": "2026-08-27T09:53:29Z",
+  "aws_account_id": "857229544428",
+  "aws_region": "ap-southeast-2",
+  "artifact": {
+    "id": 9641546055,
+    "name": "atlasretail-plan-only-33060606145",
+    "created_at": "2026-08-27T09:54:34Z",
+    "expires_at": "2026-09-26T09:54:34Z",
+    "size_bytes": 13930,
+    "sha256": "9ce691ac8f2c781b3c9b839b86b842bd324813a44e8281a80ac776540ee0bdf5"
+  },
+  "sanitization": {
+    "pending_deletion_kms_identifiers": "REPLACED_WITH_COUNT"
+  },
+  "committed_summaries": {
+    "account-plan-verification.json": "518ebcffb860527483566463401e776af30ab6956c12ab9d6ca9e526f7e69a76",
+    "budget-verification.json": "28191fac594c397fbbe9a90c8f9b73639f50c580e33eace9f7cce91f5de4fc70",
+    "iam-parity.json": "ef99989938f10b89b62ead5e8f388c1236770a21c5d1275674625133f71b1def",
+    "no-change-verification.json": "4be2f271f6410ec6e6533cd9d73b9b84271ef6a1fd3151d678e03f310bb9b416",
+    "preflight-after.json": "ff9b164acd90d0e07f7e06454506b8ccc091ac58b65107a3bc8efc16cb53a1d1",
+    "preflight-before.json": "ff9b164acd90d0e07f7e06454506b8ccc091ac58b65107a3bc8efc16cb53a1d1",
+    "state-machine-validation.json": "879791633925d8409600ffe69add049ef148403895969e0c9d03d92c5da88f83",
+    "summary.json": "900d6c49758162378dc5049fc047d8d9e7222d42e15c6d9959017797d5b95520",
+    "terraform-plan-inventory.json": "7ff7abff1a6c166264021e67f49b74345f88d0ffa38bcbd3e5fb3d6a2d2aaf65",
+    "terraform-plan-validation.json": "1ebfa7b61b3fd577552d745bece45b8947b3add368319bd1455ae4ec8b9090c4"
+  },
+  "ephemeral_plan_sha256": {
+    "binary_saved_plan": "05e31417dc73cdceb98d817a7d9335bd4fc0b8a8d4804e87c77e4d3719d48d9e",
+    "expanded_json": "702c89dce9aa9270b2c835a2cadd28d0725f51fcabac3f678ebcc82c74e1a991",
+    "rendered_text": "10eda851f85948264e2e62e220c0fc461085ef0988ff3e5052cb60a8746a04bc"
+  },
+  "excluded_raw_evidence_sha256": {
+    "caller-identity.json": "6d6d7812954c397fbbe9a90c8f9b73639f50c580e33eace9f7cce91f5de4fc70",
+    "preflight-after.json": "856609db21d692b77f0ad387615925e0bb7f1184a0e390e5c63242687781fdb3",
+    "preflight-before.json": "856609db21d692b77f0ad387615925e0bb7f1184a0e390e5c63242687781fdb3",
+    "terraform-init.log": "11095e1905782deeb171b5fb023c0b29bf582404cb4ccfb667e5652d6c746266",
+    "terraform-plan.log": "325255d330e0b1264fb1d8e6c2d8127f4b6c6dcb741c64dc309aee13216fa6c7"
+  }
+}

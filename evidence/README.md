@@ -9,7 +9,7 @@ establish data-processing correctness.
 | Deterministic retail failure scenarios | Local and CI | Reproducible | Pass |
 | GitHub OIDC identity, current target | AWS | `32848093194` | Pass |
 | IAM and persistent foundation, current target | AWS | `32926893305` | Pass |
-| Budget, create-only plan, and zero-change proof, current target | AWS | `33055480837` | Pass |
+| Budget, create-only plan, and zero-change proof, current target | AWS | `33060606145` | Pass |
 | Glue create/delete capability and cleanup, current target | AWS | `32930567869` | Pass |
 | Partial-apply recovery and exact-state teardown, current target | AWS | `32952618876` | Pass |
 | Initial partial-apply recovery, legacy target | AWS | `31794022586` and corrected continuation | Resolved |
@@ -28,10 +28,14 @@ establish data-processing correctness.
 - `aws/foundation/32926893305/` preserves the sanitized PASS summaries and digest manifest from
   the current-target IAM and persistent-foundation verification. Raw logs, subscriber addresses,
   and live IAM documents remain only in the expiring workflow control data.
-- `aws/plan/33055480837/` preserves the sanitized PASS summaries, post-fix empty baseline,
+- `aws/plan/33060606145/` preserves the sanitized PASS summaries, post-fix empty baseline,
   create-only resource inventory, ephemeral plan hashes, and digest manifest from the current
-  `main` plan-only proof after the DynamoDB transaction permission fix. The pending-deletion KMS
-  identifiers, binary plan, expanded raw plan, caller identity, and logs remain outside Git.
+  `main` plan-only proof after the bounded Lambda registration reconciliation fix. The
+  pending-deletion KMS identifiers, binary plan, expanded raw plan, caller identity, and logs
+  remain outside Git.
+- `aws/plan/33055480837/` preserves the previous plan-only proof after the DynamoDB transaction
+  permission fix. Its pending-deletion KMS identifiers, binary plan, expanded raw plan, caller
+  identity, and logs remain outside Git.
 - `aws/plan/33038682324/` preserves the previous post-recovery plan-only proof before the
   DynamoDB transaction permission fix. Its pending-deletion KMS identifier, binary plan, expanded
   raw plan, caller identity, and logs remain outside Git.
@@ -51,7 +55,8 @@ establish data-processing correctness.
 
 - [Current-target OIDC identity 32848093194](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32848093194)
 - [Current-target IAM and persistent foundation 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305)
-- [Current-target post-fix budget and create-only plan proof 33055480837](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33055480837)
+- [Current-target post-Lambda-fix budget and create-only plan proof 33060606145](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33060606145)
+- [Previous post-DynamoDB-fix budget and create-only plan proof 33055480837](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33055480837)
 - [Previous post-recovery budget and create-only plan proof 33038682324](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33038682324)
 - [Earlier current-target budget and create-only plan proof 32929299555](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32929299555)
 - [Current-target Glue create/delete capability probe 32930567869](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32930567869)

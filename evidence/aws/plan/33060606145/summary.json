@@ -1,0 +1,51 @@
+{
+  "checks": {
+    "account_plan": true,
+    "budget": true,
+    "iam_parity": true,
+    "pre_plan_baseline": true,
+    "state_machine": true,
+    "terraform_plan": true,
+    "zero_persistent_change": true
+  },
+  "claim_level": "AWS_PLAN_VERIFIED",
+  "cost_control": {
+    "budget_headroom_usd": 19.995,
+    "credit_source": "organization-shared",
+    "measured_workload_cost": false,
+    "planned_gross_cost_ceiling_usd": 5.0,
+    "remaining_member_account_credit_usd": null,
+    "verified_organization_shared_credit_usd": 120.0
+  },
+  "github_run_id": "33060606145",
+  "infrastructure_deployed": false,
+  "planned_managed_resource_count": 40,
+  "planned_resource_type_counts": {
+    "aws_athena_workgroup": 1,
+    "aws_cloudwatch_log_group": 3,
+    "aws_cloudwatch_metric_alarm": 1,
+    "aws_dynamodb_table": 1,
+    "aws_glue_catalog_database": 1,
+    "aws_glue_job": 1,
+    "aws_iam_role": 3,
+    "aws_iam_role_policy": 3,
+    "aws_kms_alias": 1,
+    "aws_kms_key": 1,
+    "aws_lambda_function": 1,
+    "aws_s3_bucket": 3,
+    "aws_s3_bucket_lifecycle_configuration": 3,
+    "aws_s3_bucket_ownership_controls": 3,
+    "aws_s3_bucket_policy": 3,
+    "aws_s3_bucket_public_access_block": 3,
+    "aws_s3_bucket_server_side_encryption_configuration": 3,
+    "aws_s3_bucket_versioning": 3,
+    "aws_s3_object": 1,
+    "aws_sfn_state_machine": 1
+  },
+  "production_claim": false,
+  "project": "atlasretail-lakehouse-platform",
+  "result": "PASS",
+  "saved_plan_applied": false,
+  "source_commit": "256fb8bb317b52595a1a093069c0b379d11bcb87",
+  "warnings": []
+}
