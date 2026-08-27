@@ -1,0 +1,28 @@
+{
+  "account": "857229544428",
+  "account_lease_released": true,
+  "checks": {
+    "athena_workgroups_absent": 1,
+    "cloudwatch_alarms_absent": 1,
+    "dynamodb_tables_absent": 1,
+    "glue_databases_absent": 1,
+    "glue_jobs_absent": 1,
+    "iam_roles_absent": 3,
+    "kms_aliases_absent": 1,
+    "kms_keys_pending_deletion": 1,
+    "lambda_functions_absent": 1,
+    "log_groups_absent": 3,
+    "s3_buckets_absent": 3,
+    "state_machines_absent": 1,
+    "terraform_state_empty": true,
+    "unexpected_run_tagged_resources": []
+  },
+  "errors": [],
+  "kms_key_disposition": {
+    "deletion_date_verified": true,
+    "status": "PENDING_DELETION"
+  },
+  "region": "ap-southeast-2",
+  "result": "PASS",
+  "run_id": "32952618876"
+}

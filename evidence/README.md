@@ -11,6 +11,7 @@ establish data-processing correctness.
 | IAM and persistent foundation, current target | AWS | `32926893305` | Pass |
 | Budget, create-only plan, and zero-change proof, current target | AWS | `32929299555` | Pass |
 | Glue create/delete capability and cleanup, current target | AWS | `32930567869` | Pass |
+| Partial-apply recovery and exact-state teardown, current target | AWS | `32952618876` | Pass |
 | Initial partial-apply recovery, legacy target | AWS | `31794022586` and corrected continuation | Resolved |
 | Free-plan denial exact-state recovery, legacy target | AWS | `31812211040` | Pass |
 | Glue and Iceberg transformation | AWS | — | Not executed |
@@ -32,6 +33,9 @@ establish data-processing correctness.
   plan, expanded raw plan, caller identity, and logs remain outside Git.
 - `aws/glue-probe/32930567869/` preserves the sanitized definition-only Glue probe and independent
   cleanup summary. Caller identity and raw AWS command output remain only in the expiring artifact.
+- `aws/recovery/32952618876/` preserves the sanitized destroy-plan, incomplete-execution, and
+  exact-state teardown summaries from the current target. Raw plans, logs, caller identity, AWS
+  stderr, and live resource identifiers remain only in the expiring workflow artifact.
 - `incidents/31791499897/terraform-outputs.json` preserves the exact resource identifiers required
   for recovery after partial Terraform state removal.
 - `../docs/incidents/legacy/` preserves the former rescue workflow and its exact authorization
@@ -43,6 +47,7 @@ establish data-processing correctness.
 - [Current-target IAM and persistent foundation 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305)
 - [Current-target budget and create-only plan proof 32929299555](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32929299555)
 - [Current-target Glue create/delete capability probe 32930567869](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32930567869)
+- [Current-target partial-apply recovery and exact-state teardown 32952618876](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32952618876)
 - The following plan/deployment/recovery runs are legacy-target evidence only:
 - [Initial failed deployment 31791499897](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/31791499897)
 - [First recovery attempt 31794022586](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/31794022586)

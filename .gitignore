@@ -52,3 +52,11 @@ evidence/aws/glue-probe/*/*
 !evidence/aws/glue-probe/*/manifest.json
 !evidence/aws/glue-probe/*/glue-service-probe.json
 !evidence/aws/glue-probe/*/cleanup-verification.json
+!evidence/aws/recovery/
+evidence/aws/recovery/*
+!evidence/aws/recovery/*/
+evidence/aws/recovery/*/*
+!evidence/aws/recovery/*/manifest.json
+!evidence/aws/recovery/*/destroy-plan-summary.json
+!evidence/aws/recovery/*/teardown-summary.json
+!evidence/aws/recovery/*/execution-status.json
