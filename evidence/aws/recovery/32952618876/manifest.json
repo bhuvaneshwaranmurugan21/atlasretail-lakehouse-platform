@@ -1,0 +1,35 @@
+{
+  "artifact": {
+    "created_at": "2026-08-27T03:49:01Z",
+    "id": 9632545805,
+    "name": "atlasretail-aws-evidence-32952618876",
+    "sha256": "300ac7e5fa122e39f8cdad93a5891e3ef4be869723c00e830c6f1abfdd32695c",
+    "size_bytes": 79257
+  },
+  "aws_account_id": "857229544428",
+  "aws_region": "ap-southeast-2",
+  "committed_summaries": {
+    "destroy-plan-summary.json": "11b89c372d77f3c3248652188a806f4e975c1c0bde91bfaf622ff89c2e0a60aa",
+    "execution-status.json": "80a107df30f099fe528bd680d130b07de5c687e0d84b6b09729f5be1b28fe852",
+    "teardown-summary.json": "703e7624b006b2a4ee00e9a2e7f7f0e960e1ec3cd5e7a0b8200867d1b3414aa6"
+  },
+  "evidence_type": "partial-apply-recovery-teardown",
+  "original_execute_job_id": 98127242602,
+  "original_teardown_job_id": 98128935020,
+  "permission_fix_merge_commit": "310047c068d5d1b55ea0a1a8ec0ba8eb84f4dce9",
+  "project": "AtlasRetail",
+  "repository": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
+  "result": "PASS",
+  "run_id": 32952618876,
+  "run_url": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32952618876",
+  "schema_version": "1.0",
+  "source_commit": "61abca2553fed7982db3aff8046687d718ef4142",
+  "source_evidence_sha256": {
+    "summary.json": "0f6ef8e71ca657017a4bfc47b8abc427be6c383c903ee3076b0c4e6224ac38f8",
+    "teardown.json": "cdd4d0fd0dc6dcc2b2704f994ce4aa3b35b65f48c7b61ac8654c5d348b20627c",
+    "terraform-destroy-plan-validation.json": "11b89c372d77f3c3248652188a806f4e975c1c0bde91bfaf622ff89c2e0a60aa",
+    "terraform-outputs.json": "6ebf58ee3f9d146eebd14c040d6a982e7e0e691642360fa0ac2faf0cf03a7ca0"
+  },
+  "successful_teardown_job_id": 98402942900,
+  "workflow": "AWS bounded lab"
+}

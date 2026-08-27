@@ -1,0 +1,29 @@
+{
+  "bounded_deployment_verified": false,
+  "claim_level": "AWS_EXECUTION_INCOMPLETE",
+  "immediate_cost_estimate_usd": {
+    "athena": 0.0,
+    "glue": 0.0,
+    "partial_total": 0.0,
+    "scope": "Glue compute and bounded Athena queries only; billing data and minor service charges settle later."
+  },
+  "managed_data_path_verified": false,
+  "metered_usage": {
+    "athena_bytes_scanned": 0,
+    "athena_queries": 0,
+    "glue_dpu_seconds": 0.0,
+    "glue_job_runs": 0
+  },
+  "original_execute_job": {
+    "conclusion": "failure",
+    "job_id": 98127242602
+  },
+  "production_claim": false,
+  "recovery_and_teardown_verified": true,
+  "recovery_teardown_job": {
+    "conclusion": "success",
+    "job_id": 98402942900
+  },
+  "result": "RECOVERED",
+  "source_commit": "61abca2553fed7982db3aff8046687d718ef4142"
+}
