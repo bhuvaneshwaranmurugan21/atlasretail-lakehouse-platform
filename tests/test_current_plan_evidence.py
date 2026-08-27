@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-EVIDENCE = Path(__file__).parents[1] / "evidence" / "aws" / "plan" / "33038682324"
+EVIDENCE = Path(__file__).parents[1] / "evidence" / "aws" / "plan" / "33055480837"
 SUMMARY_FILES = {
     "account-plan-verification.json",
     "budget-verification.json",
@@ -30,14 +30,14 @@ def test_current_plan_evidence_is_attributed_sanitized_and_digest_verified() -> 
     manifest = load("manifest.json")
 
     assert manifest["result"] == "PASS"
-    assert manifest["run_id"] == 33038682324
-    assert manifest["run_number"] == 10
-    assert manifest["source_commit"] == "59ba84db3f585f0e7071cbc52a0515f5e65a089f"
+    assert manifest["run_id"] == 33055480837
+    assert manifest["run_number"] == 11
+    assert manifest["source_commit"] == "1d21f88a2091901bf2ca82c8e40159e55eced40f"
     assert manifest["aws_account_id"] == "857229544428"
     assert manifest["aws_region"] == "ap-southeast-2"
-    assert manifest["artifact"]["id"] == 9633015691
+    assert manifest["artifact"]["id"] == 9639423243
     assert manifest["artifact"]["sha256"] == (
-        "78e26ccddb9be5181f4ebfe30e06e7a03c4fdd83698453cb6a6cb2e0cd09ce83"
+        "979d2802402e575d783b6481b5202a1324b29b76f9ce3f15b9eb66f45a06a449"
     )
     assert manifest["sanitization"] == {"pending_deletion_kms_identifiers": "REPLACED_WITH_COUNT"}
     assert set(manifest["committed_summaries"]) == SUMMARY_FILES
@@ -85,7 +85,7 @@ def test_current_plan_proves_the_post_recovery_gate_without_persistent_change() 
     assert iam["errors"] == []
 
     clean_baseline = {
-        "allowed_pending_deletion_kms_key_count": 1,
+        "allowed_pending_deletion_kms_key_count": 2,
         "errors": [],
         "result": "PASS",
         "terraform_state_resources": [],
