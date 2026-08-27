@@ -56,6 +56,35 @@ def _attribute(value: Any) -> dict[str, Any]:
     return {"S": str(value)}
 
 
+def _existing_registration(
+    existing: dict[str, Any],
+    *,
+    batch_id: str,
+    manifest_digest: str,
+    manifest_uri: str,
+    manifest_version_id: str,
+) -> dict[str, Any]:
+    if existing["manifest_digest"] != manifest_digest:
+        raise ValueError(f"CONFLICT: batch {batch_id} was reused with different content")
+    if (
+        existing["manifest_uri"] != manifest_uri
+        or existing["manifest_version_id"] != manifest_version_id
+    ):
+        raise ValueError(f"CONFLICT: batch {batch_id} manifest location changed")
+    generation = _generation(str(existing["generation_id"]))
+    status = str(generation["status"])
+    classification = {
+        "PUBLISHED": "REPLAYED",
+        "FAILED": "RECOVERING",
+    }.get(status, "IN_PROGRESS")
+    return {
+        "status": classification,
+        "generation_id": existing["generation_id"],
+        "generation_status": status,
+        "pointer_version": _pointer_version(),
+    }
+
+
 def _register(event: dict[str, Any]) -> dict[str, Any]:
     batch_id = str(event["batch_id"])
     manifest_digest = str(event["manifest_digest"])
@@ -73,25 +102,13 @@ def _register(event: dict[str, Any]) -> dict[str, Any]:
     batch_key = {"pk": f"BATCH#{batch_id}", "sk": "IDENTITY"}
     existing = TABLE.get_item(Key=batch_key, ConsistentRead=True).get("Item")
     if existing:
-        if existing["manifest_digest"] != manifest_digest:
-            raise ValueError(f"CONFLICT: batch {batch_id} was reused with different content")
-        if (
-            existing["manifest_uri"] != manifest_uri
-            or existing["manifest_version_id"] != manifest_version_id
-        ):
-            raise ValueError(f"CONFLICT: batch {batch_id} manifest location changed")
-        generation = _generation(str(existing["generation_id"]))
-        status = str(generation["status"])
-        classification = {
-            "PUBLISHED": "REPLAYED",
-            "FAILED": "RECOVERING",
-        }.get(status, "IN_PROGRESS")
-        return {
-            "status": classification,
-            "generation_id": existing["generation_id"],
-            "generation_status": status,
-            "pointer_version": _pointer_version(),
-        }
+        return _existing_registration(
+            existing,
+            batch_id=batch_id,
+            manifest_digest=manifest_digest,
+            manifest_uri=manifest_uri,
+            manifest_version_id=manifest_version_id,
+        )
 
     generation_id = _generation_id(batch_id, manifest_digest)
     now = int(time.time())
@@ -143,7 +160,16 @@ def _register(event: dict[str, Any]) -> dict[str, Any]:
             "TransactionCanceledException",
         }:
             raise
-        return _register(event)
+        reconciled = TABLE.get_item(Key=batch_key, ConsistentRead=True).get("Item")
+        if not reconciled:
+            raise
+        return _existing_registration(
+            reconciled,
+            batch_id=batch_id,
+            manifest_digest=manifest_digest,
+            manifest_uri=manifest_uri,
+            manifest_version_id=manifest_version_id,
+        )
     return {
         "status": "REGISTERED",
         "generation_id": generation_id,
