@@ -254,6 +254,7 @@ data "aws_iam_policy_document" "lambda" {
   statement {
     actions = [
       "dynamodb:GetItem",
+      "dynamodb:PutItem",
       "dynamodb:TransactWriteItems",
       "dynamodb:UpdateItem"
     ]
