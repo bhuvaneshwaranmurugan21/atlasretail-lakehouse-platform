@@ -30,12 +30,21 @@ class FakeTable:
     def __init__(self) -> None:
         self.items: dict[tuple[str, str], dict[str, Any]] = {}
         self.meta = types.SimpleNamespace(client=self)
+        self.get_item_calls = 0
+        self.transact_write_calls = 0
+        self.registration_transaction_error: str | None = None
+        self.commit_registration_before_error = False
 
     def reset(self) -> None:
         self.items.clear()
+        self.get_item_calls = 0
+        self.transact_write_calls = 0
+        self.registration_transaction_error = None
+        self.commit_registration_before_error = False
 
     def get_item(self, *, Key: dict[str, str], ConsistentRead: bool) -> dict[str, Any]:
         del ConsistentRead
+        self.get_item_calls += 1
         item = self.items.get((Key["pk"], Key["sk"]))
         return {"Item": dict(item)} if item else {}
 
@@ -65,6 +74,7 @@ class FakeTable:
         return {"Attributes": dict(item)}
 
     def transact_write_items(self, *, TransactItems: list[dict[str, Any]]) -> None:
+        self.transact_write_calls += 1
         if all("Put" in operation for operation in TransactItems):
             decoded = []
             for operation in TransactItems:
@@ -73,6 +83,10 @@ class FakeTable:
                 if key in self.items:
                     raise FakeClientError("TransactionCanceledException")
                 decoded.append((key, item))
+            if self.registration_transaction_error:
+                if self.commit_registration_before_error:
+                    self.items.update(decoded)
+                raise FakeClientError(self.registration_transaction_error)
             self.items.update(decoded)
             return
 
@@ -242,6 +256,27 @@ class LambdaControlTests(unittest.TestCase):
             self.register(dict(self.event, manifest_digest="b" * 64))
         with self.assertRaisesRegex(ValueError, "CONFLICT"):
             self.register(dict(self.event, manifest_version_id="version-2"))
+
+    def test_registration_reconciles_a_committed_transaction_after_cancellation(self) -> None:
+        FAKE_TABLE.registration_transaction_error = "TransactionCanceledException"
+        FAKE_TABLE.commit_registration_before_error = True
+
+        registered = self.register()
+
+        self.assertEqual("IN_PROGRESS", registered["status"])
+        self.assertEqual("REGISTERED", registered["generation_status"])
+        self.assertEqual(1, FAKE_TABLE.transact_write_calls)
+        self.assertEqual(4, FAKE_TABLE.get_item_calls)
+
+    def test_registration_surfaces_persistent_transaction_cancellation(self) -> None:
+        FAKE_TABLE.registration_transaction_error = "TransactionCanceledException"
+
+        with self.assertRaisesRegex(FakeClientError, "TransactionCanceledException"):
+            self.register()
+
+        self.assertEqual(1, FAKE_TABLE.transact_write_calls)
+        self.assertEqual(2, FAKE_TABLE.get_item_calls)
+        self.assertEqual({}, FAKE_TABLE.items)
 
     def test_publication_requires_validation(self) -> None:
         generation_id = self.register()["generation_id"]
