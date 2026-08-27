@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-EVIDENCE = Path(__file__).parents[1] / "evidence" / "aws" / "plan" / "33055480837"
+EVIDENCE = Path(__file__).parents[1] / "evidence" / "aws" / "plan" / "33060606145"
 SUMMARY_FILES = {
     "account-plan-verification.json",
     "budget-verification.json",
@@ -30,14 +30,14 @@ def test_current_plan_evidence_is_attributed_sanitized_and_digest_verified() -> 
     manifest = load("manifest.json")
 
     assert manifest["result"] == "PASS"
-    assert manifest["run_id"] == 33055480837
-    assert manifest["run_number"] == 11
-    assert manifest["source_commit"] == "1d21f88a2091901bf2ca82c8e40159e55eced40f"
+    assert manifest["run_id"] == 33060606145
+    assert manifest["run_number"] == 12
+    assert manifest["source_commit"] == "256fb8bb317b52595a1a093069c0b379d11bcb87"
     assert manifest["aws_account_id"] == "857229544428"
     assert manifest["aws_region"] == "ap-southeast-2"
-    assert manifest["artifact"]["id"] == 9639423243
+    assert manifest["artifact"]["id"] == 9641546055
     assert manifest["artifact"]["sha256"] == (
-        "979d2802402e575d783b6481b5202a1324b29b76f9ce3f15b9eb66f45a06a449"
+        "9ce691ac8f2c781b3c9b839b86b842bd324813a44e8281a80ac776540ee0bdf5"
     )
     assert manifest["sanitization"] == {"pending_deletion_kms_identifiers": "REPLACED_WITH_COUNT"}
     assert set(manifest["committed_summaries"]) == SUMMARY_FILES
@@ -48,7 +48,7 @@ def test_current_plan_evidence_is_attributed_sanitized_and_digest_verified() -> 
         assert digest == expected_digest
 
 
-def test_current_plan_proves_the_post_recovery_gate_without_persistent_change() -> None:
+def test_current_plan_proves_the_post_lambda_fix_gate_without_persistent_change() -> None:
     manifest = load("manifest.json")
     account_plan = load("account-plan-verification.json")
     budget = load("budget-verification.json")
@@ -85,7 +85,7 @@ def test_current_plan_proves_the_post_recovery_gate_without_persistent_change() 
     assert iam["errors"] == []
 
     clean_baseline = {
-        "allowed_pending_deletion_kms_key_count": 2,
+        "allowed_pending_deletion_kms_key_count": 3,
         "errors": [],
         "result": "PASS",
         "terraform_state_resources": [],

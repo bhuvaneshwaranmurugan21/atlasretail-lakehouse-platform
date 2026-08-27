@@ -1,0 +1,10 @@
+{
+  "compared_fields": [
+    "terraform_state_resources",
+    "allowed_pending_deletion_kms_keys",
+    "unexpected_resources"
+  ],
+  "errors": [],
+  "persistent_inventory_unchanged": true,
+  "result": "PASS"
+}
