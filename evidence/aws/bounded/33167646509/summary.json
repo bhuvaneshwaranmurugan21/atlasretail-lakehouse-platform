@@ -1,0 +1,94 @@
+{
+  "business_result": {
+    "actual": {
+      "gross_cents": 4595276,
+      "orders": 500
+    },
+    "expected": {
+      "gross_cents": 4595276,
+      "orders": 500
+    },
+    "result": "PASS"
+  },
+  "checks": {
+    "athena_result_matches_expected": true,
+    "cloudwatch_exports": {
+      "glue-cloudwatch-events.json": {
+        "event_count": 28921,
+        "passed": true
+      },
+      "lambda-cloudwatch-events.json": {
+        "event_count": 84,
+        "passed": true
+      },
+      "states-cloudwatch-events.json": {
+        "event_count": 187,
+        "passed": true
+      }
+    },
+    "executions": {
+      "conflict": {
+        "actual": "FAILED",
+        "expected": "FAILED",
+        "passed": true
+      },
+      "failure": {
+        "actual": "FAILED",
+        "expected": "FAILED",
+        "passed": true
+      },
+      "financial": {
+        "actual": "FAILED",
+        "expected": "FAILED",
+        "passed": true
+      },
+      "recovery": {
+        "actual": "SUCCEEDED",
+        "expected": "SUCCEEDED",
+        "passed": true
+      },
+      "replay": {
+        "actual": "SUCCEEDED",
+        "expected": "SUCCEEDED",
+        "passed": true
+      },
+      "success": {
+        "actual": "SUCCEEDED",
+        "expected": "SUCCEEDED",
+        "passed": true
+      },
+      "tamper": {
+        "actual": "FAILED",
+        "expected": "FAILED",
+        "passed": true
+      },
+      "temporal": {
+        "actual": "FAILED",
+        "expected": "FAILED",
+        "passed": true
+      }
+    },
+    "failure_did_not_move_pointer": true,
+    "serving_generation_resolved_once": true,
+    "six_table_serving_query_completed": true,
+    "stale_publisher_rejected": true
+  },
+  "claim_level": "AWS_VERIFIED",
+  "immediate_cost_estimate_usd": {
+    "athena": 0.000105,
+    "glue": 0.190911,
+    "partial_total": 0.191016,
+    "scope": "Glue compute and bounded Athena queries only; billing data and minor service charges settle later."
+  },
+  "metered_usage": {
+    "athena_bytes_scanned": 2192,
+    "athena_queries": 2,
+    "glue_dpu_seconds": 1562.0,
+    "glue_job_runs": 6,
+    "workflow_to_evidence_seconds": 1325
+  },
+  "production_claim": false,
+  "project": "atlasretail-lakehouse-platform",
+  "result": "PASS",
+  "source_commit": "0c2df3b21c1ac09f76d682e9077dcc4467318530"
+}

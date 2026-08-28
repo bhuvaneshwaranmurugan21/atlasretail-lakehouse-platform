@@ -1,0 +1,19 @@
+{
+  "apply": {
+    "errors": [],
+    "mode": "apply",
+    "read_only_data_source_counts": {
+      "aws_iam_policy_document": 6
+    },
+    "resource_count": 40,
+    "result": "PASS"
+  },
+  "destroy": {
+    "errors": [],
+    "mode": "destroy",
+    "read_only_data_source_counts": {},
+    "resource_count": 40,
+    "result": "PASS"
+  },
+  "result": "PASS"
+}

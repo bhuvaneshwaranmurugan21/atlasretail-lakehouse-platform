@@ -26,6 +26,9 @@
 - Consolidated system behaviour, correctness boundaries, verification status, operational history,
   and evidence handling into maintainer-facing engineering documentation.
 - Recorded the resolved partial-apply incidents and the unresolved AWS Free-plan Glue boundary.
+- Recorded AWS run 33167646509 as the bounded managed proof for deployment, Glue/Iceberg execution,
+  replay, failure isolation and recovery, quality-gate rejection, CloudWatch observability, Athena
+  validation, metered usage, partial cost estimation, and exact-state teardown.
 
 ## 0.1.0 - 2026-08-14
 

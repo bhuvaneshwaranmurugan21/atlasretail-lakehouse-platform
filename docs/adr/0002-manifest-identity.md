@@ -41,4 +41,5 @@ explicit conflict.
 
 The local implementation verifies canonical manifest identity. The Glue path reads the manifest by
 version, checks registered object versions and checksums, and copies those exact versions into an
-isolated read prefix. Managed execution of that path remains unverified until the bounded run.
+isolated read prefix. AWS run 33167646509 verified the managed exact-version path and rejected a new
+S3 version whose bytes contradicted the registered object evidence.

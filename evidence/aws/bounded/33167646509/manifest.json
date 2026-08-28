@@ -1,0 +1,49 @@
+{
+  "artifact": {
+    "created_at": "2026-08-28T12:00:06Z",
+    "id": 9684904182,
+    "name": "atlasretail-aws-evidence-33167646509",
+    "sha256": "88522723ba62815d10792fcfe855038b7b3303530029ece43ac6ec23d6fdd62f",
+    "size_bytes": 1623304
+  },
+  "aws_account_id": "857229544428",
+  "aws_region": "ap-southeast-2",
+  "committed_summaries": {
+    "failure-isolation.json": "c58cd87798040c183e8cfe6ede8f79491f500683bfd8782eff21626dccb9cb55",
+    "plan-summary.json": "e6469fb718705b5d59288c6d269e224e620d29e69b16bfef28f7f2c8b8c5f09e",
+    "summary.json": "22fa351dff084820eeda81241a980a6b8c9d0e1a3b8ab683887f8c0e6796809c",
+    "teardown-summary.json": "7b7cfc14651aa550fc0f63c3bb63c60a5136ad6f3cdf416e09ec49a2b89c4865"
+  },
+  "evidence_type": "bounded-managed-data-path",
+  "execute_job_id": 98836785926,
+  "production_claim": false,
+  "project": "AtlasRetail",
+  "repository": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
+  "result": "PASS",
+  "run_id": 33167646509,
+  "run_number": 13,
+  "run_url": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33167646509",
+  "sanitization": {
+    "caller_identity": "EXCLUDED",
+    "live_resource_identifiers": "EXCLUDED",
+    "raw_cloudwatch_events": "EXCLUDED",
+    "raw_execution_histories": "EXCLUDED"
+  },
+  "schema_version": "1.0",
+  "source_commit": "0c2df3b21c1ac09f76d682e9077dcc4467318530",
+  "source_evidence_sha256": {
+    "athena-validation.json": "6ee39397ef1d5faf4a88bc8e8c7b2967abfb5d446031f9b4801463d6e2bda875",
+    "glue-cloudwatch-events.json": "fbee27fc8e38145ab249b163094cc3575c528efeed90093fb6f02252a3903631",
+    "glue-job-runs.json": "90699fc695006ee6c1cf4e431d8698e530cbcc2a9ec8bba935b7c91467e7509d",
+    "lambda-cloudwatch-events.json": "75bcc44f6fae6032396d2c2053786f874505d46c91d5fd23937788995c06304b",
+    "states-cloudwatch-events.json": "b508712ec9bc967a14d50721c5bc2c161df79b4223d55d386e0a14066b6bbdca",
+    "stepfunctions-executions.json": "dee8b38d52ef4a67ea14bae8fd815240635a86a17c815431623c0541a6d04495",
+    "summary.json": "22fa351dff084820eeda81241a980a6b8c9d0e1a3b8ab683887f8c0e6796809c",
+    "teardown.json": "1a72ab09a3a1d201d5423bd5dac8f234e8244d0b0e6142cf5a95e2b18133c83f",
+    "terraform-apply-plan-validation.json": "1ebfa7b61b3fd577552d745bece45b8947b3add368319bd1455ae4ec8b9090c4",
+    "terraform-destroy-plan-validation.json": "c0073d4e1c53c77db41cfac072db385267531c486b6032b107a879d4e5638c7c"
+  },
+  "teardown_job_id": 98841674740,
+  "workflow": "AWS bounded lab",
+  "workflow_total_seconds": 1561
+}
