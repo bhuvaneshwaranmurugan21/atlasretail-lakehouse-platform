@@ -35,6 +35,11 @@ jobs:
             --source-identity "${EVIDENCE_DIR}/source-identity.json" \
             --source-commit "${GITHUB_SHA}" \
             --github-run-id "${GITHUB_RUN_ID}"
+      - name: Load the restrictive read-only session policy
+        id: session-policy
+        run: |
+          policy="$(python scripts/build_read_only_session_policy.py)"
+          printf 'json=%s\n' "${policy}" >> "${GITHUB_OUTPUT}"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
@@ -46,6 +51,12 @@ jobs:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-preflight-${{ github.run_id }}
+          role-duration-seconds: 900
+          allowed-account-ids: ${{ steps.target.outputs.aws_account_id }}
+          inline-session-policy: ${{ steps.session-policy.outputs.json }}
+          unset-current-credentials: true
+          mask-aws-account-id: true
+          action-timeout-s: 120
       - name: Prove repository identity and hard bounds
         run: |
           set -euo pipefail

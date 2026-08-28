@@ -36,6 +36,18 @@ def _resources(module: dict[str, Any]) -> list[str]:
     return addresses
 
 
+def _alias_names(document: dict[str, Any]) -> list[str] | None:
+    aliases = document.get("Aliases")
+    if not isinstance(aliases, list):
+        return None
+    names: list[str] = []
+    for alias in aliases:
+        if not isinstance(alias, dict) or not isinstance(alias.get("AliasName"), str):
+            return None
+        names.append(alias["AliasName"])
+    return sorted(names)
+
+
 def verify(terraform_directory: str) -> dict[str, Any]:
     errors: list[str] = []
     state_code, state_detail = command(
@@ -63,6 +75,8 @@ def verify(terraform_directory: str) -> dict[str, Any]:
     inventory = _json(tag_code, tag_detail)
     unexpected: list[str] = []
     allowed_pending_kms: list[str] = []
+    pending_kms_aliases: dict[str, list[str]] = {}
+    kms_inspection_errors: list[str] = []
     if inventory is None:
         errors.append("AtlasRetail tag inventory is unreadable")
     else:
@@ -85,8 +99,34 @@ def verify(terraform_directory: str) -> dict[str, Any]:
                 and metadata.get("KeyState") == "PendingDeletion"
                 and metadata.get("DeletionDate")
             ):
-                allowed_pending_kms.append(arn)
+                alias_code, alias_detail = command(
+                    "aws",
+                    "kms",
+                    "list-aliases",
+                    "--key-id",
+                    arn,
+                    "--output",
+                    "json",
+                )
+                alias_document = _json(alias_code, alias_detail)
+                alias_names = _alias_names(alias_document) if alias_document else None
+                if alias_names is None:
+                    kms_inspection_errors.append(f"{arn}: aliases are unreadable")
+                    unexpected.append(arn)
+                else:
+                    pending_kms_aliases[arn] = alias_names
+                    if alias_names:
+                        kms_inspection_errors.append(f"{arn}: aliases remain attached")
+                        unexpected.append(arn)
+                    else:
+                        allowed_pending_kms.append(arn)
             else:
+                if key is None:
+                    kms_inspection_errors.append(f"{arn}: key metadata is unreadable")
+                else:
+                    kms_inspection_errors.append(
+                        f"{arn}: key is not a verifiable pending-deletion exception"
+                    )
                 unexpected.append(arn)
         if unexpected:
             errors.append("Unexpected live AtlasRetail resources exist")
@@ -95,6 +135,8 @@ def verify(terraform_directory: str) -> dict[str, Any]:
         "result": "PASS" if not errors else "FAIL",
         "terraform_state_resources": remaining_state,
         "allowed_pending_deletion_kms_keys": allowed_pending_kms,
+        "pending_deletion_kms_aliases": pending_kms_aliases,
+        "kms_inspection_errors": kms_inspection_errors,
         "unexpected_resources": unexpected,
         "errors": errors,
     }
