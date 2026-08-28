@@ -29,9 +29,9 @@ def decode(value: dict[str, Any]) -> Any:
 class FakeTable:
     def __init__(self) -> None:
         self.items: dict[tuple[str, str], dict[str, Any]] = {}
-        self.meta = types.SimpleNamespace(client=self)
         self.get_item_calls = 0
         self.transact_write_calls = 0
+        self.last_transact_items: list[dict[str, Any]] = []
         self.registration_transaction_error: str | None = None
         self.commit_registration_before_error = False
 
@@ -39,6 +39,7 @@ class FakeTable:
         self.items.clear()
         self.get_item_calls = 0
         self.transact_write_calls = 0
+        self.last_transact_items = []
         self.registration_transaction_error = None
         self.commit_registration_before_error = False
 
@@ -75,6 +76,7 @@ class FakeTable:
 
     def transact_write_items(self, *, TransactItems: list[dict[str, Any]]) -> None:
         self.transact_write_calls += 1
+        self.last_transact_items = TransactItems
         if all("Put" in operation for operation in TransactItems):
             decoded = []
             for operation in TransactItems:
@@ -143,10 +145,12 @@ def fake_resource(service: str) -> FakeResource:
     return FakeResource()
 
 
-def fake_client(service: str) -> FakeS3:
-    if service != "s3":
-        raise AssertionError(service)
-    return FAKE_S3
+def fake_client(service: str) -> FakeS3 | FakeTable:
+    if service == "s3":
+        return FAKE_S3
+    if service == "dynamodb":
+        return FAKE_TABLE
+    raise AssertionError(service)
 
 
 fake_boto3.resource = fake_resource  # type: ignore[attr-defined]
@@ -230,6 +234,14 @@ class LambdaControlTests(unittest.TestCase):
         resolved = control.handler({"action": "resolve"}, None)
         self.assertEqual(generation_id, resolved["generation_id"])
         self.assertEqual(1, resolved["pointer_version"])
+
+    def test_registration_uses_the_explicit_low_level_dynamodb_client(self) -> None:
+        registered = self.register()
+
+        self.assertEqual("REGISTERED", registered["status"])
+        first_put = FAKE_TABLE.last_transact_items[0]["Put"]
+        self.assertEqual({"S": "BATCH#b-1"}, first_put["Item"]["pk"])
+        self.assertEqual("control-table", first_put["TableName"])
 
     def test_failed_generation_recovers_with_same_identity(self) -> None:
         registered = self.register()
