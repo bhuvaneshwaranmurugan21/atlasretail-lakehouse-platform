@@ -74,6 +74,35 @@ The `AWS plan-only proof` workflow runs before any deployment authorization. It:
 A later deployment must regenerate its own saved plan and compare it with the approved resource
 envelope. A plan-only artifact is evidence for review, not deployment authority.
 
+## Part 3 zero-workload controlled deployment
+
+Part 3 proves that the current `main` commit can deploy and remove the 40-resource AtlasRetail
+control plane without executing a data workload. Dispatch `AWS controlled deployment canary` only
+after a current-source read-only preflight, definition-only Glue probe, and plan-only proof pass.
+Use `DEPLOY_ATLASRETAIL_CANARY`, `DESTROY_AFTER_VERIFICATION`, and a budget ceiling from one to five
+dollars. The workflow regenerates and validates its own saved create-only plan; the earlier
+plan-only artifact is never deployment authority.
+
+The canary must report an active control plane, exactly 40 Terraform-managed resources, six
+read-only IAM policy-document data sources, and `PASS` for every readiness check. It must also
+prove an empty DynamoDB table, zero Glue job runs, zero Step Functions executions, zero Lambda log
+events, and zero Athena query executions. Input generation, immutable batch upload,
+`start-job-run`, `start-execution`, Lambda invocation, and Athena query execution are forbidden in
+this workflow. Any workload activity invalidates the Part 3 claim.
+
+The independent teardown job runs regardless of deployment outcome. It validates immutable
+teardown authority, creates and validates a saved 40-resource destroy-only plan, applies only that
+plan, proves empty Terraform state and zero unexpected tagged resources, and releases the lease
+only after cleanup passes. A KMS key is accepted only in AWS-mandated `PendingDeletion` with its
+alias absent and deletion date recorded. A successful deployment with failed or skipped teardown
+is a failed Part 3 run. Ephemeral Terraform outputs remain only in the one-day teardown-recovery
+artifact and are removed before the final 30-day evidence artifact is summarized.
+
+The final sanitized summary is `part-3-summary.json`. It may claim `AWS_DEPLOYMENT_VERIFIED` only
+when deployment, zero-workload, exact apply and destroy envelopes, source identity, and teardown
+all pass. Until attributable AWS evidence satisfies that contract, the deployment claim remains
+`UNCLAIMED`.
+
 ## Deploy and execute
 
 Run `AWS bounded lab` manually with `order_count=500` and `confirm_destroy=DESTROY`. The workflow:

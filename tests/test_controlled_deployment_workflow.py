@@ -25,6 +25,8 @@ def test_controlled_deployment_is_manual_and_bounded() -> None:
 
 def test_controlled_deployment_has_exact_apply_and_independent_teardown() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
+    assert "Build final Part 3 evidence summary" in workflow
+    assert "Build final Part 2 evidence summary" not in workflow
     required = (
         "python scripts/verify_iam_parity.py",
         "python scripts/verify_preflight.py",
@@ -39,6 +41,19 @@ def test_controlled_deployment_has_exact_apply_and_independent_teardown() -> Non
     assert 'terraform -chdir="${TF_DIR}" apply -auto-approve' in workflow
     assert '"${GITHUB_WORKSPACE}/${CONTROL_DIR}/apply.tfplan"' in workflow
     assert '"${GITHUB_WORKSPACE}/${CONTROL_DIR}/destroy.tfplan"' in workflow
+
+
+def test_final_artifact_removes_ephemeral_outputs_before_summarizing() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    recovery = workflow.index("Persist teardown recovery evidence before teardown")
+    cleanup = workflow.index("Remove ephemeral teardown inputs from final evidence")
+    summary = workflow.index("Build final Part 3 evidence summary")
+    upload = workflow.index("Upload final controlled-deployment evidence")
+    assert recovery < cleanup < summary < upload
+
+    cleanup_section = workflow[cleanup:summary]
+    assert '"${EVIDENCE_DIR}/terraform-outputs.json"' in cleanup_section
+    assert "unlink(missing_ok=True)" in cleanup_section
 
 
 def test_controlled_deployment_cannot_execute_a_data_workload() -> None:
