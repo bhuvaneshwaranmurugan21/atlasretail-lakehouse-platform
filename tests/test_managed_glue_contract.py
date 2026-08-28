@@ -31,6 +31,11 @@ def test_state_machine_uses_registration_identity_and_failure_handlers() -> None
     assert "failure_stage" in TERRAFORM and '"PUBLICATION"' in TERRAFORM
 
 
+def test_validation_reads_the_completed_glue_run_id() -> None:
+    assert '"glue_job_run_id.$" = "$.glue.Id"' in TERRAFORM
+    assert "$.glue.JobRunId" not in TERRAFORM
+
+
 def test_state_machine_waits_for_execution_role_policy() -> None:
     resource = TERRAFORM.split('resource "aws_sfn_state_machine" "retail" {', maxsplit=1)[1].split(
         "\n}", maxsplit=1
