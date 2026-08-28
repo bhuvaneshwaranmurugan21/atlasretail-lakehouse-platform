@@ -30,6 +30,8 @@ def clean_runner(*arguments: str) -> tuple[int, str]:
                 }
             }
         )
+    if "kms list-aliases" in command:
+        return 0, json.dumps({"Aliases": []})
     raise AssertionError(command)
 
 
@@ -40,6 +42,8 @@ def test_empty_state_and_historical_pending_key_pass(monkeypatch: object) -> Non
 
     assert result["result"] == "PASS"
     assert result["allowed_pending_deletion_kms_keys"] == [PENDING_KEY]
+    assert result["pending_deletion_kms_aliases"] == {PENDING_KEY: []}
+    assert result["kms_inspection_errors"] == []
 
 
 def test_live_tagged_resource_fails(monkeypatch: object) -> None:
@@ -72,3 +76,80 @@ def test_nonempty_remote_state_fails(monkeypatch: object) -> None:
 
     assert result["result"] == "FAIL"
     assert result["terraform_state_resources"] == ["aws_s3_bucket.old"]
+
+
+def test_pending_deletion_key_with_alias_fails(monkeypatch: object) -> None:
+    def alias_runner(*arguments: str) -> tuple[int, str]:
+        if "kms list-aliases" in " ".join(arguments):
+            return 0, json.dumps({"Aliases": [{"AliasName": "alias/atlasretail-old"}]})
+        return clean_runner(*arguments)
+
+    monkeypatch.setattr(MODULE, "command", alias_runner)
+
+    result = MODULE.verify("infra/atlas")
+
+    assert result["result"] == "FAIL"
+    assert result["unexpected_resources"] == [PENDING_KEY]
+    assert result["pending_deletion_kms_aliases"] == {PENDING_KEY: ["alias/atlasretail-old"]}
+    assert result["kms_inspection_errors"] == [f"{PENDING_KEY}: aliases remain attached"]
+
+
+def test_unreadable_pending_deletion_aliases_fail(monkeypatch: object) -> None:
+    def unreadable_alias_runner(*arguments: str) -> tuple[int, str]:
+        if "kms list-aliases" in " ".join(arguments):
+            return 254, "AccessDeniedException"
+        return clean_runner(*arguments)
+
+    monkeypatch.setattr(MODULE, "command", unreadable_alias_runner)
+
+    result = MODULE.verify("infra/atlas")
+
+    assert result["result"] == "FAIL"
+    assert result["unexpected_resources"] == [PENDING_KEY]
+    assert result["kms_inspection_errors"] == [f"{PENDING_KEY}: aliases are unreadable"]
+
+
+def test_unreadable_kms_metadata_fails(monkeypatch: object) -> None:
+    def unreadable_key_runner(*arguments: str) -> tuple[int, str]:
+        if "kms describe-key" in " ".join(arguments):
+            return 254, "AccessDeniedException"
+        return clean_runner(*arguments)
+
+    monkeypatch.setattr(MODULE, "command", unreadable_key_runner)
+
+    result = MODULE.verify("infra/atlas")
+
+    assert result["result"] == "FAIL"
+    assert result["unexpected_resources"] == [PENDING_KEY]
+    assert result["kms_inspection_errors"] == [f"{PENDING_KEY}: key metadata is unreadable"]
+
+
+def test_pending_deletion_without_date_fails(monkeypatch: object) -> None:
+    def missing_date_runner(*arguments: str) -> tuple[int, str]:
+        if "kms describe-key" in " ".join(arguments):
+            return 0, json.dumps({"KeyMetadata": {"KeyState": "PendingDeletion"}})
+        return clean_runner(*arguments)
+
+    monkeypatch.setattr(MODULE, "command", missing_date_runner)
+
+    result = MODULE.verify("infra/atlas")
+
+    assert result["result"] == "FAIL"
+    assert result["unexpected_resources"] == [PENDING_KEY]
+    assert result["kms_inspection_errors"] == [
+        f"{PENDING_KEY}: key is not a verifiable pending-deletion exception"
+    ]
+
+
+def test_unreadable_tag_inventory_fails(monkeypatch: object) -> None:
+    def unreadable_inventory_runner(*arguments: str) -> tuple[int, str]:
+        if "resourcegroupstaggingapi" in " ".join(arguments):
+            return 254, "AccessDeniedException"
+        return clean_runner(*arguments)
+
+    monkeypatch.setattr(MODULE, "command", unreadable_inventory_runner)
+
+    result = MODULE.verify("infra/atlas")
+
+    assert result["result"] == "FAIL"
+    assert "AtlasRetail tag inventory is unreadable" in result["errors"]
