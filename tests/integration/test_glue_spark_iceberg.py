@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
@@ -111,6 +111,26 @@ def test_same_timestamp_inventory_uses_deterministic_identity_order(
     changed = dict(frames)
     changed["inventory_movements"] = spark.read.json(spark.sparkContext.parallelize(encoded, 1))
     with pytest.raises(ValueError, match="QUALITY_GATE:NEGATIVE_INVENTORY:"):
+        GLUE.validate_frames(changed, knowledge_time=KNOWLEDGE_TIME)
+
+
+def test_generated_temporal_overlap_is_rejected_by_managed_spark_gate(
+    spark: SparkSession,
+    frames: dict[str, DataFrame],
+    batch: RetailBatch,
+) -> None:
+    first = batch.products[0]
+    overlap = replace(
+        first,
+        category="overlapping-version",
+        effective_from=first.effective_from + 1,
+        loaded_at=first.loaded_at + 1,
+    )
+    encoded = [json.dumps(asdict(row), sort_keys=True) for row in (*batch.products, overlap)]
+    changed = dict(frames)
+    changed["products"] = spark.read.json(spark.sparkContext.parallelize(encoded, 1))
+
+    with pytest.raises(ValueError, match="QUALITY_GATE:AMBIGUOUS_DIMENSION:"):
         GLUE.validate_frames(changed, knowledge_time=KNOWLEDGE_TIME)
 
 
