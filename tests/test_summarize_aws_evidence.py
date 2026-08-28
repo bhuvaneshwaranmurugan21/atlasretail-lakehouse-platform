@@ -79,7 +79,7 @@ def complete_evidence(path: Path) -> None:
         "states-cloudwatch-events.json",
         "lambda-cloudwatch-events.json",
     ):
-        write(path, name, {"events": []})
+        write(path, name, {"events": [{"message": f"{name} evidence"}]})
     pointer = {"Item": {"active_generation": {"S": "g-success-1"}}}
     write(path, "pointer-before-failure.json", pointer)
     write(path, "pointer-after-failure.json", pointer)
@@ -116,4 +116,22 @@ def test_missing_cloudwatch_export_fails(tmp_path: Path) -> None:
 
     assert completed.returncode == 1
     assert summary["result"] == "FAIL"
-    assert summary["checks"]["cloudwatch_exports"]["glue-cloudwatch-events.json"] is False
+    assert summary["checks"]["cloudwatch_exports"]["glue-cloudwatch-events.json"] == {
+        "event_count": 0,
+        "passed": False,
+    }
+
+
+def test_empty_cloudwatch_export_fails(tmp_path: Path) -> None:
+    complete_evidence(tmp_path)
+    write(tmp_path, "glue-cloudwatch-events.json", {"events": []})
+
+    completed = run_summary(tmp_path)
+    summary = json.loads((tmp_path / "summary.json").read_text(encoding="utf-8"))
+
+    assert completed.returncode == 1
+    assert summary["result"] == "FAIL"
+    assert summary["checks"]["cloudwatch_exports"]["glue-cloudwatch-events.json"] == {
+        "event_count": 0,
+        "passed": False,
+    }

@@ -98,3 +98,7 @@ def test_full_scenario_chain_and_diagnostic_backfill_are_required() -> None:
     collector = next(step["run"] for step in execute["steps"] if step.get("name") == expected[-1])
     assert "python scripts/backfill_execution_arns.py" in collector
     assert collector.index("backfill_execution_arns.py") < collector.index("get-execution-history")
+    assert "for attempt in $(seq 1 6); do" in collector
+    assert "'.events | type == \"array\" and length > 0'" in collector
+    assert 'if [[ "${attempt}" -lt 6 ]]; then' in collector
+    assert "sleep 10" in collector

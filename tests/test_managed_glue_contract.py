@@ -43,6 +43,13 @@ def test_state_machine_retries_only_transient_glue_slot_contention() -> None:
     assert "BackoffRate     = 1.5" in TERRAFORM
 
 
+def test_glue_5_logs_to_the_managed_error_group() -> None:
+    assert 'glue_log_group_prefix = "/aws-glue/jobs/${local.prefix}"' in TERRAFORM
+    assert 'name              = "${local.glue_log_group_prefix}/error"' in TERRAFORM
+    assert '"--custom-logGroup-prefix"       = local.glue_log_group_prefix' in TERRAFORM
+    assert "--continuous-log-logGroup" not in TERRAFORM
+
+
 def test_state_machine_waits_for_execution_role_policy() -> None:
     resource = TERRAFORM.split('resource "aws_sfn_state_machine" "retail" {', maxsplit=1)[1].split(
         "\n}", maxsplit=1

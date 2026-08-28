@@ -9,6 +9,7 @@ locals {
   evidence_bucket_name  = "${local.prefix}-evidence-${data.aws_caller_identity.current.account_id}"
   glue_database_name    = replace("${local.prefix}_retail", "-", "_")
   glue_job_name         = "${local.prefix}-iceberg"
+  glue_log_group_prefix = "/aws-glue/jobs/${local.prefix}"
   lambda_function_name  = "${local.prefix}-control"
   lambda_function_arn   = "arn:${data.aws_partition.current.partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:${local.lambda_function_name}"
   tags = {
@@ -119,7 +120,7 @@ resource "aws_s3_object" "glue_script" {
 }
 
 resource "aws_cloudwatch_log_group" "glue" {
-  name              = "/aws-glue/jobs/${local.prefix}"
+  name              = "${local.glue_log_group_prefix}/error"
   retention_in_days = 7
 }
 
@@ -214,14 +215,13 @@ resource "aws_glue_job" "retail" {
   }
 
   default_arguments = {
-    "--job-language"                     = "python"
-    "--enable-continuous-cloudwatch-log" = "true"
-    "--enable-metrics"                   = "true"
-    "--enable-observability-metrics"     = "true"
-    "--datalake-formats"                 = "iceberg"
-    "--conf"                             = "spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions --conf spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog --conf spark.sql.catalog.glue_catalog.warehouse=s3://${module.warehouse_bucket.name}/iceberg/ --conf spark.sql.catalog.glue_catalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog --conf spark.sql.catalog.glue_catalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO"
-    "--TempDir"                          = "s3://${module.evidence_bucket.name}/glue-temp/"
-    "--continuous-log-logGroup"          = aws_cloudwatch_log_group.glue.name
+    "--job-language"                 = "python"
+    "--enable-metrics"               = "true"
+    "--enable-observability-metrics" = "true"
+    "--datalake-formats"             = "iceberg"
+    "--conf"                         = "spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions --conf spark.sql.catalog.glue_catalog=org.apache.iceberg.spark.SparkCatalog --conf spark.sql.catalog.glue_catalog.warehouse=s3://${module.warehouse_bucket.name}/iceberg/ --conf spark.sql.catalog.glue_catalog.catalog-impl=org.apache.iceberg.aws.glue.GlueCatalog --conf spark.sql.catalog.glue_catalog.io-impl=org.apache.iceberg.aws.s3.S3FileIO"
+    "--TempDir"                      = "s3://${module.evidence_bucket.name}/glue-temp/"
+    "--custom-logGroup-prefix"       = local.glue_log_group_prefix
   }
 
   execution_property {

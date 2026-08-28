@@ -93,8 +93,12 @@ cloudwatch_files = (
     "states-cloudwatch-events.json",
     "lambda-cloudwatch-events.json",
 )
-cloudwatch_exports = {name: isinstance(load(name).get("events"), list) for name in cloudwatch_files}
-cloudwatch_evidence_complete = all(cloudwatch_exports.values())
+cloudwatch_exports = {}
+for name in cloudwatch_files:
+    events = load(name).get("events")
+    event_count = len(events) if isinstance(events, list) else 0
+    cloudwatch_exports[name] = {"event_count": event_count, "passed": event_count > 0}
+cloudwatch_evidence_complete = all(value["passed"] for value in cloudwatch_exports.values())
 checks_passed = (
     all(value["passed"] for value in execution_checks.values())
     and pointer_unchanged
