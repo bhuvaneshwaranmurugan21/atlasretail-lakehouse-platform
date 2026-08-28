@@ -272,7 +272,7 @@ jobs:
             "${BUDGET_CEILING_USD}"
           date +%s > "${EVIDENCE_DIR}/deployment-evidence-collected-epoch.txt"
 
-      - name: Persist sanitized deployment evidence before teardown
+      - name: Persist teardown recovery evidence before teardown
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -451,7 +451,16 @@ jobs:
           PORTFOLIO_LOCK_OWNER: ${{ github.repository }}/${{ github.run_id }}
         run: bash scripts/release_lock.sh
 
-      - name: Build final Part 2 evidence summary
+      - name: Remove ephemeral teardown inputs from final evidence
+        if: always()
+        run: |
+          python - "${EVIDENCE_DIR}/terraform-outputs.json" <<'PY'
+          import pathlib, sys
+
+          pathlib.Path(sys.argv[1]).unlink(missing_ok=True)
+          PY
+
+      - name: Build final Part 3 evidence summary
         if: always()
         run: |
           python scripts/summarize_deployment_evidence.py \
