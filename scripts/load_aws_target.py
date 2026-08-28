@@ -29,6 +29,8 @@ REQUIRED_STRINGS = {
     "budget_name",
 }
 REQUIRED_NUMBERS = {"monthly_budget_usd", "run_ceiling_usd"}
+SOURCE_COMMIT_PATTERN = re.compile(r"^[0-9a-fA-F]{40}$")
+GITHUB_RUN_ID_PATTERN = re.compile(r"^[1-9][0-9]*$")
 
 
 def load_target(path: Path = DEFAULT_TARGET) -> dict[str, Any]:
@@ -97,6 +99,29 @@ def _assert_equal(label: str, actual: str | None, expected: str) -> None:
         raise ValueError(f"{label} mismatch")
 
 
+def build_source_identity(
+    target: dict[str, Any], source_commit: str, github_run_id: str
+) -> dict[str, Any]:
+    if SOURCE_COMMIT_PATTERN.fullmatch(source_commit) is None:
+        raise ValueError("source commit must contain exactly 40 hexadecimal characters")
+    if GITHUB_RUN_ID_PATTERN.fullmatch(github_run_id) is None:
+        raise ValueError("GitHub run ID must be a positive integer")
+    return {
+        "schema_version": "1.0",
+        "project": target["project"],
+        "result": "PASS",
+        "source_commit": source_commit,
+        "github_run_id": github_run_id,
+        "repository": target["repository"],
+        "ref": target["branch_ref"],
+        "aws_account_id": target["aws_account_id"],
+        "aws_region": target["aws_region"],
+        "oidc_role_arn": target["oidc_role_arn"],
+        "terraform_state_key": target["terraform_state_key"],
+        "run_ceiling_usd": target["run_ceiling_usd"],
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--target", type=Path, default=DEFAULT_TARGET)
@@ -107,6 +132,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expect-role-arn")
     parser.add_argument("--expect-repository")
     parser.add_argument("--expect-ref")
+    parser.add_argument("--source-identity", type=Path)
+    parser.add_argument("--source-commit")
+    parser.add_argument("--github-run-id")
     return parser.parse_args()
 
 
@@ -118,11 +146,22 @@ def main() -> int:
     _assert_equal("role ARN", args.expect_role_arn, target["oidc_role_arn"])
     _assert_equal("repository", args.expect_repository, target["repository"])
     _assert_equal("ref", args.expect_ref, target["branch_ref"])
+    source_arguments = (args.source_identity, args.source_commit, args.github_run_id)
+    if any(value is not None for value in source_arguments):
+        if not all(value is not None for value in source_arguments):
+            raise ValueError(
+                "source identity output, source commit, and GitHub run ID are all required"
+            )
+        identity = build_source_identity(target, args.source_commit, args.github_run_id)
+        args.source_identity.parent.mkdir(parents=True, exist_ok=True)
+        args.source_identity.write_text(
+            json.dumps(identity, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
     if args.github_output:
         _append_values(args.github_output, target, upper=False)
     if args.github_env:
         _append_values(args.github_env, target, upper=True)
-    if not args.github_output and not args.github_env:
+    if not args.github_output and not args.github_env and not args.source_identity:
         print(json.dumps(target, sort_keys=True))
     return 0
 

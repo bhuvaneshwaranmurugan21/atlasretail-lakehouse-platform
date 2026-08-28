@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -64,6 +65,74 @@ def test_loader_validates_repository_variables_and_github_context() -> None:
         text=True,
     )
     assert completed.returncode == 0, completed.stderr
+
+
+def test_loader_writes_validated_source_identity(tmp_path: Path) -> None:
+    value = target()
+    source_commit = "a" * 40
+    source_identity = tmp_path / "nested" / "source-identity.json"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "scripts/load_aws_target.py",
+            "--source-identity",
+            str(source_identity),
+            "--source-commit",
+            source_commit,
+            "--github-run-id",
+            "123456789",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout == ""
+    assert json.loads(source_identity.read_text(encoding="utf-8")) == {
+        "schema_version": "1.0",
+        "project": "AtlasRetail",
+        "result": "PASS",
+        "source_commit": source_commit,
+        "github_run_id": "123456789",
+        "repository": value["repository"],
+        "ref": value["branch_ref"],
+        "aws_account_id": value["aws_account_id"],
+        "aws_region": value["aws_region"],
+        "oidc_role_arn": value["oidc_role_arn"],
+        "terraform_state_key": value["terraform_state_key"],
+        "run_ceiling_usd": value["run_ceiling_usd"],
+    }
+
+
+@pytest.mark.parametrize(
+    ("source_commit", "github_run_id"),
+    (("not-a-commit", "123"), ("a" * 40, "0"), ("a" * 40, "run-123")),
+)
+def test_loader_rejects_invalid_source_identity(
+    tmp_path: Path, source_commit: str, github_run_id: str
+) -> None:
+    source_identity = tmp_path / "source-identity.json"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "scripts/load_aws_target.py",
+            "--source-identity",
+            str(source_identity),
+            "--source-commit",
+            source_commit,
+            "--github-run-id",
+            github_run_id,
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert not source_identity.exists()
 
 
 def test_active_aws_workflows_load_the_target_and_pin_credentials_action() -> None:
