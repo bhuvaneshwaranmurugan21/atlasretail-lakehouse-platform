@@ -434,8 +434,17 @@ jobs:
               lambda) group="${lambda_logs}" ;;
             esac
             if [[ "${group}" == *atlasretail-${RUN_ID}* ]]; then
-              aws logs filter-log-events --log-group-name "${group}" \
-                > "${EVIDENCE_DIR}/${name}-cloudwatch-events.json"
+              for attempt in $(seq 1 6); do
+                aws logs filter-log-events --log-group-name "${group}" \
+                  > "${EVIDENCE_DIR}/${name}-cloudwatch-events.json"
+                if jq -e '.events | type == "array" and length > 0' \
+                  "${EVIDENCE_DIR}/${name}-cloudwatch-events.json" > /dev/null; then
+                  break
+                fi
+                if [[ "${attempt}" -lt 6 ]]; then
+                  sleep 10
+                fi
+              done
             else
               printf '{"events":[],"collection":"SKIPPED_NO_DEPLOYMENT"}\n' \
                 > "${EVIDENCE_DIR}/${name}-cloudwatch-events.json"
