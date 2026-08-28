@@ -1,0 +1,14 @@
+{
+  "checks": {
+    "all_teardown_checks_passed": true,
+    "exact_resource_absence_check_count": 17,
+    "terraform_state_empty": true,
+    "unexpected_run_tagged_resources": []
+  },
+  "kms_key_disposition": {
+    "deletion_date_verified": true,
+    "status": "PENDING_DELETION"
+  },
+  "result": "PASS",
+  "teardown_check_count": 20
+}

@@ -12,12 +12,13 @@ establish data-processing correctness.
 | Budget, create-only plan, and zero-change proof, current target | AWS | `33060606145` | Pass |
 | Glue create/delete capability and cleanup, current target | AWS | `32930567869` | Pass |
 | Partial-apply recovery and exact-state teardown, current target | AWS | `32952618876` | Pass |
+| Managed bounded data path and exact-state teardown, current target | AWS | `33167646509` | Pass |
 | Initial partial-apply recovery, legacy target | AWS | `31794022586` and corrected continuation | Resolved |
 | Free-plan denial exact-state recovery, legacy target | AWS | `31812211040` | Pass |
-| Glue and Iceberg transformation | AWS | — | Not executed |
-| Managed replay, failure, and recovery | AWS | — | Not executed |
-| Athena result validation | AWS | — | Not executed |
-| Runtime, throughput, and workload cost | AWS | — | Not measured |
+| Glue and Iceberg transformation | AWS | `33167646509` | Pass |
+| Managed replay, failure, and recovery | AWS | `33167646509` | Pass |
+| Athena result validation | AWS | `33167646509` | Pass |
+| Bounded runtime, scan, and workload cost estimate | AWS | `33167646509` | Measured |
 
 ## Committed evidence
 
@@ -46,6 +47,10 @@ establish data-processing correctness.
 - `aws/recovery/32952618876/` preserves the sanitized destroy-plan, incomplete-execution, and
   exact-state teardown summaries from the current target. Raw plans, logs, caller identity, AWS
   stderr, and live resource identifiers remain only in the expiring workflow artifact.
+- `aws/bounded/33167646509/` preserves the digest-attributed managed execution, failure-isolation,
+  plan, usage, cost-estimate, CloudWatch-count, Athena-result, and exact-state teardown summaries.
+  Raw CloudWatch events, execution histories, caller identity, and live resource identifiers remain
+  only in the expiring workflow artifact.
 - `incidents/31791499897/terraform-outputs.json` preserves the exact resource identifiers required
   for recovery after partial Terraform state removal.
 - `../docs/incidents/legacy/` preserves the former rescue workflow and its exact authorization
@@ -61,6 +66,7 @@ establish data-processing correctness.
 - [Earlier current-target budget and create-only plan proof 32929299555](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32929299555)
 - [Current-target Glue create/delete capability probe 32930567869](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32930567869)
 - [Current-target partial-apply recovery and exact-state teardown 32952618876](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32952618876)
+- [Current-target managed bounded data path and teardown 33167646509](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33167646509)
 - The following plan/deployment/recovery runs are legacy-target evidence only:
 - [Initial failed deployment 31791499897](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/31791499897)
 - [First recovery attempt 31794022586](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/31794022586)
