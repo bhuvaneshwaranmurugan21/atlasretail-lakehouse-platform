@@ -435,6 +435,12 @@ resource "aws_sfn_state_machine" "retail" {
         }
         ResultPath = "$.glue"
         Next       = "ValidateGeneration"
+        Retry = [{
+          ErrorEquals     = ["Glue.ConcurrentRunsExceededException"]
+          IntervalSeconds = 20
+          MaxAttempts     = 6
+          BackoffRate     = 1.5
+        }]
         Catch = [{
           ErrorEquals = ["States.ALL"]
           ResultPath  = "$.failure"

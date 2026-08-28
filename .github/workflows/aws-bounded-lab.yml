@@ -210,18 +210,18 @@ jobs:
           read -r success_arn success_status < <(bash scripts/start_execution.sh \
             "success-${RUN_ID}" "${machine}" "${identity[0]}" \
             "${identity[1]}" "${batch}" "${identity[2]}" false)
+          printf '%s' "${success_arn}" > "${EVIDENCE_DIR}/success-execution-arn.txt"
           test "${success_status}" = "SUCCEEDED"
           read -r replay_arn replay_status < <(bash scripts/start_execution.sh \
             "replay-${RUN_ID}" "${machine}" "${identity[0]}" \
             "${identity[1]}" "${batch}" "${identity[2]}" false)
+          printf '%s' "${replay_arn}" > "${EVIDENCE_DIR}/replay-execution-arn.txt"
           test "${replay_status}" = "SUCCEEDED"
           read -r conflict_arn conflict_status < <(bash scripts/start_execution.sh \
             "conflict-${RUN_ID}" "${machine}" "${identity[0]}" \
             "${identity[1]}" "${batch}" "$(printf 'f%.0s' {1..64})" false)
-          test "${conflict_status}" = "FAILED"
-          printf '%s' "${success_arn}" > "${EVIDENCE_DIR}/success-execution-arn.txt"
-          printf '%s' "${replay_arn}" > "${EVIDENCE_DIR}/replay-execution-arn.txt"
           printf '%s' "${conflict_arn}" > "${EVIDENCE_DIR}/conflict-execution-arn.txt"
+          test "${conflict_status}" = "FAILED"
       - name: Prove failure isolation and deterministic recovery
         run: |
           set -euo pipefail
@@ -243,6 +243,7 @@ jobs:
           read -r failure_arn failure_status < <(bash scripts/start_execution.sh \
             "failure-${RUN_ID}" "${machine}" "${identity[0]}" \
             "${identity[1]}" "${batch}" "${identity[2]}" true)
+          printf '%s' "${failure_arn}" > "${EVIDENCE_DIR}/failure-execution-arn.txt"
           test "${failure_status}" = "FAILED"
           aws dynamodb get-item --table-name "${table}" \
             --key '{"pk":{"S":"CONTROL"},"sk":{"S":"ACTIVE"}}' \
@@ -252,9 +253,8 @@ jobs:
           read -r recovery_arn recovery_status < <(bash scripts/start_execution.sh \
             "recovery-${RUN_ID}" "${machine}" "${identity[0]}" \
             "${identity[1]}" "${batch}" "${identity[2]}" false)
-          test "${recovery_status}" = "SUCCEEDED"
-          printf '%s' "${failure_arn}" > "${EVIDENCE_DIR}/failure-execution-arn.txt"
           printf '%s' "${recovery_arn}" > "${EVIDENCE_DIR}/recovery-execution-arn.txt"
+          test "${recovery_status}" = "SUCCEEDED"
       - name: Reject temporal overlap and financial imbalance
         run: |
           set -euo pipefail
@@ -273,9 +273,9 @@ jobs:
             read -r execution_arn execution_status < <(bash scripts/start_execution.sh \
               "${scenario}-${RUN_ID}" "${machine}" "${identity[0]}" \
               "${identity[1]}" "${batch}" "${identity[2]}" false)
-            test "${execution_status}" = "FAILED"
             printf '%s' "${execution_arn}" \
               > "${EVIDENCE_DIR}/${scenario}-execution-arn.txt"
+            test "${execution_status}" = "FAILED"
           done
       - name: Reject an S3 version whose bytes contradict registered evidence
         run: |
@@ -336,8 +336,8 @@ jobs:
           read -r tamper_arn tamper_status < <(bash scripts/start_execution.sh \
             "tamper-${RUN_ID}" "${machine}" "${identity[0]}" \
             "${identity[1]}" "${batch}" "${identity[2]}" false)
-          test "${tamper_status}" = "FAILED"
           printf '%s' "${tamper_arn}" > "${EVIDENCE_DIR}/tamper-execution-arn.txt"
+          test "${tamper_status}" = "FAILED"
       - name: Prove stale publisher compare-and-swap rejection
         run: |
           set -euo pipefail
@@ -395,6 +395,9 @@ jobs:
             printf '{"executions":[],"collection":"SKIPPED_NO_DEPLOYMENT"}\n' \
               > "${EVIDENCE_DIR}/stepfunctions-executions.json"
           fi
+          python scripts/backfill_execution_arns.py \
+            "${EVIDENCE_DIR}/stepfunctions-executions.json" \
+            "${EVIDENCE_DIR}" "${RUN_ID}"
           for kind in success replay conflict failure recovery tamper temporal financial; do
             arn_file="${EVIDENCE_DIR}/${kind}-execution-arn.txt"
             if [[ -s "${arn_file}" ]]; then

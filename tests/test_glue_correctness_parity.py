@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import ast
+import base64
 import gzip
+import hashlib
 import importlib.util
 import json
 import unittest
@@ -63,6 +65,16 @@ class FakeS3:
         return {"Body": BytesIO(self.versions[VersionId])}
 
 
+class FakeIdentityS3:
+    def head_object(self, **_: str) -> dict[str, object]:
+        corrupted = b"deliberately-corrupted-object"
+        return {
+            "ContentLength": len(corrupted),
+            "ChecksumSHA256": base64.b64encode(hashlib.sha256(corrupted).digest()).decode(),
+            "ETag": '"corrupted-etag"',
+        }
+
+
 class ManagedCorrectnessParityTests(unittest.TestCase):
     def test_local_and_managed_business_gates_are_identical(self) -> None:
         local = emitted_codes(QUALITY_PATH, "Violation")
@@ -116,3 +128,29 @@ class ManagedCorrectnessParityTests(unittest.TestCase):
         payload = gzip.compress(b"7\n")
         with self.assertRaisesRegex(ValueError, "QUALITY_GATE:OBJECT_CONTENT"):
             GLUE.canonical_table_digest([BytesIO(payload)])
+
+    def test_registered_s3_version_with_contradictory_bytes_is_rejected_before_spark(self) -> None:
+        manifest = {
+            "tables": {
+                "orders": {
+                    "objects": [
+                        {
+                            "bucket": "landing",
+                            "key": "orders.jsonl.gz",
+                            "version_id": "tampered-version",
+                            "size_bytes": 42,
+                            "sha256": "0" * 64,
+                            "etag": "registered-etag",
+                        }
+                    ]
+                }
+            }
+        }
+        with self.assertRaisesRegex(ValueError, "QUALITY_GATE:OBJECT_IDENTITY:orders"):
+            GLUE.load_registered_frames(
+                object(),
+                FakeIdentityS3(),
+                args={"GENERATION_ID": "g-tamper"},
+                manifest=manifest,
+                manifest_bucket="landing",
+            )

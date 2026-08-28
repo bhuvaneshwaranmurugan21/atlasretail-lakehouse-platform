@@ -36,6 +36,13 @@ def test_validation_reads_the_completed_glue_run_id() -> None:
     assert "$.glue.JobRunId" not in TERRAFORM
 
 
+def test_state_machine_retries_only_transient_glue_slot_contention() -> None:
+    assert 'ErrorEquals     = ["Glue.ConcurrentRunsExceededException"]' in TERRAFORM
+    assert "IntervalSeconds = 20" in TERRAFORM
+    assert "MaxAttempts     = 6" in TERRAFORM
+    assert "BackoffRate     = 1.5" in TERRAFORM
+
+
 def test_state_machine_waits_for_execution_role_policy() -> None:
     resource = TERRAFORM.split('resource "aws_sfn_state_machine" "retail" {', maxsplit=1)[1].split(
         "\n}", maxsplit=1

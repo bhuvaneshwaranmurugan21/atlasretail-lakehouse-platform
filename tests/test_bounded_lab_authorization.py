@@ -76,3 +76,25 @@ def test_phase_two_lab_requires_explicit_manual_dispatch() -> None:
     assert "python scripts/capture_account_plan.py" in scripts
     assert "python scripts/verify_account_plan.py" in scripts
     assert "freetier upgrade-account-plan" not in scripts
+
+
+def test_full_scenario_chain_and_diagnostic_backfill_are_required() -> None:
+    workflow = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
+    execute = workflow["jobs"]["execute"]
+    names = [step.get("name") for step in execute["steps"] if isinstance(step, dict)]
+    expected = [
+        "Execute success and replay proofs",
+        "Prove failure isolation and deterministic recovery",
+        "Reject temporal overlap and financial imbalance",
+        "Reject an S3 version whose bytes contradict registered evidence",
+        "Prove stale publisher compare-and-swap rejection",
+        "Run and validate bounded Athena verification",
+        "Collect AWS execution and CloudWatch evidence",
+    ]
+    assert [names.index(name) for name in expected] == sorted(
+        names.index(name) for name in expected
+    )
+
+    collector = next(step["run"] for step in execute["steps"] if step.get("name") == expected[-1])
+    assert "python scripts/backfill_execution_arns.py" in collector
+    assert collector.index("backfill_execution_arns.py") < collector.index("get-execution-history")
