@@ -15,6 +15,7 @@ from botocore.exceptions import ClientError
 
 TABLE_NAME = os.environ["CONTROL_TABLE"]
 TABLE = boto3.resource("dynamodb").Table(TABLE_NAME)
+DYNAMODB = boto3.client("dynamodb")
 EXPECTED_TABLES = {
     "orders",
     "order_lines",
@@ -136,7 +137,7 @@ def _register(event: dict[str, Any]) -> dict[str, Any]:
         "workflow_run_id": workflow_run_id,
     }
     try:
-        TABLE.meta.client.transact_write_items(
+        DYNAMODB.transact_write_items(
             TransactItems=[
                 {
                     "Put": {
@@ -292,7 +293,7 @@ def _publish(event: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("NOT_VALIDATED: only a validated generation can publish")
     now = int(time.time())
     try:
-        TABLE.meta.client.transact_write_items(
+        DYNAMODB.transact_write_items(
             TransactItems=[
                 {
                     "Update": {
