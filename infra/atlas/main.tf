@@ -450,7 +450,7 @@ resource "aws_sfn_state_machine" "retail" {
             action              = "validate"
             "generation_id.$"   = "$.registration.result.generation_id"
             "validation_uri.$"  = "States.Format('s3://${local.evidence_bucket_name}/validation/{}.json', $.registration.result.generation_id)"
-            "glue_job_run_id.$" = "$.glue.JobRunId"
+            "glue_job_run_id.$" = "$.glue.Id"
           }
         }
         ResultSelector = { "result.$" = "$.Payload" }
