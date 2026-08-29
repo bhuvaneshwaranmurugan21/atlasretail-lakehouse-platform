@@ -85,15 +85,27 @@ def test_deploy_and_teardown_are_distinct_explicit_allowlists() -> None:
 
 
 def test_compact_patterns_preserve_the_exact_effective_role_intersections() -> None:
-    # These digests pin the former explicit allowlist intersections against the
-    # tracked role policy. Compact patterns may change, but their effective
-    # permissions cannot gain or lose an action unnoticed.
+    # These digests pin the reviewed action intersections against the tracked
+    # role policy. Compact patterns may change, but their effective permissions
+    # cannot gain or lose an action unnoticed.
     expected = {
-        "deploy": (137, "f61de0e324cdae7e7260439c689cbde8f9cdf832e2eab4aa6f45470c0360a5d0"),
-        "teardown": (95, "1c1c407698be778eb8e79a9b7d85bee9151a8c691910b68ef82c2d1d1b4b5ca1"),
+        "deploy": (142, "d892b5d34dd803922642fbb633f1afadd3535b8f4c934552032fae2ce778fab6"),
+        "teardown": (99, "c8bbb0280b0ac54df6ed1e20260245bb0018c471ae73a79b46a5c91a4272310f"),
     }
     for mode, (count, digest) in expected.items():
         actions = sorted(_effective_actions(mode))
         actual_digest = hashlib.sha256(("\n".join(actions) + "\n").encode()).hexdigest()
         assert len(actions) == count
         assert actual_digest == digest
+
+
+def test_encrypted_lease_and_service_integrations_keep_required_kms_permissions() -> None:
+    deploy = _effective_actions("deploy")
+    teardown = _effective_actions("teardown")
+    crypto = {"kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey"}
+
+    assert crypto <= deploy
+    assert crypto <= teardown
+    assert {"kms:CreateGrant", "kms:RevokeGrant"} <= deploy
+    assert "kms:RevokeGrant" in teardown
+    assert "kms:CreateGrant" not in teardown
