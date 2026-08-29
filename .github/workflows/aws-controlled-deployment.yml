@@ -151,6 +151,7 @@ jobs:
           name: atlasretail-deployment-admission-${{ github.run_id }}
           path: evidence/deployment/${{ github.run_id }}
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        id: aws-credentials
         with:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
@@ -354,7 +355,7 @@ jobs:
             "${EVIDENCE_DIR}/deployment-verification.json"
 
       - name: Capture post-deployment budget evidence
-        if: always()
+        if: ${{ always() && steps.aws-credentials.outcome == 'success' }}
         run: |
           set -euo pipefail
           account="$(aws sts get-caller-identity --query Account --output text)"
@@ -425,6 +426,7 @@ jobs:
           terraform_version: 1.11.4
           terraform_wrapper: false
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        id: aws-credentials
         with:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
@@ -569,7 +571,7 @@ jobs:
             "${EVIDENCE_DIR}/teardown.json"
 
       - name: Capture post-teardown budget evidence
-        if: always()
+        if: ${{ always() && steps.aws-credentials.outcome == 'success' }}
         continue-on-error: true
         run: |
           account="$(aws sts get-caller-identity --query Account --output text)"

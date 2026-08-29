@@ -9,6 +9,12 @@ from pathlib import Path
 from typing import Any
 
 MAX_SESSION_POLICY_CHARACTERS = 2048
+# STS also applies a separate opaque packed-policy limit. The exact deploy and
+# teardown lists were below the documented 2,048-character plaintext limit but
+# AWS rejected them at 151% and 112% packed size. The plan policy in this size
+# class has already been exercised successfully through this account's OIDC
+# role, so fail locally before another workflow can submit a larger document.
+MAX_PACKED_POLICY_PLAINTEXT_BUDGET = 900
 WORKLOAD_ACTIONS = (
     "athena:StartQueryExecution",
     "glue:StartJobRun",
@@ -51,127 +57,88 @@ PLAN_ACTIONS = (
 )
 
 DEPLOY_ACTIONS = (
-    "athena:CreateWorkGroup",
-    "athena:Get*",
-    "athena:List*",
-    "athena:TagResource",
-    "athena:UntagResource",
-    "athena:UpdateWorkGroup",
+    "athena:*",
     "budgets:ViewBudget",
-    "cloudwatch:Describe*",
-    "cloudwatch:List*",
-    "cloudwatch:PutMetricAlarm",
-    "cloudwatch:TagResource",
-    "cloudwatch:UntagResource",
-    "dynamodb:CreateTable",
-    "dynamodb:DeleteItem",
-    "dynamodb:Describe*",
-    "dynamodb:GetItem",
-    "dynamodb:ListTagsOfResource",
-    "dynamodb:PutItem",
-    "dynamodb:Scan",
-    "dynamodb:TagResource",
-    "dynamodb:UntagResource",
-    "dynamodb:Update*",
+    "cloudwatch:*",
+    "dynamodb:*",
     "freetier:GetAccountPlanState",
-    "glue:CreateDatabase",
-    "glue:CreateJob",
-    "glue:Get*",
-    "glue:TagResource",
-    "glue:UntagResource",
-    "glue:Update*",
-    "iam:CreateRole",
-    "iam:Get*",
-    "iam:List*",
-    "iam:PassRole",
-    "iam:PutRolePolicy",
-    "iam:TagRole",
-    "iam:UntagRole",
-    "iam:UpdateAssumeRolePolicy",
-    "kms:CreateAlias",
-    "kms:CreateKey",
-    "kms:DescribeKey",
-    "kms:Get*",
-    "kms:List*",
-    "kms:PutKeyPolicy",
-    "kms:TagResource",
-    "kms:UntagResource",
-    "kms:Update*",
-    "lambda:AddPermission",
-    "lambda:CreateFunction",
-    "lambda:Get*",
-    "lambda:List*",
-    "lambda:RemovePermission",
-    "lambda:TagResource",
-    "lambda:UntagResource",
-    "lambda:Update*",
-    "logs:AssociateKmsKey",
-    "logs:CreateLogGroup",
-    "logs:DescribeLogGroups",
-    "logs:FilterLogEvents",
-    "logs:ListTagsForResource",
-    "logs:PutRetentionPolicy",
-    "logs:TagResource",
-    "logs:UntagResource",
-    "s3:CreateBucket",
-    "s3:Get*",
-    "s3:List*",
-    "s3:Put*",
-    "states:CreateStateMachine",
-    "states:Describe*",
-    "states:List*",
-    "states:TagResource",
-    "states:UntagResource",
-    "states:Update*",
-    "states:ValidateStateMachineDefinition",
+    "glue:*",
+    "iam:*",
+    "kms:*",
+    "lambda:*",
+    "logs:*",
+    "s3:*",
+    "states:*",
     "sts:GetCallerIdentity",
     "tag:GetResources",
 )
 
+# The deploy allow patterns are compact enough for STS, while this deny set
+# makes their intersection with the exact tracked/live role policy identical to
+# the former explicit deploy allowlist. Destructive and workload operations
+# therefore cannot become effective deploy permissions.
+DEPLOY_OUT_OF_MODE_ACTIONS = (
+    "athena:Delete*",
+    "athena:Stop*",
+    "cloudwatch:Delete*",
+    "dynamodb:DeleteTable",
+    "glue:Delete*",
+    "iam:Delete*",
+    "kms:CreateGrant",
+    "kms:Decrypt",
+    "kms:Delete*",
+    "kms:Disable*",
+    "kms:Enable*",
+    "kms:Encrypt",
+    "kms:GenerateDataKey",
+    "kms:RevokeGrant",
+    "kms:Schedule*",
+    "lambda:Delete*",
+    "logs:Delete*",
+    "s3:Delete*",
+    "states:Delete*",
+    "states:GetExecutionHistory",
+    "states:Stop*",
+)
+
 TEARDOWN_ACTIONS = (
-    "athena:DeleteWorkGroup",
+    "athena:Delete*",
     "athena:Get*",
     "athena:List*",
     "budgets:ViewBudget",
-    "cloudwatch:DeleteAlarms",
+    "cloudwatch:Delete*",
     "cloudwatch:Describe*",
     "cloudwatch:List*",
-    "dynamodb:DeleteItem",
-    "dynamodb:DeleteTable",
+    "dynamodb:Delete*",
     "dynamodb:Describe*",
-    "dynamodb:GetItem",
-    "dynamodb:ListTagsOfResource",
+    "dynamodb:Get*",
+    "dynamodb:List*",
     "dynamodb:PutItem",
     "dynamodb:Scan",
     "dynamodb:UpdateItem",
-    "glue:DeleteDatabase",
-    "glue:DeleteJob",
+    "glue:Delete*",
     "glue:Get*",
-    "iam:DeleteRole",
-    "iam:DeleteRolePolicy",
+    "iam:Delete*",
     "iam:Get*",
     "iam:List*",
-    "kms:DeleteAlias",
-    "kms:DescribeKey",
-    "kms:DisableKey",
+    "kms:Delete*",
+    "kms:Describe*",
+    "kms:Disable*",
     "kms:Get*",
     "kms:List*",
-    "kms:ScheduleKeyDeletion",
-    "lambda:DeleteFunction",
+    "kms:Schedule*",
+    "lambda:Delete*",
     "lambda:Get*",
     "lambda:List*",
-    "logs:DeleteLogGroup",
-    "logs:DescribeLogGroups",
-    "logs:FilterLogEvents",
-    "logs:ListTagsForResource",
-    "s3:DeleteBucket",
-    "s3:DeleteBucketPolicy",
-    "s3:DeleteObject",
-    "s3:DeleteObjectVersion",
+    "logs:Delete*",
+    "logs:Describe*",
+    "logs:Filter*",
+    "logs:List*",
+    "s3:Delete*",
     "s3:Get*",
     "s3:List*",
     "s3:PutObject",
-    "states:DeleteStateMachine",
+    "states:Delete*",
     "states:Describe*",
     "states:List*",
     "sts:GetCallerIdentity",
@@ -187,22 +154,29 @@ def build_policy(mode: str) -> dict[str, Any]:
         "deploy": DEPLOY_ACTIONS,
         "teardown": TEARDOWN_ACTIONS,
     }[mode]
+    statements: list[dict[str, Any]] = [
+        {
+            "Effect": "Allow",
+            "Action": list(allowed),
+            "Resource": "*",
+        },
+        {
+            "Effect": "Deny",
+            "Action": list(WORKLOAD_ACTIONS),
+            "Resource": "*",
+        },
+    ]
+    if mode == "deploy":
+        statements.append(
+            {
+                "Effect": "Deny",
+                "Action": list(DEPLOY_OUT_OF_MODE_ACTIONS),
+                "Resource": "*",
+            }
+        )
     return {
         "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Sid": "Phase5PermissionIntersection",
-                "Effect": "Allow",
-                "Action": list(allowed),
-                "Resource": "*",
-            },
-            {
-                "Sid": "DenyWorkloadExecution",
-                "Effect": "Deny",
-                "Action": list(WORKLOAD_ACTIONS),
-                "Resource": "*",
-            },
-        ],
+        "Statement": statements,
     }
 
 
@@ -210,6 +184,8 @@ def render_policy(mode: str) -> str:
     rendered = json.dumps(build_policy(mode), separators=(",", ":"), sort_keys=True)
     if len(rendered) > MAX_SESSION_POLICY_CHARACTERS:
         raise ValueError("rendered session policy exceeds the STS 2048-character limit")
+    if len(rendered) > MAX_PACKED_POLICY_PLAINTEXT_BUDGET:
+        raise ValueError("rendered session policy exceeds the packed-size risk budget")
     return rendered
 
 
