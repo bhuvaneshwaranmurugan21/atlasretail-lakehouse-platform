@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import time
 from pathlib import Path
 
 SCRIPT = Path(__file__).parents[1] / "scripts" / "verify_preflight.py"
@@ -182,6 +183,94 @@ def test_live_account_lease_fails(monkeypatch: object) -> None:
     assert result["account_lease_absent"] is False
     assert result["account_lease_item"] == lease
     assert "Account-wide lease is still held" in result["errors"]
+
+
+def test_exact_unexpired_expected_account_lease_passes(monkeypatch: object) -> None:
+    expected_owner = "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/123"
+    expiry = int(time.time()) + 300
+
+    def owned_lease_runner(*arguments: str) -> tuple[int, str]:
+        if "dynamodb get-item" in " ".join(arguments):
+            return 0, json.dumps(
+                {
+                    "Item": {
+                        "lock_id": {"S": "portfolio-lab"},
+                        "owner": {"S": expected_owner},
+                        "expires_at": {"N": str(expiry)},
+                    }
+                }
+            )
+        return clean_runner(*arguments)
+
+    monkeypatch.setattr(MODULE, "command", owned_lease_runner)
+
+    result = MODULE.verify("infra/atlas", LEASE_TABLE, expected_owner)
+
+    assert result["result"] == "PASS"
+    assert result["account_lease_absent"] is False
+    assert result["account_lease_expected_owner"] == expected_owner
+    assert result["account_lease_owner"] == expected_owner
+    assert result["account_lease_expires_at"] == expiry
+    assert result["account_lease_ownership_verified"] is True
+
+
+def test_wrong_expected_account_lease_owner_fails(monkeypatch: object) -> None:
+    def wrong_owner_runner(*arguments: str) -> tuple[int, str]:
+        if "dynamodb get-item" in " ".join(arguments):
+            return 0, json.dumps(
+                {
+                    "Item": {
+                        "lock_id": {"S": "portfolio-lab"},
+                        "owner": {"S": "other/repository/456"},
+                        "expires_at": {"N": str(int(time.time()) + 300)},
+                    }
+                }
+            )
+        return clean_runner(*arguments)
+
+    monkeypatch.setattr(MODULE, "command", wrong_owner_runner)
+
+    result = MODULE.verify("infra/atlas", LEASE_TABLE, "expected/repository/123")
+
+    assert result["result"] == "FAIL"
+    assert result["account_lease_ownership_verified"] is False
+    assert "Account-wide lease does not match the expected live owner" in result["errors"]
+
+
+def test_expired_expected_account_lease_fails(monkeypatch: object) -> None:
+    expected_owner = "expected/repository/123"
+
+    def expired_lease_runner(*arguments: str) -> tuple[int, str]:
+        if "dynamodb get-item" in " ".join(arguments):
+            return 0, json.dumps(
+                {
+                    "Item": {
+                        "lock_id": {"S": "portfolio-lab"},
+                        "owner": {"S": expected_owner},
+                        "expires_at": {"N": str(int(time.time()) - 1)},
+                    }
+                }
+            )
+        return clean_runner(*arguments)
+
+    monkeypatch.setattr(MODULE, "command", expired_lease_runner)
+
+    result = MODULE.verify("infra/atlas", LEASE_TABLE, expected_owner)
+
+    assert result["result"] == "FAIL"
+    assert result["account_lease_ownership_verified"] is False
+    assert "Account-wide lease does not match the expected live owner" in result["errors"]
+
+
+def test_missing_expected_account_lease_fails(monkeypatch: object) -> None:
+    monkeypatch.setattr(MODULE, "command", clean_runner)
+
+    result = MODULE.verify("infra/atlas", LEASE_TABLE, "expected/repository/123")
+
+    assert result["result"] == "FAIL"
+    assert result["account_lease_absent"] is True
+    assert result["account_lease_ownership_verified"] is False
+    assert "Expected account-wide lease is absent" in result["errors"]
 
 
 def test_unreadable_account_lease_fails(monkeypatch: object) -> None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -48,7 +49,11 @@ def _alias_names(document: dict[str, Any]) -> list[str] | None:
     return sorted(names)
 
 
-def verify(terraform_directory: str, account_lease_table: str) -> dict[str, Any]:
+def verify(
+    terraform_directory: str,
+    account_lease_table: str,
+    expected_lease_owner: str | None = None,
+) -> dict[str, Any]:
     errors: list[str] = []
     state_code, state_detail = command(
         "terraform", f"-chdir={terraform_directory}", "show", "-json"
@@ -78,6 +83,9 @@ def verify(terraform_directory: str, account_lease_table: str) -> dict[str, Any]
     lease_document = _json(lease_code, lease_detail)
     lease_absent = False
     lease_item: dict[str, Any] | None = None
+    lease_owner: str | None = None
+    lease_expires_at: int | None = None
+    lease_ownership_verified = False
     if lease_code != 0:
         errors.append("Account-wide lease is unreadable")
     elif not lease_detail.strip():
@@ -89,9 +97,32 @@ def verify(terraform_directory: str, account_lease_table: str) -> dict[str, Any]
         lease_absent = True
     elif isinstance(lease_document["Item"], dict) and lease_document["Item"]:
         lease_item = lease_document["Item"]
-        errors.append("Account-wide lease is still held")
+        owner_value = lease_item.get("owner")
+        expiry_value = lease_item.get("expires_at")
+        lock_value = lease_item.get("lock_id")
+        lease_owner = owner_value.get("S") if isinstance(owner_value, dict) else None
+        expiry_text = expiry_value.get("N") if isinstance(expiry_value, dict) else None
+        lock_id = lock_value.get("S") if isinstance(lock_value, dict) else None
+        try:
+            lease_expires_at = int(expiry_text) if isinstance(expiry_text, str) else None
+        except ValueError:
+            lease_expires_at = None
+        if expected_lease_owner is None:
+            errors.append("Account-wide lease is still held")
+        elif (
+            lock_id == "portfolio-lab"
+            and lease_owner == expected_lease_owner
+            and lease_expires_at is not None
+            and lease_expires_at > int(time.time())
+        ):
+            lease_ownership_verified = True
+        else:
+            errors.append("Account-wide lease does not match the expected live owner")
     else:
         errors.append("Account-wide lease response is malformed")
+
+    if expected_lease_owner is not None and lease_absent:
+        errors.append("Expected account-wide lease is absent")
 
     tag_code, tag_detail = command(
         "aws",
@@ -168,6 +199,10 @@ def verify(terraform_directory: str, account_lease_table: str) -> dict[str, Any]
         "account_lease_read_exit_code": lease_code,
         "account_lease_absent": lease_absent,
         "account_lease_item": lease_item,
+        "account_lease_expected_owner": expected_lease_owner,
+        "account_lease_owner": lease_owner,
+        "account_lease_expires_at": lease_expires_at,
+        "account_lease_ownership_verified": lease_ownership_verified,
         "allowed_pending_deletion_kms_keys": allowed_pending_kms,
         "pending_deletion_kms_aliases": pending_kms_aliases,
         "kms_inspection_errors": kms_inspection_errors,
@@ -177,13 +212,15 @@ def verify(terraform_directory: str, account_lease_table: str) -> dict[str, Any]
 
 
 def main(arguments: list[str]) -> int:
-    if len(arguments) != 4:
+    if len(arguments) not in {4, 5}:
         print(
-            "usage: verify_preflight.py TF_DIR OUTPUT_JSON ACCOUNT_LEASE_TABLE",
+            "usage: verify_preflight.py TF_DIR OUTPUT_JSON ACCOUNT_LEASE_TABLE "
+            "[EXPECTED_LEASE_OWNER]",
             file=sys.stderr,
         )
         return 2
-    result = verify(arguments[1], arguments[3])
+    expected_owner = arguments[4] if len(arguments) == 5 else None
+    result = verify(arguments[1], arguments[3], expected_owner)
     output = Path(arguments[2])
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")

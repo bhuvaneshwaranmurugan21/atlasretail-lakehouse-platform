@@ -114,7 +114,9 @@ jobs:
             -backend-config="encrypt=true" \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-init.log"
           python scripts/verify_preflight.py \
-            "${TF_DIR}" "${EVIDENCE_DIR}/preflight.json"
+            "${TF_DIR}" "${EVIDENCE_DIR}/preflight.json" \
+            "${ACCOUNT_LEASE_TABLE}" \
+            "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}"
           printf '%s' "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}" \
             > .control/teardown-authorized.txt
       - name: Persist teardown authority before deployment
