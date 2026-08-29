@@ -13,12 +13,15 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
 PENDING_KEY = "arn:aws:kms:ap-southeast-2:857229544428:key/historical"
+LEASE_TABLE = "portfolio-lab-account-lease"
 
 
 def clean_runner(*arguments: str) -> tuple[int, str]:
     command = " ".join(arguments)
     if arguments[0] == "terraform":
         return 0, json.dumps({"format_version": "1.0"})
+    if "dynamodb get-item" in command:
+        return 0, json.dumps({})
     if "resourcegroupstaggingapi" in command:
         return 0, json.dumps({"ResourceTagMappingList": [{"ResourceARN": PENDING_KEY}]})
     if "kms describe-key" in command:
@@ -38,9 +41,12 @@ def clean_runner(*arguments: str) -> tuple[int, str]:
 def test_empty_state_and_historical_pending_key_pass(monkeypatch: object) -> None:
     monkeypatch.setattr(MODULE, "command", clean_runner)
 
-    result = MODULE.verify("infra/atlas")
+    result = MODULE.verify("infra/atlas", LEASE_TABLE)
 
     assert result["result"] == "PASS"
+    assert result["account_lease_table"] == LEASE_TABLE
+    assert result["account_lease_absent"] is True
+    assert result["account_lease_item"] is None
     assert result["allowed_pending_deletion_kms_keys"] == [PENDING_KEY]
     assert result["pending_deletion_kms_aliases"] == {PENDING_KEY: []}
     assert result["kms_inspection_errors"] == []
@@ -56,7 +62,7 @@ def test_live_tagged_resource_fails(monkeypatch: object) -> None:
 
     monkeypatch.setattr(MODULE, "command", live_runner)
 
-    result = MODULE.verify("infra/atlas")
+    result = MODULE.verify("infra/atlas", LEASE_TABLE)
 
     assert result["result"] == "FAIL"
     assert result["unexpected_resources"] == ["arn:aws:s3:::atlasretail-leftover"]
@@ -72,7 +78,7 @@ def test_nonempty_remote_state_fails(monkeypatch: object) -> None:
 
     monkeypatch.setattr(MODULE, "command", state_runner)
 
-    result = MODULE.verify("infra/atlas")
+    result = MODULE.verify("infra/atlas", LEASE_TABLE)
 
     assert result["result"] == "FAIL"
     assert result["terraform_state_resources"] == ["aws_s3_bucket.old"]
@@ -86,7 +92,7 @@ def test_pending_deletion_key_with_alias_fails(monkeypatch: object) -> None:
 
     monkeypatch.setattr(MODULE, "command", alias_runner)
 
-    result = MODULE.verify("infra/atlas")
+    result = MODULE.verify("infra/atlas", LEASE_TABLE)
 
     assert result["result"] == "FAIL"
     assert result["unexpected_resources"] == [PENDING_KEY]
@@ -102,7 +108,7 @@ def test_unreadable_pending_deletion_aliases_fail(monkeypatch: object) -> None:
 
     monkeypatch.setattr(MODULE, "command", unreadable_alias_runner)
 
-    result = MODULE.verify("infra/atlas")
+    result = MODULE.verify("infra/atlas", LEASE_TABLE)
 
     assert result["result"] == "FAIL"
     assert result["unexpected_resources"] == [PENDING_KEY]
@@ -117,7 +123,7 @@ def test_unreadable_kms_metadata_fails(monkeypatch: object) -> None:
 
     monkeypatch.setattr(MODULE, "command", unreadable_key_runner)
 
-    result = MODULE.verify("infra/atlas")
+    result = MODULE.verify("infra/atlas", LEASE_TABLE)
 
     assert result["result"] == "FAIL"
     assert result["unexpected_resources"] == [PENDING_KEY]
@@ -132,7 +138,7 @@ def test_pending_deletion_without_date_fails(monkeypatch: object) -> None:
 
     monkeypatch.setattr(MODULE, "command", missing_date_runner)
 
-    result = MODULE.verify("infra/atlas")
+    result = MODULE.verify("infra/atlas", LEASE_TABLE)
 
     assert result["result"] == "FAIL"
     assert result["unexpected_resources"] == [PENDING_KEY]
@@ -149,7 +155,45 @@ def test_unreadable_tag_inventory_fails(monkeypatch: object) -> None:
 
     monkeypatch.setattr(MODULE, "command", unreadable_inventory_runner)
 
-    result = MODULE.verify("infra/atlas")
+    result = MODULE.verify("infra/atlas", LEASE_TABLE)
 
     assert result["result"] == "FAIL"
     assert "AtlasRetail tag inventory is unreadable" in result["errors"]
+
+
+def test_live_account_lease_fails(monkeypatch: object) -> None:
+    lease = {
+        "lock_id": {"S": "portfolio-lab"},
+        "owner": {"S": "recovery/33252972714"},
+        "expires_at": {"N": "1788009000"},
+    }
+
+    def held_lease_runner(*arguments: str) -> tuple[int, str]:
+        if "dynamodb get-item" in " ".join(arguments):
+            return 0, json.dumps({"Item": lease})
+        return clean_runner(*arguments)
+
+    monkeypatch.setattr(MODULE, "command", held_lease_runner)
+
+    result = MODULE.verify("infra/atlas", LEASE_TABLE)
+
+    assert result["result"] == "FAIL"
+    assert result["account_lease_absent"] is False
+    assert result["account_lease_item"] == lease
+    assert "Account-wide lease is still held" in result["errors"]
+
+
+def test_unreadable_account_lease_fails(monkeypatch: object) -> None:
+    def unreadable_lease_runner(*arguments: str) -> tuple[int, str]:
+        if "dynamodb get-item" in " ".join(arguments):
+            return 254, "AccessDeniedException"
+        return clean_runner(*arguments)
+
+    monkeypatch.setattr(MODULE, "command", unreadable_lease_runner)
+
+    result = MODULE.verify("infra/atlas", LEASE_TABLE)
+
+    assert result["result"] == "FAIL"
+    assert result["account_lease_absent"] is False
+    assert result["account_lease_item"] is None
+    assert "Account-wide lease is unreadable" in result["errors"]

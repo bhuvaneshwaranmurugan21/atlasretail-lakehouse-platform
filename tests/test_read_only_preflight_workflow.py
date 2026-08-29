@@ -53,6 +53,7 @@ def test_preflight_has_no_infrastructure_mutation_commands() -> None:
     assert "python scripts/verify_account_plan.py" in workflow
     assert "freetier upgrade-account-plan" not in workflow
     assert "python scripts/verify_preflight.py" in workflow
+    assert '"${ACCOUNT_LEASE_TABLE}"' in workflow
     assert "infra/iam/atlasretail-github-role-policy.json" in workflow
 
 
@@ -130,5 +131,9 @@ def test_preflight_session_policy_matches_the_canonical_backend() -> None:
         (
             f"arn:aws:dynamodb:{target['aws_region']}:{target['aws_account_id']}:"
             f"table/{target['terraform_lock_table']}"
+        ),
+        (
+            f"arn:aws:dynamodb:{target['aws_region']}:{target['aws_account_id']}:"
+            f"table/{target['account_lease_table']}"
         ),
     }
