@@ -1,0 +1,22 @@
+{
+  "actual_billed_cost": "UNCLAIMED",
+  "after_deployment": {
+    "budget_headroom_usd": 19.551,
+    "current_spend_usd": 0.449,
+    "result": "PASS"
+  },
+  "after_teardown": {
+    "budget_headroom_usd": 19.551,
+    "current_spend_usd": 0.449,
+    "result": "PASS"
+  },
+  "before": {
+    "budget_headroom_usd": 19.551,
+    "current_spend_usd": 0.449,
+    "result": "PASS"
+  },
+  "budget_limit_usd": 20.0,
+  "notification_count": 3,
+  "planned_gross_cost_ceiling_usd": 5.0,
+  "result": "PASS"
+}

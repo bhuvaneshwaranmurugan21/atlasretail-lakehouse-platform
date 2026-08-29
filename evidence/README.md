@@ -9,8 +9,10 @@ establish data-processing correctness.
 | Deterministic retail failure scenarios | Local and CI | Reproducible | Pass |
 | GitHub OIDC identity, current target | AWS | `32848093194` | Pass |
 | IAM and persistent foundation, current target | AWS | `32926893305` | Pass |
-| Budget, create-only plan, and zero-change proof, current target | AWS | `33060606145` | Pass |
-| Glue create/delete capability and cleanup, current target | AWS | `33229660062` | Pass |
+| Budget, create-only plan, and zero-change proof, current source | AWS | `33255077636` | Pass |
+| Glue create/delete capability and cleanup, current source | AWS | `33255546906` | Pass |
+| Zero-workload controlled deployment and exact-state teardown, current source | AWS | `33255708391` | Pass |
+| Independent post-teardown clean inventory, current source | AWS | `33257068545` | Pass |
 | Partial-apply recovery and exact-state teardown, current target | AWS | `32952618876` | Pass |
 | Managed bounded data path and exact-state teardown, current target | AWS | `33167646509` | Pass |
 | Initial partial-apply recovery, legacy target | AWS | `31794022586` and corrected continuation | Resolved |
@@ -47,6 +49,14 @@ establish data-processing correctness.
   manifest. Caller identities and session policies remain only in the expiring artifact.
 - `aws/glue-probe/32930567869/` preserves the earlier current-target capability proof for its
   attributed source commit.
+- `aws/deployment/33255708391/` preserves the sanitized, digest-attributed admission, exact saved
+  apply/destroy plan, zero-workload deployment, budget-envelope, and exact-state teardown summaries
+  from source `c4f2a24`. Raw AWS responses, caller identity, session policies, live identifiers,
+  and Terraform plans/logs remain only in the expiring workflow artifact.
+- `aws/preflight/33257068545/` preserves the independent post-teardown clean-inventory summary and
+  artifact digest. It proves the account lease absent, Terraform state empty, no unexpected active
+  resources, and 11 historical KMS keys pending deletion with no aliases; identifiers remain outside
+  Git.
 - `aws/recovery/32952618876/` preserves the sanitized destroy-plan, incomplete-execution, and
   exact-state teardown summaries from the current target. Raw plans, logs, caller identity, AWS
   stderr, and live resource identifiers remain only in the expiring workflow artifact.
@@ -63,7 +73,11 @@ establish data-processing correctness.
 
 - [Current-target OIDC identity 32848093194](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32848093194)
 - [Current-target IAM and persistent foundation 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305)
-- [Current-target post-Lambda-fix budget and create-only plan proof 33060606145](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33060606145)
+- [Current-source budget and create-only plan proof 33255077636](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33255077636)
+- [Current-source Glue create/delete capability probe 33255546906](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33255546906)
+- [Current-source zero-workload controlled deployment 33255708391](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33255708391)
+- [Independent post-teardown clean inventory 33257068545](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33257068545)
+- [Previous post-Lambda-fix budget and create-only plan proof 33060606145](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33060606145)
 - [Previous post-DynamoDB-fix budget and create-only plan proof 33055480837](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33055480837)
 - [Previous post-recovery budget and create-only plan proof 33038682324](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33038682324)
 - [Earlier current-target budget and create-only plan proof 32929299555](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32929299555)

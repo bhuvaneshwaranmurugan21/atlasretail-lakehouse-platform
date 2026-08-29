@@ -1,0 +1,20 @@
+{
+  "checks": {
+    "athena_zero_queries": true,
+    "cloudwatch_log_groups_empty": true,
+    "dynamodb_zero_items": true,
+    "glue_zero_job_runs": true,
+    "glue_zero_tables": true,
+    "iam_trust_and_policy_bounds": true,
+    "lambda_zero_invocations": true,
+    "s3_security_controls": true,
+    "step_functions_zero_executions": true,
+    "terraform_state_exact": true
+  },
+  "claim": "AWS_DEPLOYMENT_VERIFIED",
+  "result": "PASS",
+  "source_commit": "c4f2a24d89c1770fe4eb020174e047c67e010e3b",
+  "terraform_data_resource_count": 12,
+  "terraform_managed_resource_count": 40,
+  "zero_workload": "PASS"
+}
