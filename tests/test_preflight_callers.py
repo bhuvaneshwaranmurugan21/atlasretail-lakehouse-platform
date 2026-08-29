@@ -6,8 +6,7 @@ ROOT = Path(__file__).parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
 
 OWNED_LEASE_SUFFIX = (
-    '"${ACCOUNT_LEASE_TABLE}" \\\n'
-    '            "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}"'
+    '"${ACCOUNT_LEASE_TABLE}" \\\n            "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}"'
 )
 
 
