@@ -36,15 +36,15 @@ def output_value(outputs: dict[str, Any], name: str) -> str:
     return value
 
 
-def terraform_resources(module: dict[str, Any]) -> list[str]:
+def terraform_resources(module: dict[str, Any], mode: str = "managed") -> list[dict[str, Any]]:
     resources = [
-        str(resource.get("address", "unknown"))
+        resource
         for resource in module.get("resources", [])
-        if isinstance(resource, dict)
+        if isinstance(resource, dict) and resource.get("mode", "managed") == mode
     ]
     for child in module.get("child_modules", []):
         if isinstance(child, dict):
-            resources.extend(terraform_resources(child))
+            resources.extend(terraform_resources(child, mode))
     return resources
 
 
@@ -164,10 +164,37 @@ def verify(
     state = call_json("terraform", f"-chdir={terraform_directory}", "show", "-json")
     root = state.get("values", {}).get("root_module", {}) if state else {}
     state_resources = terraform_resources(root) if isinstance(root, dict) else []
+    state_data_resources = terraform_resources(root, "data") if isinstance(root, dict) else []
     add(
         "terraform-state-envelope",
         len(state_resources) == 40,
-        {"resource_count": len(state_resources)},
+        {
+            "managed_resource_count": len(state_resources),
+            "managed_addresses": sorted(
+                str(resource.get("address", "unknown")) for resource in state_resources
+            ),
+        },
+    )
+    expected_data_types = {
+        "archive_file": 1,
+        "aws_caller_identity": 1,
+        "aws_iam_policy_document": 9,
+        "aws_partition": 1,
+    }
+    observed_data_types: dict[str, int] = {}
+    for resource in state_data_resources:
+        resource_type = str(resource.get("type", "unknown"))
+        observed_data_types[resource_type] = observed_data_types.get(resource_type, 0) + 1
+    add(
+        "terraform-state-data-envelope",
+        observed_data_types == expected_data_types,
+        {
+            "data_resource_count": len(state_data_resources),
+            "data_resource_type_counts": observed_data_types,
+            "data_addresses": sorted(
+                str(resource.get("address", "unknown")) for resource in state_data_resources
+            ),
+        },
     )
 
     kms_arn = values.get("kms_key_arn", "")
@@ -656,6 +683,7 @@ def verify(
         "result": "PASS" if all_pass else "FAIL",
         "claim": "AWS_DEPLOYMENT_VERIFIED" if all_pass else "NONE",
         "terraform_managed_resource_count": len(state_resources),
+        "terraform_data_resource_count": len(state_data_resources),
         "zero_workload": "PASS"
         if zero_checks and all(item["result"] == "PASS" for item in zero_checks)
         else "FAIL",

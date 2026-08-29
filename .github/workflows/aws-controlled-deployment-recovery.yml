@@ -6,6 +6,10 @@ on:
       failed_run_id:
         description: Failed controlled-deployment run whose immutable authority will be recovered
         required: true
+      previous_recovery_run_id:
+        description: Prior failed recovery run that currently owns the lease; blank on first recovery
+        required: false
+        default: ""
       confirm_destroy:
         description: Type RECOVER_AND_DESTROY_FAILED_CANARY
         required: true
@@ -31,6 +35,7 @@ jobs:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
       FAILED_RUN_ID: ${{ inputs.failed_run_id }}
+      PREVIOUS_RECOVERY_RUN_ID: ${{ inputs.previous_recovery_run_id }}
       CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
       BUDGET_CEILING_USD: ${{ inputs.budget_ceiling_usd }}
       EVIDENCE_DIR: evidence/deployment-recovery/${{ github.run_id }}
@@ -63,6 +68,10 @@ jobs:
           test "${GITHUB_ACTOR}" = "bhuvaneshwaranmurugan21"
           test "${CONFIRM_DESTROY}" = "RECOVER_AND_DESTROY_FAILED_CANARY"
           [[ "${FAILED_RUN_ID}" =~ ^[0-9]+$ ]]
+          if [[ -n "${PREVIOUS_RECOVERY_RUN_ID}" ]]; then
+            [[ "${PREVIOUS_RECOVERY_RUN_ID}" =~ ^[0-9]+$ ]]
+            test "${PREVIOUS_RECOVERY_RUN_ID}" != "${FAILED_RUN_ID}"
+          fi
           [[ "${BUDGET_CEILING_USD}" =~ ^[0-9]+$ ]]
           test "${BUDGET_CEILING_USD}" -ge 1
           test "${BUDGET_CEILING_USD}" -le "${RUN_CEILING_USD}"
@@ -84,6 +93,33 @@ jobs:
           path: evidence/deployment-recovery/${{ github.run_id }}/upstream
           github-token: ${{ github.token }}
           run-id: ${{ inputs.failed_run_id }}
+
+      - name: Recover prior failed recovery evidence
+        if: ${{ inputs.previous_recovery_run_id != '' }}
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-controlled-deployment-recovery-${{ inputs.previous_recovery_run_id }}
+          path: evidence/deployment-recovery/${{ github.run_id }}/prior-recovery
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.previous_recovery_run_id }}
+
+      - name: Validate prior failed recovery handoff
+        if: ${{ inputs.previous_recovery_run_id != '' }}
+        run: |
+          set -euo pipefail
+          python - "${EVIDENCE_DIR}/prior-recovery/recovery-summary.json" <<'PY'
+          import json, os, pathlib, sys
+          value = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          assert value["project"] == "AtlasRetail", value
+          assert value["proof"] == "failed-controlled-deployment-recovery", value
+          assert value["recovery_run_id"] == os.environ["PREVIOUS_RECOVERY_RUN_ID"], value
+          assert value["failed_run_id"] == os.environ["FAILED_RUN_ID"], value
+          assert value["result"] == "FAIL", value
+          assert value["claim"] == "NONE", value
+          assert value["checks"]["immutable_authority"] is True, value
+          assert value["checks"]["saved_destroy_plan"] is True, value
+          assert value["checks"]["aws_and_terraform_clean"] is False, value
+          PY
 
       - name: Establish failed source identity from immutable authority
         id: failed_source
@@ -199,7 +235,8 @@ jobs:
       - name: Atomically recover only the failed run account-wide lease
         run: |
           set -euo pipefail
-          failed_owner="${GITHUB_REPOSITORY}/${FAILED_RUN_ID}"
+          lease_source_run_id="${PREVIOUS_RECOVERY_RUN_ID:-${FAILED_RUN_ID}}"
+          expected_owner="${GITHUB_REPOSITORY}/${lease_source_run_id}"
           recovery_owner="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}"
           now_epoch="$(date +%s)"
           expires_at="$((now_epoch + 10800))"
@@ -207,9 +244,9 @@ jobs:
             --region "${AWS_REGION}" \
             --table-name "${ACCOUNT_LEASE_TABLE}" \
             --item "{\"lock_id\":{\"S\":\"portfolio-lab\"},\"owner\":{\"S\":\"${recovery_owner}\"},\"expires_at\":{\"N\":\"${expires_at}\"}}" \
-            --condition-expression "attribute_not_exists(lock_id) OR #owner = :failed_owner" \
+            --condition-expression "attribute_not_exists(lock_id) OR #owner = :expected_owner" \
             --expression-attribute-names '{"#owner":"owner"}' \
-            --expression-attribute-values "{\":failed_owner\":{\"S\":\"${failed_owner}\"}}"
+            --expression-attribute-values "{\":expected_owner\":{\"S\":\"${expected_owner}\"}}"
           aws dynamodb get-item --consistent-read \
             --table-name "${ACCOUNT_LEASE_TABLE}" \
             --key '{"lock_id":{"S":"portfolio-lab"}}' \
@@ -240,7 +277,8 @@ jobs:
           set -euo pipefail
           terraform -chdir="${TF_DIR}" output -json > "${EVIDENCE_DIR}/terraform-outputs.json"
 
-      - name: Create and validate the exact saved recovery destroy plan
+      - name: Create and validate the saved recovery destroy-only plan
+        id: destroy_plan
         run: |
           set -euo pipefail
           terraform -chdir="${TF_DIR}" plan -destroy \
@@ -256,8 +294,12 @@ jobs:
           terraform -chdir="${TF_DIR}" show -no-color \
             "${GITHUB_WORKSPACE}/${CONTROL_DIR}/destroy.tfplan" \
             > "${CONTROL_DIR}/terraform-destroy-plan.txt"
+          envelope=(--exact-envelope)
+          if [[ -n "${PREVIOUS_RECOVERY_RUN_ID}" ]]; then
+            envelope=(--allow-partial-destroy)
+          fi
           python scripts/validate_terraform_plan.py \
-            --mode destroy --exact-envelope \
+            --mode destroy "${envelope[@]}" \
             --plan "${CONTROL_DIR}/terraform-destroy-plan.json" \
             --output "${EVIDENCE_DIR}/terraform-destroy-plan-validation.json"
           sha256sum "${CONTROL_DIR}/destroy.tfplan" \
@@ -276,6 +318,7 @@ jobs:
 
       - name: Prove failed run teardown across AWS and Terraform inventories
         id: verify_teardown
+        if: ${{ always() && steps.destroy_plan.outcome == 'success' }}
         run: |
           set -euo pipefail
           python scripts/verify_teardown.py \
@@ -283,7 +326,7 @@ jobs:
             "${TF_DIR}" "${FAILED_RUN_ID}" "${EVIDENCE_DIR}/teardown.json"
 
       - name: Capture post-recovery budget evidence
-        if: always()
+        if: ${{ always() && steps.aws-credentials.outcome == 'success' }}
         run: |
           set -euo pipefail
           account="$(aws sts get-caller-identity --query Account --output text)"
@@ -314,7 +357,8 @@ jobs:
         if: always()
         run: |
           python - "${EVIDENCE_DIR}" "${GITHUB_RUN_ID}" "${FAILED_RUN_ID}" \
-            "${{ steps.failed_source.outputs.source_commit }}" <<'PY'
+            "${{ steps.failed_source.outputs.source_commit }}" \
+            "${PREVIOUS_RECOVERY_RUN_ID}" <<'PY'
           import hashlib, json, pathlib, sys
           root = pathlib.Path(sys.argv[1])
           def load(name):
@@ -338,6 +382,7 @@ jobs:
               "schema_version": "1.0", "project": "AtlasRetail",
               "proof": "failed-controlled-deployment-recovery", "recovery_run_id": sys.argv[2],
               "failed_run_id": sys.argv[3], "failed_source_commit": sys.argv[4],
+              "previous_recovery_run_id": sys.argv[5] or None,
               "result": "PASS" if all(checks.values()) else "FAIL",
               "claim": "AWS_TEARDOWN_VERIFIED" if all(checks.values()) else "NONE",
               "checks": checks, "artifact_hashes": files,

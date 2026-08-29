@@ -49,7 +49,28 @@ def successful_runner(*arguments: str) -> tuple[int, str]:
         value = {
             "values": {
                 "root_module": {
-                    "resources": [{"address": f"resource.{index}"} for index in range(40)]
+                    "resources": [
+                        {
+                            "address": f"resource.{index}",
+                            "mode": "managed",
+                            "type": "aws_test_resource",
+                        }
+                        for index in range(40)
+                    ]
+                    + [
+                        {
+                            "address": f"data.{resource_type}.{index}",
+                            "mode": "data",
+                            "type": resource_type,
+                        }
+                        for resource_type, count in {
+                            "archive_file": 1,
+                            "aws_caller_identity": 1,
+                            "aws_iam_policy_document": 9,
+                            "aws_partition": 1,
+                        }.items()
+                        for index in range(count)
+                    ]
                 }
             }
         }
@@ -249,6 +270,7 @@ def test_deployment_and_zero_workload_pass() -> None:
     assert result["claim"] == "AWS_DEPLOYMENT_VERIFIED"
     assert result["zero_workload"] == "PASS"
     assert result["terraform_managed_resource_count"] == 40
+    assert result["terraform_data_resource_count"] == 12
 
 
 def test_any_workload_activity_rejects_the_claim() -> None:
