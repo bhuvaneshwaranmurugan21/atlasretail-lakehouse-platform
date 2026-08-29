@@ -16,17 +16,21 @@ concurrency:
   group: portfolio-aws-account
   cancel-in-progress: false
 
+env:
+  EVIDENCE_DIR: evidence/glue-probe/${{ github.run_id }}
+  PROBE_CONFIRMATION: ${{ inputs.confirm_probe }}
+  PROBE_RUN_ID: ${{ github.run_id }}
+
 jobs:
   probe:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    env:
-      EVIDENCE_DIR: evidence/glue-probe/${{ github.run_id }}
-      PROBE_CONFIRMATION: ${{ inputs.confirm_probe }}
-      PROBE_RUN_ID: ${{ github.run_id }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Load and verify the checked-in AWS target
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Load and bind the checked-in AWS target and source
         id: target
         run: |
           python scripts/load_aws_target.py \
@@ -35,33 +39,47 @@ jobs:
             --expect-role-arn "${{ vars.AWS_ROLE_ARN }}" \
             --expect-region "${{ vars.AWS_REGION }}" \
             --expect-repository "${GITHUB_REPOSITORY}" \
-            --expect-ref "${GITHUB_REF}"
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
-        with:
-          python-version: "3.12"
-      - name: Enforce owner, branch, confirmation, and region bounds
+            --expect-ref "${GITHUB_REF}" \
+            --source-identity "${EVIDENCE_DIR}/source-identity.json" \
+            --source-commit "${GITHUB_SHA}" \
+            --github-run-id "${GITHUB_RUN_ID}"
+      - name: Enforce owner, branch, confirmation, source, and region bounds
         run: |
           set -euo pipefail
           test "${GITHUB_ACTOR}" = "${GITHUB_REPOSITORY_OWNER}"
           test "${GITHUB_REF}" = "refs/heads/main"
           test "${PROBE_CONFIRMATION}" = "PROBE_GLUE_CREATE_DELETE"
           test "${AWS_REGION}" = "${{ steps.target.outputs.aws_region }}"
-          mkdir -p "${EVIDENCE_DIR}"
-      - name: Obtain short-lived AWS credentials
-        id: aws_identity
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+      - name: Render the run-scoped probe session policy
+        id: session-policy
+        run: |
+          set -euo pipefail
+          policy="$(python scripts/build_glue_probe_session_policy.py \
+            --run-id "${PROBE_RUN_ID}" \
+            --mode probe \
+            --output "${EVIDENCE_DIR}/probe-session-policy.json")"
+          printf 'json=%s\n' "${policy}" >> "${GITHUB_OUTPUT}"
+      - name: Obtain least-privilege probe credentials
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-glue-probe-${{ github.run_id }}
-      - name: Verify the exact AWS account
+          role-duration-seconds: 900
+          allowed-account-ids: ${{ steps.target.outputs.aws_account_id }}
+          inline-session-policy: ${{ steps.session-policy.outputs.json }}
+          unset-current-credentials: true
+          mask-aws-account-id: true
+          action-timeout-s: 120
+      - name: Verify the exact probe caller
         id: account_identity
         run: |
           set -euo pipefail
           account="$(aws sts get-caller-identity --query Account --output text)"
           test "${account}" = "${AWS_ACCOUNT_ID}"
           aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
-      - name: Create, inspect, and delete an unexecuted Glue job definition
+      - name: Create, inspect, and self-clean one unexecuted Glue definition
         run: |
           set -euo pipefail
           python scripts/probe_glue_capability.py \
@@ -70,39 +88,136 @@ jobs:
             --run-id "${PROBE_RUN_ID}" \
             --source-commit "${GITHUB_SHA}" \
             --output "${EVIDENCE_DIR}/glue-service-probe.json"
-      - name: Independently enforce deletion of probe-only resources
+      - name: Upload short-lived probe evidence
         if: always() && steps.account_identity.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-glue-probe-raw-${{ github.run_id }}
+          path: evidence/glue-probe/${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 1
+
+  cleanup:
+    needs: probe
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Load and bind the cleanup target and source
+        id: target
+        run: |
+          python scripts/load_aws_target.py \
+            --github-output "${GITHUB_OUTPUT}" \
+            --github-env "${GITHUB_ENV}" \
+            --expect-role-arn "${{ vars.AWS_ROLE_ARN }}" \
+            --expect-region "${{ vars.AWS_REGION }}" \
+            --expect-repository "${GITHUB_REPOSITORY}" \
+            --expect-ref "${GITHUB_REF}" \
+            --source-identity "${EVIDENCE_DIR}/cleanup-source-identity.json" \
+            --source-commit "${GITHUB_SHA}" \
+            --github-run-id "${GITHUB_RUN_ID}"
+      - name: Enforce cleanup source and authorization bounds
         run: |
           set -euo pipefail
-          job="atlasretail-probe-${PROBE_RUN_ID}"
-          role="${job}-glue"
-
-          aws glue delete-job --job-name "${job}" \
-            > "${EVIDENCE_DIR}/cleanup-delete-job.json" \
-            2> "${EVIDENCE_DIR}/cleanup-delete-job.stderr" || true
-          aws iam delete-role --role-name "${role}" \
-            > "${EVIDENCE_DIR}/cleanup-delete-role.json" \
-            2> "${EVIDENCE_DIR}/cleanup-delete-role.stderr" || true
-
-          if aws glue get-job --job-name "${job}" \
-            > "${EVIDENCE_DIR}/cleanup-get-job.json" \
-            2> "${EVIDENCE_DIR}/cleanup-get-job.stderr"; then
-            echo "Probe Glue job still exists" >&2
-            exit 1
-          fi
-          grep -Eq 'EntityNotFoundException|not found' \
-            "${EVIDENCE_DIR}/cleanup-get-job.stderr"
-
-          if aws iam get-role --role-name "${role}" \
-            > "${EVIDENCE_DIR}/cleanup-get-role.json" \
-            2> "${EVIDENCE_DIR}/cleanup-get-role.stderr"; then
-            echo "Probe IAM role still exists" >&2
-            exit 1
-          fi
-          grep -Eq 'NoSuchEntity|cannot be found' \
-            "${EVIDENCE_DIR}/cleanup-get-role.stderr"
-      - name: Upload the bounded probe and cleanup evidence
+          test "${GITHUB_ACTOR}" = "${GITHUB_REPOSITORY_OWNER}"
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${PROBE_CONFIRMATION}" = "PROBE_GLUE_CREATE_DELETE"
+          test "${AWS_REGION}" = "${{ steps.target.outputs.aws_region }}"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+      - name: Render the run-scoped cleanup session policy
+        id: session-policy
+        run: |
+          set -euo pipefail
+          policy="$(python scripts/build_glue_probe_session_policy.py \
+            --run-id "${PROBE_RUN_ID}" \
+            --mode cleanup \
+            --output "${EVIDENCE_DIR}/cleanup-session-policy.json")"
+          printf 'json=%s\n' "${policy}" >> "${GITHUB_OUTPUT}"
+      - name: Obtain cleanup-only credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
+          aws-region: ${{ steps.target.outputs.aws_region }}
+          role-session-name: atlasretail-glue-cleanup-${{ github.run_id }}
+          role-duration-seconds: 900
+          allowed-account-ids: ${{ steps.target.outputs.aws_account_id }}
+          inline-session-policy: ${{ steps.session-policy.outputs.json }}
+          unset-current-credentials: true
+          mask-aws-account-id: true
+          action-timeout-s: 120
+      - name: Verify the exact cleanup caller
+        id: account_identity
+        run: |
+          set -euo pipefail
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          test "${account}" = "${AWS_ACCOUNT_ID}"
+          aws sts get-caller-identity > "${EVIDENCE_DIR}/cleanup-caller-identity.json"
+      - name: Independently enforce ownership-safe cleanup
+        run: |
+          set -euo pipefail
+          python scripts/cleanup_glue_probe.py \
+            --account "${AWS_ACCOUNT_ID}" \
+            --region "${AWS_REGION}" \
+            --run-id "${PROBE_RUN_ID}" \
+            --source-commit "${GITHUB_SHA}" \
+            --output "${EVIDENCE_DIR}/cleanup-verification.json"
+      - name: Upload short-lived cleanup evidence
         if: always() && steps.account_identity.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-glue-cleanup-raw-${{ github.run_id }}
+          path: evidence/glue-probe/${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 1
+
+  finalize:
+    needs: [probe, cleanup]
+    if: always()
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Prepare the final evidence directory
+        run: mkdir -p "${EVIDENCE_DIR}"
+      - name: Download probe evidence
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-glue-probe-raw-${{ github.run_id }}
+          path: evidence/glue-probe/${{ github.run_id }}
+      - name: Download cleanup evidence
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-glue-cleanup-raw-${{ github.run_id }}
+          path: evidence/glue-probe/${{ github.run_id }}
+      - name: Fail closed over the complete Phase 4 evidence contract
+        env:
+          PROBE_JOB_RESULT: ${{ needs.probe.result }}
+          CLEANUP_JOB_RESULT: ${{ needs.cleanup.result }}
+        run: |
+          set -euo pipefail
+          python scripts/finalize_glue_probe_evidence.py \
+            --evidence-dir "${EVIDENCE_DIR}" \
+            --account "857229544428" \
+            --region "ap-southeast-2" \
+            --run-id "${PROBE_RUN_ID}" \
+            --source-commit "${GITHUB_SHA}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --ref "${GITHUB_REF}" \
+            --probe-job-result "${PROBE_JOB_RESULT}" \
+            --cleanup-job-result "${CLEANUP_JOB_RESULT}"
+      - name: Upload the final bounded Phase 4 evidence
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: atlasretail-glue-service-probe-${{ github.run_id }}

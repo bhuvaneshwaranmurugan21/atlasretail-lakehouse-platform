@@ -16,6 +16,10 @@ also create and delete its temporary job successfully.
 The probe must report zero Glue job runs and independently verify cleanup. A visible Glue console
 or available CloudShell session is not evidence of `glue:CreateJob` authorization. The previous
 denial stopped during Terraform apply; no Glue, Step Functions, or Athena workload executed.
+The probe and its always-running cleanup job use separate 900-second OIDC sessions intersected
+with run-scoped policies for only the exact temporary role and Glue job. Both policies explicitly
+deny Glue, Step Functions, Lambda, and Athena workload starts. The temporary Glue execution role
+must have Glue-only trust, exact run ownership tags, and no inline or attached permissions.
 
 ## Preconditions
 
@@ -30,8 +34,9 @@ denial stopped during Terraform apply; no Glue, Step Functions, or Athena worklo
    If AWS returns the exact `ResourceNotFoundException` missing-data response for this member
    account, accept only while `evidence/aws/organization-shared-credit-baseline.json` is current,
    targets this account, attests active unrestricted sharing, and covers the run ceiling.
-6. Run the definition-only Glue service probe and require successful creation, deletion,
-   independently verified cleanup, and zero job runs.
+6. Run the definition-only Glue service probe and require exact source identity, an inert temporary
+   role, exact job configuration, zero job runs, self-cleanup, independently verified cleanup with
+   a fresh restricted session, and a digest-bound final evidence manifest.
 7. Confirm that `atlasretail/main.tfstate` is readable and empty.
 8. Confirm that the shared budget and account lease exist.
 9. Use a unique run ID and begin with 500 synthetic orders.
