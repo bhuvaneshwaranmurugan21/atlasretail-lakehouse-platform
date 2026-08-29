@@ -185,6 +185,30 @@ def test_missing_outputs_still_checks_fallback_names_state_and_tags() -> None:
     assert any("resourcegroupstaggingapi" in call for call in calls)
 
 
+def test_immutable_outputs_restore_exact_identifiers_after_partial_destroy() -> None:
+    merged, sources = verifier().merge_output_evidence({}, OUTPUTS)
+
+    result = verifier().verify(merged, "infra/atlas", "123", clean_runner)
+
+    assert result["result"] == "PASS"
+    assert merged == OUTPUTS
+    assert set(sources.values()) == {"immutable_deployment_evidence"}
+
+
+def test_immutable_outputs_override_stale_current_identifiers() -> None:
+    current = {
+        "landing_bucket": {"value": "wrong-bucket"},
+        "kms_key_arn": {"value": "arn:aws:kms:ap-southeast-2:857229544428:key/wrong"},
+    }
+
+    merged, sources = verifier().merge_output_evidence(current, OUTPUTS)
+
+    assert merged["landing_bucket"] == OUTPUTS["landing_bucket"]
+    assert merged["kms_key_arn"] == OUTPUTS["kms_key_arn"]
+    assert sources["landing_bucket"] == "immutable_deployment_evidence"
+    assert sources["kms_key_arn"] == "immutable_deployment_evidence"
+
+
 def test_exact_log_group_match_fails() -> None:
     target = OUTPUTS["glue_log_group_name"]["value"]
 

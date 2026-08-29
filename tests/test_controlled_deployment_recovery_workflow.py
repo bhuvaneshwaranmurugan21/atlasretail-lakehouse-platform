@@ -24,6 +24,7 @@ def test_recovery_is_manual_exact_source_and_destroy_only() -> None:
     assert "envelope=(--allow-partial-destroy)" in workflow
     assert 'terraform -chdir="${TF_DIR}" apply -auto-approve' in workflow
     assert "python scripts/verify_teardown.py" in workflow
+    assert '"${EVIDENCE_DIR}/upstream/terraform-outputs.json"' in workflow
 
     forbidden = (
         "terraform apply -auto-approve -var",
