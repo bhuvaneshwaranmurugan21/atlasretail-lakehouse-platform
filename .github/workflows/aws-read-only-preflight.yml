@@ -84,7 +84,8 @@ jobs:
             -backend-config="encrypt=true" \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-init.log"
           python scripts/verify_preflight.py \
-            "${TF_DIR}" "${EVIDENCE_DIR}/preflight.json"
+            "${TF_DIR}" "${EVIDENCE_DIR}/preflight.json" \
+            "${ACCOUNT_LEASE_TABLE}"
       - name: Upload identity and clean-baseline evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

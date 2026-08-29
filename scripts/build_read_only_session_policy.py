@@ -18,6 +18,7 @@ def build_policy(target: dict[str, Any]) -> dict[str, Any]:
     bucket = target["terraform_state_bucket"]
     state_key = target["terraform_state_key"]
     lock_table = target["terraform_lock_table"]
+    lease_table = target["account_lease_table"]
     return {
         "Version": "2012-10-17",
         "Statement": [
@@ -47,7 +48,10 @@ def build_policy(target: dict[str, Any]) -> dict[str, Any]:
                 "Sid": "ReadTerraformLockMetadata",
                 "Effect": "Allow",
                 "Action": ["dynamodb:DescribeTable", "dynamodb:GetItem"],
-                "Resource": f"arn:aws:dynamodb:{region}:{account}:table/{lock_table}",
+                "Resource": [
+                    f"arn:aws:dynamodb:{region}:{account}:table/{lock_table}",
+                    f"arn:aws:dynamodb:{region}:{account}:table/{lease_table}",
+                ],
             },
             {
                 "Sid": "InspectPendingKmsCleanup",

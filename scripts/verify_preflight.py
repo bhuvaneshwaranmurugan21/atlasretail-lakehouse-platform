@@ -1,4 +1,4 @@
-"""Prove the Atlas backend is empty and only historical deleting KMS keys remain."""
+"""Prove Atlas has no deployment state, live lease, or unexpected AWS resources."""
 
 from __future__ import annotations
 
@@ -48,7 +48,7 @@ def _alias_names(document: dict[str, Any]) -> list[str] | None:
     return sorted(names)
 
 
-def verify(terraform_directory: str) -> dict[str, Any]:
+def verify(terraform_directory: str, account_lease_table: str) -> dict[str, Any]:
     errors: list[str] = []
     state_code, state_detail = command(
         "terraform", f"-chdir={terraform_directory}", "show", "-json"
@@ -62,6 +62,31 @@ def verify(terraform_directory: str) -> dict[str, Any]:
         remaining_state = _resources(root) if isinstance(root, dict) else []
         if remaining_state:
             errors.append("Terraform state is not empty")
+
+    lease_code, lease_detail = command(
+        "aws",
+        "dynamodb",
+        "get-item",
+        "--table-name",
+        account_lease_table,
+        "--key",
+        '{"lock_id":{"S":"portfolio-lab"}}',
+        "--consistent-read",
+        "--output",
+        "json",
+    )
+    lease_document = _json(lease_code, lease_detail)
+    lease_absent = False
+    lease_item: dict[str, Any] | None = None
+    if lease_document is None:
+        errors.append("Account-wide lease is unreadable")
+    elif "Item" not in lease_document:
+        lease_absent = True
+    elif isinstance(lease_document["Item"], dict) and lease_document["Item"]:
+        lease_item = lease_document["Item"]
+        errors.append("Account-wide lease is still held")
+    else:
+        errors.append("Account-wide lease response is malformed")
 
     tag_code, tag_detail = command(
         "aws",
@@ -134,6 +159,9 @@ def verify(terraform_directory: str) -> dict[str, Any]:
     return {
         "result": "PASS" if not errors else "FAIL",
         "terraform_state_resources": remaining_state,
+        "account_lease_table": account_lease_table,
+        "account_lease_absent": lease_absent,
+        "account_lease_item": lease_item,
         "allowed_pending_deletion_kms_keys": allowed_pending_kms,
         "pending_deletion_kms_aliases": pending_kms_aliases,
         "kms_inspection_errors": kms_inspection_errors,
@@ -143,10 +171,13 @@ def verify(terraform_directory: str) -> dict[str, Any]:
 
 
 def main(arguments: list[str]) -> int:
-    if len(arguments) != 3:
-        print("usage: verify_preflight.py TF_DIR OUTPUT_JSON", file=sys.stderr)
+    if len(arguments) != 4:
+        print(
+            "usage: verify_preflight.py TF_DIR OUTPUT_JSON ACCOUNT_LEASE_TABLE",
+            file=sys.stderr,
+        )
         return 2
-    result = verify(arguments[1])
+    result = verify(arguments[1], arguments[3])
     output = Path(arguments[2])
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
