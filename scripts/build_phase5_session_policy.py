@@ -14,7 +14,7 @@ MAX_SESSION_POLICY_CHARACTERS = 2048
 # AWS rejected them at 151% and 112% packed size. The plan policy in this size
 # class has already been exercised successfully through this account's OIDC
 # role, so fail locally before another workflow can submit a larger document.
-MAX_PACKED_POLICY_PLAINTEXT_BUDGET = 900
+MAX_PACKED_POLICY_PLAINTEXT_BUDGET = 925
 WORKLOAD_ACTIONS = (
     "athena:StartQueryExecution",
     "glue:StartJobRun",
@@ -74,9 +74,10 @@ DEPLOY_ACTIONS = (
 )
 
 # The deploy allow patterns are compact enough for STS, while this deny set
-# makes their intersection with the exact tracked/live role policy identical to
-# the former explicit deploy allowlist. Destructive and workload operations
-# therefore cannot become effective deploy permissions.
+# makes their intersection with the exact tracked/live role policy exclude
+# destructive and workload operations. KMS cryptographic operations and
+# service grants remain available because the account lease and planned
+# resources use KMS-backed encryption.
 DEPLOY_OUT_OF_MODE_ACTIONS = (
     "athena:Delete*",
     "athena:Stop*",
@@ -84,14 +85,9 @@ DEPLOY_OUT_OF_MODE_ACTIONS = (
     "dynamodb:DeleteTable",
     "glue:Delete*",
     "iam:Delete*",
-    "kms:CreateGrant",
-    "kms:Decrypt",
     "kms:Delete*",
     "kms:Disable*",
     "kms:Enable*",
-    "kms:Encrypt",
-    "kms:GenerateDataKey",
-    "kms:RevokeGrant",
     "kms:Schedule*",
     "lambda:Delete*",
     "logs:Delete*",
@@ -121,11 +117,13 @@ TEARDOWN_ACTIONS = (
     "iam:Delete*",
     "iam:Get*",
     "iam:List*",
-    "kms:Delete*",
-    "kms:Describe*",
+    "kms:De*",
     "kms:Disable*",
+    "kms:Encrypt",
+    "kms:Generate*",
     "kms:Get*",
     "kms:List*",
+    "kms:Revoke*",
     "kms:Schedule*",
     "lambda:Delete*",
     "lambda:Get*",
