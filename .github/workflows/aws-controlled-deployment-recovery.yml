@@ -317,7 +317,8 @@ jobs:
           set -euo pipefail
           python scripts/verify_teardown.py \
             "${EVIDENCE_DIR}/terraform-outputs.json" \
-            "${TF_DIR}" "${FAILED_RUN_ID}" "${EVIDENCE_DIR}/teardown.json"
+            "${TF_DIR}" "${FAILED_RUN_ID}" "${EVIDENCE_DIR}/teardown.json" \
+            "${EVIDENCE_DIR}/upstream/terraform-outputs.json"
 
       - name: Capture post-recovery budget evidence
         if: ${{ always() && steps.aws-credentials.outcome == 'success' }}

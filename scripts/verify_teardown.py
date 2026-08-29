@@ -38,6 +38,26 @@ def output_or_default(outputs: dict[str, Any], name: str, default: str) -> str:
     return value if isinstance(value, str) and value else default
 
 
+def merge_output_evidence(
+    current: dict[str, Any], immutable: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Prefer immutable pre-teardown identifiers after partial state destruction."""
+    merged: dict[str, Any] = {}
+    sources: dict[str, str] = {}
+    for source_name, candidate in (
+        ("current_terraform_state", current),
+        ("immutable_deployment_evidence", immutable),
+    ):
+        for name, payload in candidate.items():
+            if not isinstance(payload, dict):
+                continue
+            value = payload.get("value")
+            if isinstance(value, str) and value:
+                merged[name] = payload
+                sources[name] = source_name
+    return merged, sources
+
+
 def confirmed_absent(code: int, detail: str, markers: Iterable[str]) -> bool:
     """Accept only an explicit service-specific not-found response."""
     normalized = detail.lower()
@@ -327,20 +347,29 @@ def verify(
     }
 
 
+def load_outputs(path: str) -> dict[str, Any]:
+    """Load a Terraform output object or return an empty fail-closed candidate."""
+    try:
+        parsed = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
 def main(arguments: list[str]) -> int:
     """Write machine-readable teardown evidence and return its status."""
-    if len(arguments) != 5:
+    if len(arguments) not in {5, 6}:
         print(
-            "usage: verify_teardown.py OUTPUTS_JSON TF_DIR RUN_ID EVIDENCE_JSON",
+            "usage: verify_teardown.py OUTPUTS_JSON TF_DIR RUN_ID EVIDENCE_JSON "
+            "[IMMUTABLE_OUTPUTS_JSON]",
             file=sys.stderr,
         )
         return 2
-    try:
-        parsed_outputs = json.loads(Path(arguments[1]).read_text(encoding="utf-8"))
-        outputs = parsed_outputs if isinstance(parsed_outputs, dict) else {}
-    except (OSError, json.JSONDecodeError):
-        outputs = {}
+    current_outputs = load_outputs(arguments[1])
+    immutable_outputs = load_outputs(arguments[5]) if len(arguments) == 6 else {}
+    outputs, output_sources = merge_output_evidence(current_outputs, immutable_outputs)
     result = verify(outputs, arguments[2], arguments[3])
+    result["output_sources"] = output_sources
     evidence_path = Path(arguments[4])
     evidence_path.parent.mkdir(parents=True, exist_ok=True)
     evidence_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
