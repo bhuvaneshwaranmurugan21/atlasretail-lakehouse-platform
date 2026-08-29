@@ -139,6 +139,7 @@ def test_active_aws_workflows_load_the_target_and_pin_credentials_action() -> No
     names = {
         "aws-bounded-lab.yml",
         "aws-controlled-deployment.yml",
+        "aws-controlled-deployment-recovery.yml",
         "aws-glue-service-probe.yml",
         "aws-iam-baseline.yml",
         "aws-oidc-identity.yml",
@@ -153,6 +154,9 @@ def test_active_aws_workflows_load_the_target_and_pin_credentials_action() -> No
 
     assert (WORKFLOWS / "aws-bounded-lab.yml").read_text().count("id: target") == 2
     assert (WORKFLOWS / "aws-controlled-deployment.yml").read_text().count("id: target") == 2
+    assert (WORKFLOWS / "aws-controlled-deployment-recovery.yml").read_text().count(
+        "id: target"
+    ) == 1
 
 
 def test_plan_and_preflight_are_manual_only() -> None:
