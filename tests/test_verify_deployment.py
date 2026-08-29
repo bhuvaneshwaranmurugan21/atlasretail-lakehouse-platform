@@ -262,3 +262,37 @@ def test_any_workload_activity_rejects_the_claim() -> None:
     assert result["result"] == "FAIL"
     assert result["claim"] == "NONE"
     assert result["zero_workload"] == "FAIL"
+
+
+def test_eventual_pitr_is_polled_without_weakening_the_check() -> None:
+    calls = 0
+    sleeps: list[float] = []
+
+    def runner(*arguments: str) -> tuple[int, str]:
+        nonlocal calls
+        if "describe-continuous-backups" in arguments:
+            calls += 1
+            status = "ENABLING" if calls == 1 else "ENABLED"
+            return 0, json.dumps(
+                {
+                    "ContinuousBackupsDescription": {
+                        "PointInTimeRecoveryDescription": {"PointInTimeRecoveryStatus": status}
+                    }
+                }
+            )
+        return successful_runner(*arguments)
+
+    result = MODULE.verify(
+        outputs(),
+        "infra/atlas",
+        RUN_ID,
+        COMMIT,
+        runner,
+        eventual_attempts=2,
+        eventual_delay_seconds=3,
+        sleeper=sleeps.append,
+    )
+
+    assert result["result"] == "PASS"
+    assert calls == 2
+    assert sleeps == [3]

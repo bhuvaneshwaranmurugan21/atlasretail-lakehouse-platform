@@ -249,29 +249,8 @@ jobs:
             "${TF_DIR}" "${EVIDENCE_DIR}/preflight-before.json"
           printf '%s' "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}" \
             > "${CONTROL_DIR}/teardown-authorized.txt"
-          python - "${CONTROL_DIR}/teardown-authority.json" <<'PY'
-          import hashlib, json, os, pathlib, sys
-          root = pathlib.Path("infra/atlas")
-          digest = hashlib.sha256()
-          for path in sorted(root.rglob("*")):
-              if path.is_file() and ".terraform" not in path.parts:
-                  digest.update(path.relative_to(root).as_posix().encode())
-                  digest.update(path.read_bytes())
-          value = {
-              "schema_version": "1.0",
-              "project": "AtlasRetail",
-              "operation": "controlled-deployment",
-              "repository": os.environ["GITHUB_REPOSITORY"],
-              "run_id": os.environ["GITHUB_RUN_ID"],
-              "source_commit": os.environ["GITHUB_SHA"],
-              "account": os.environ["AWS_ACCOUNT_ID"],
-              "region": os.environ["AWS_REGION"],
-              "backend_bucket": os.environ["TERRAFORM_STATE_BUCKET"],
-              "backend_key": os.environ["TERRAFORM_STATE_KEY"],
-              "infrastructure_digest": "sha256:" + digest.hexdigest(),
-          }
-          pathlib.Path(sys.argv[1]).write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
-          PY
+          python scripts/build_teardown_authority.py \
+            --output "${CONTROL_DIR}/teardown-authority.json"
 
       - name: Persist immutable teardown authority before deployment
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -463,34 +442,16 @@ jobs:
           marker="${CONTROL_DIR}/teardown-authorized.txt"
           manifest="${CONTROL_DIR}/teardown-authority.json"
           if [[ -s "${marker}" ]] && [[ "$(<"${marker}")" = "${expected}" ]] && [[ -s "${manifest}" ]]; then
-            python - "${manifest}" "${EVIDENCE_DIR}/teardown-authority-verification.json" <<'PY'
-          import hashlib, json, os, pathlib, sys
-          value = json.load(open(sys.argv[1], encoding="utf-8"))
-          assert value["repository"] == os.environ["GITHUB_REPOSITORY"]
-          assert value["run_id"] == os.environ["GITHUB_RUN_ID"]
-          assert value["source_commit"] == os.environ["GITHUB_SHA"]
-          assert value["account"] == os.environ["AWS_ACCOUNT_ID"]
-          assert value["region"] == os.environ["AWS_REGION"]
-          assert value["backend_bucket"] == os.environ["TERRAFORM_STATE_BUCKET"]
-          assert value["backend_key"] == os.environ["TERRAFORM_STATE_KEY"]
-          root = pathlib.Path("infra/atlas")
-          digest = hashlib.sha256()
-          for path in sorted(root.rglob("*")):
-              if path.is_file() and ".terraform" not in path.parts:
-                  digest.update(path.relative_to(root).as_posix().encode())
-                  digest.update(path.read_bytes())
-          assert value["infrastructure_digest"] == "sha256:" + digest.hexdigest()
-          proof = {
-              "result": "PASS",
-              "repository": value["repository"],
-              "run_id": value["run_id"],
-              "source_commit": value["source_commit"],
-              "account": value["account"],
-              "region": value["region"],
-              "infrastructure_digest": value["infrastructure_digest"],
-          }
-          pathlib.Path(sys.argv[2]).write_text(json.dumps(proof, indent=2, sort_keys=True) + "\n")
-          PY
+            python scripts/validate_teardown_authority.py \
+              --manifest "${manifest}" \
+              --output "${EVIDENCE_DIR}/teardown-authority-verification.json" \
+              --repository "${GITHUB_REPOSITORY}" \
+              --run-id "${GITHUB_RUN_ID}" \
+              --source-commit "${GITHUB_SHA}" \
+              --account "${AWS_ACCOUNT_ID}" \
+              --region "${AWS_REGION}" \
+              --backend-bucket "${TERRAFORM_STATE_BUCKET}" \
+              --backend-key "${TERRAFORM_STATE_KEY}"
             echo "present=true" >> "${GITHUB_OUTPUT}"
           else
             echo "present=false" >> "${GITHUB_OUTPUT}"

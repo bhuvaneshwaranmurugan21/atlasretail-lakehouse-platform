@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -52,6 +54,10 @@ def verify(
     run_id: str,
     source_commit: str,
     runner: Runner = command,
+    *,
+    eventual_attempts: int = 1,
+    eventual_delay_seconds: float = 0,
+    sleeper: Callable[[float], None] = time.sleep,
 ) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
 
@@ -63,7 +69,70 @@ def verify(
 
     def call_json(*arguments: str) -> dict[str, Any] | None:
         code, detail = runner(*arguments)
-        return json_object(code, detail)
+        parsed = json_object(code, detail)
+        if parsed is None:
+            print(
+                json.dumps(
+                    {
+                        "event": "aws-verification-command-failed",
+                        "command": list(arguments),
+                        "returncode": code,
+                        "detail": detail[-1500:],
+                    },
+                    sort_keys=True,
+                ),
+                file=sys.stderr,
+            )
+        return parsed
+
+    def eventually_json(
+        predicate: Callable[[dict[str, Any]], bool], *arguments: str
+    ) -> dict[str, Any] | None:
+        attempts = max(1, eventual_attempts)
+        last: dict[str, Any] | None = None
+        for attempt in range(1, attempts + 1):
+            code, detail = runner(*arguments)
+            parsed = json_object(code, detail)
+            if parsed is not None:
+                last = parsed
+                if predicate(parsed):
+                    return parsed
+            elif code != 0 and not any(
+                marker in detail
+                for marker in (
+                    "ResourceNotFoundException",
+                    "Throttling",
+                    "TooManyRequestsException",
+                )
+            ):
+                print(
+                    json.dumps(
+                        {
+                            "event": "aws-verification-command-failed",
+                            "command": list(arguments),
+                            "returncode": code,
+                            "detail": detail[-1500:],
+                        },
+                        sort_keys=True,
+                    ),
+                    file=sys.stderr,
+                )
+                return None
+            if attempt < attempts:
+                sleeper(eventual_delay_seconds)
+        print(
+            json.dumps(
+                {
+                    "event": "aws-verification-eventual-check-exhausted",
+                    "attempts": attempts,
+                    "command": list(arguments),
+                    "last_response": last,
+                },
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+        )
+        return last
 
     required_outputs = (
         "landing_bucket",
@@ -247,8 +316,15 @@ def verify(
 
     table_name = values.get("control_table")
     if table_name:
-        table = call_json(
-            "aws", "dynamodb", "describe-table", "--table-name", table_name, "--output", "json"
+        table = eventually_json(
+            lambda value: value.get("Table", {}).get("TableStatus") == "ACTIVE",
+            "aws",
+            "dynamodb",
+            "describe-table",
+            "--table-name",
+            table_name,
+            "--output",
+            "json",
         )
         table_detail = table.get("Table", {}) if table else {}
         table_ok = (
@@ -258,7 +334,11 @@ def verify(
             and table_detail.get("SSEDescription", {}).get("KMSMasterKeyArn") == kms_arn
         )
         add("dynamodb:configuration", table_ok, table_detail)
-        backups = call_json(
+        backups = eventually_json(
+            lambda value: value.get("ContinuousBackupsDescription", {})
+            .get("PointInTimeRecoveryDescription", {})
+            .get("PointInTimeRecoveryStatus")
+            == "ENABLED",
             "aws",
             "dynamodb",
             "describe-continuous-backups",
@@ -336,8 +416,15 @@ def verify(
 
     function_name = values.get("lambda_function_name")
     if function_name:
-        function = call_json(
-            "aws", "lambda", "get-function", "--function-name", function_name, "--output", "json"
+        function = eventually_json(
+            lambda value: value.get("Configuration", {}).get("State") == "Active",
+            "aws",
+            "lambda",
+            "get-function",
+            "--function-name",
+            function_name,
+            "--output",
+            "json",
         )
         configuration = function.get("Configuration", {}) if function else {}
         lambda_ok = (
@@ -351,7 +438,8 @@ def verify(
 
     state_machine_arn = values.get("state_machine_arn")
     if state_machine_arn:
-        machine = call_json(
+        machine = eventually_json(
+            lambda value: value.get("status") == "ACTIVE",
             "aws",
             "stepfunctions",
             "describe-state-machine",
@@ -531,7 +619,25 @@ def verify(
         )
         add("s3:glue-script-object", object_ok, script_object or {})
 
-    inventory = call_json(
+    def valid_tag_inventory(value: dict[str, Any]) -> bool:
+        items = value.get("ResourceTagMappingList", [])
+        return bool(items) and all(
+            {tag.get("Key"): tag.get("Value") for tag in mapping.get("Tags", [])}.get("Project")
+            == "AtlasRetail"
+            and {tag.get("Key"): tag.get("Value") for tag in mapping.get("Tags", [])}.get(
+                "SourceCommit"
+            )
+            == source_commit
+            and {tag.get("Key"): tag.get("Value") for tag in mapping.get("Tags", [])}.get(
+                "ExpiresAfter"
+            )
+            == "3-hours"
+            for mapping in items
+            if isinstance(mapping, dict)
+        )
+
+    inventory = eventually_json(
+        valid_tag_inventory,
         "aws",
         "resourcegroupstaggingapi",
         "get-resources",
@@ -541,20 +647,7 @@ def verify(
         "json",
     )
     mappings = inventory.get("ResourceTagMappingList", []) if inventory else []
-    tags_ok = bool(mappings) and all(
-        {tag.get("Key"): tag.get("Value") for tag in mapping.get("Tags", [])}.get("Project")
-        == "AtlasRetail"
-        and {tag.get("Key"): tag.get("Value") for tag in mapping.get("Tags", [])}.get(
-            "SourceCommit"
-        )
-        == source_commit
-        and {tag.get("Key"): tag.get("Value") for tag in mapping.get("Tags", [])}.get(
-            "ExpiresAfter"
-        )
-        == "3-hours"
-        for mapping in mappings
-        if isinstance(mapping, dict)
-    )
+    tags_ok = bool(inventory and valid_tag_inventory(inventory))
     add("tags:run-envelope", tags_ok, {"tagged_resource_count": len(mappings)})
 
     zero_checks = [item for item in checks if item["name"].startswith("zero-workload:")]
@@ -582,10 +675,29 @@ def main(arguments: list[str]) -> int:
         outputs = parsed if isinstance(parsed, dict) else {}
     except (OSError, json.JSONDecodeError):
         outputs = {}
-    result = verify(outputs, arguments[2], arguments[3], arguments[4])
+    attempts = int(os.environ.get("ATLAS_VERIFICATION_ATTEMPTS", "13"))
+    delay = float(os.environ.get("ATLAS_VERIFICATION_DELAY_SECONDS", "5"))
+    result = verify(
+        outputs,
+        arguments[2],
+        arguments[3],
+        arguments[4],
+        eventual_attempts=attempts,
+        eventual_delay_seconds=delay,
+    )
     output = Path(arguments[5])
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if result["result"] != "PASS":
+        failures = [item for item in result["checks"] if item["result"] != "PASS"]
+        print(
+            json.dumps(
+                {"event": "deployment-verification-failed", "failures": failures},
+                indent=2,
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+        )
     return 0 if result["result"] == "PASS" else 1
 
 
