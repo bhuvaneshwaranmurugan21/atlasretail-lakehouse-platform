@@ -105,6 +105,22 @@ def successful_runner(*arguments: str) -> tuple[int, str]:
                 }
             )
         }
+    elif "list-object-versions" in command:
+        bucket = arguments[arguments.index("--bucket") + 1]
+        value = (
+            {
+                "Versions": [
+                    {
+                        "Key": "code/atlasretail_iceberg.py",
+                        "VersionId": "version-1",
+                        "IsLatest": True,
+                    }
+                ],
+                "DeleteMarkers": [],
+            }
+            if "-landing-" in bucket
+            else {"Versions": [], "DeleteMarkers": []}
+        )
     elif "kms describe-key" in command:
         value = {"KeyMetadata": {"KeyState": "Enabled", "Enabled": True}}
     elif "kms list-aliases" in command:
@@ -127,6 +143,8 @@ def successful_runner(*arguments: str) -> tuple[int, str]:
         value = {"Count": 0}
     elif "glue get-database" in command:
         value = {"Database": {"Name": "atlasretail_12345_retail"}}
+    elif "glue get-tables" in command:
+        value = {"TableList": []}
     elif "glue get-job-runs" in command:
         value = {"JobRuns": []}
     elif "glue get-job" in command:

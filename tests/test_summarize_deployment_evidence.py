@@ -19,6 +19,46 @@ def write_json(path: Path, value: dict[str, object]) -> None:
 
 def write_valid_evidence(directory: Path) -> None:
     write_json(
+        directory / "admission-verification.json",
+        {"result": "PASS", "source_commit": "a" * 40},
+    )
+    identity = {"result": "PASS", "source_commit": "a" * 40, "github_run_id": "123"}
+    write_json(directory / "deploy-source-identity.json", identity)
+    write_json(directory / "teardown-source-identity.json", identity)
+    session_policy = {
+        "Statement": [
+            {
+                "Effect": "Deny",
+                "Action": sorted(MODULE.WORKLOAD_ACTIONS),
+                "Resource": "*",
+            }
+        ]
+    }
+    write_json(directory / "deploy-session-policy.json", session_policy)
+    write_json(directory / "teardown-session-policy.json", session_policy)
+    write_json(
+        directory / "teardown-authority-verification.json",
+        {"result": "PASS", "source_commit": "a" * 40, "run_id": "123"},
+    )
+    for name in (
+        "budget-before-verification.json",
+        "budget-after-deployment-verification.json",
+        "budget-after-teardown-verification.json",
+    ):
+        write_json(directory / name, {"result": "PASS"})
+    for index, name in enumerate(
+        (
+            "workflow-started-epoch.txt",
+            "terraform-apply-started-epoch.txt",
+            "terraform-apply-completed-epoch.txt",
+            "deployment-evidence-collected-epoch.txt",
+            "terraform-destroy-started-epoch.txt",
+            "terraform-destroy-completed-epoch.txt",
+        ),
+        start=1,
+    ):
+        (directory / name).write_text(str(index), encoding="utf-8")
+    write_json(
         directory / "deployment-verification.json",
         {
             "result": "PASS",
@@ -33,13 +73,14 @@ def write_valid_evidence(directory: Path) -> None:
         {
             "result": "PASS",
             "mode": "apply",
+            "exact_envelope": True,
             "resource_count": 40,
             "read_only_data_source_counts": {"aws_iam_policy_document": 6},
         },
     )
     write_json(
         directory / "terraform-destroy-plan-validation.json",
-        {"result": "PASS", "mode": "destroy", "resource_count": 40},
+        {"result": "PASS", "mode": "destroy", "exact_envelope": True, "resource_count": 40},
     )
 
 
@@ -48,7 +89,7 @@ def test_exact_part_3_contract_earns_claim(tmp_path: Path) -> None:
 
     result = MODULE.summarize(tmp_path, "a" * 40, "123")
 
-    assert result["schema_version"] == "1.1"
+    assert result["schema_version"] == "1.2"
     assert result["part"] == "part-3"
     assert result["proof"] == "zero-workload-controlled-deployment"
     assert result["result"] == "PASS"

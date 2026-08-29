@@ -69,7 +69,8 @@ The `AWS plan-only proof` workflow runs before any deployment authorization. It:
    attachments or broader OIDC trust.
 4. Reads the locked remote backend and proves that state and tagged inventory are clean.
 5. Generates a fresh plan for the exact `main` commit and rejects updates, replacements, deletions,
-   unexpected resource types, or counts beyond the checked-in envelope.
+   address substitutions, or any deviation from the exact 40 managed addresses and six read-only
+   data-source addresses in the checked-in envelope.
 6. Validates the planned managed lifecycle definition with the Step Functions API.
 7. Repeats the state and inventory checks and proves that the planning operation created no
    persistent AtlasRetail infrastructure.
@@ -84,29 +85,42 @@ envelope. A plan-only artifact is evidence for review, not deployment authority.
 Part 3 proves that the current `main` commit can deploy and remove the 40-resource AtlasRetail
 control plane without executing a data workload. Dispatch `AWS controlled deployment canary` only
 after a current-source read-only preflight, definition-only Glue probe, and plan-only proof pass.
-Use `DEPLOY_ATLASRETAIL_CANARY`, `DESTROY_AFTER_VERIFICATION`, and a budget ceiling from one to five
-dollars. The workflow regenerates and validates its own saved create-only plan; the earlier
-plan-only artifact is never deployment authority.
+Provide the three exact prerequisite run IDs with `DEPLOY_ATLASRETAIL_CANARY`,
+`DESTROY_AFTER_VERIFICATION`, and a budget ceiling from one to five dollars. The admission job
+downloads those exact artifacts and fails unless all three bind to the deployment commit, account,
+region, repository, branch, and run IDs; it also requires independent Glue-probe cleanup, zero
+workload starts, an exact plan envelope, and zero persistent plan change. The workflow regenerates
+and validates its own saved create-only plan; the earlier plan binary is never published or used as
+deployment authority.
 
 The canary must report an active control plane, exactly 40 Terraform-managed resources, six
 read-only IAM policy-document data sources, and `PASS` for every readiness check. It must also
-prove an empty DynamoDB table, zero Glue job runs, zero Step Functions executions, zero Lambda log
-events, and zero Athena query executions. Input generation, immutable batch upload,
+prove an empty DynamoDB table and Glue catalog, exact S3 object-version inventories, zero Glue job
+runs, zero Step Functions executions, no events in any of the three workload log groups, and zero
+Athena query executions. Deployment and teardown credentials are separate one-hour OIDC sessions
+intersected with policies that explicitly deny all Glue, Step Functions, Lambda, and Athena
+workload-start APIs. Input generation, immutable batch upload,
 `start-job-run`, `start-execution`, Lambda invocation, and Athena query execution are forbidden in
 this workflow. Any workload activity invalidates the Part 3 claim.
 
-The independent teardown job runs regardless of deployment outcome. It validates immutable
-teardown authority, creates and validates a saved 40-resource destroy-only plan, applies only that
-plan, proves empty Terraform state and zero unexpected tagged resources, and releases the lease
-only after cleanup passes. A KMS key is accepted only in AWS-mandated `PendingDeletion` with its
-alias absent and deletion date recorded. A successful deployment with failed or skipped teardown
-is a failed Part 3 run. Ephemeral Terraform outputs remain only in the one-day teardown-recovery
-artifact and are removed before the final 30-day evidence artifact is summarized.
+The independent teardown job runs after every admitted deployment attempt. It recomputes and
+matches the immutable infrastructure digest before accepting teardown authority, creates and
+validates a saved exact 40-address destroy-only plan after a successful deployment, applies only
+that plan, and proves empty Terraform
+state and zero unexpected tagged resources, and releases the lease only after cleanup passes. A KMS
+key is accepted only in AWS-mandated `PendingDeletion` with its alias absent and deletion date
+recorded. A successful deployment with failed or skipped teardown is a failed Part 3 run. Ephemeral
+Terraform outputs remain only in the one-day teardown-recovery artifact and are removed before the
+final 30-day evidence artifact is summarized. If deployment fails after a partial apply, teardown
+may delete a strict subset of the same 40 known addresses so cleanup is not stranded; that recovery
+path can never earn the Phase 5 deployment claim.
 
 The final sanitized summary is `part-3-summary.json`. It may claim `AWS_DEPLOYMENT_VERIFIED` only
-when deployment, zero-workload, exact apply and destroy envelopes, source identity, and teardown
-all pass. Until attributable AWS evidence satisfies that contract, the deployment claim remains
-`UNCLAIMED`.
+when prerequisite admission, deployment, zero-workload, exact apply and destroy envelopes, both
+session boundaries, source identity, budget checks, a monotonic runtime timeline, and teardown all
+pass. Immediate budget verification is not a settled-invoice claim; actual billed cost remains
+`UNCLAIMED`. Until attributable AWS evidence satisfies the complete contract, the deployment claim
+remains `UNCLAIMED`.
 
 ## Deploy and execute
 

@@ -35,6 +35,27 @@ def bounded_apply_plan() -> dict[str, object]:
     }
 
 
+def exact_plan(action: str = "create", include_data: bool = True) -> dict[str, object]:
+    changes: list[dict[str, object]] = []
+    for address in sorted(MODULE.EXPECTED_MANAGED_ADDRESSES):
+        tail = address.split("module.")[-1] if address.startswith("module.") else address
+        resource_type = (
+            tail.split(".")[0] if not address.startswith("module.") else tail.split(".")[1]
+        )
+        changes.append({"address": address, "type": resource_type, "change": {"actions": [action]}})
+    if include_data:
+        for address in sorted(MODULE.EXPECTED_DATA_ADDRESSES):
+            changes.append(
+                {
+                    "address": address,
+                    "mode": "data",
+                    "type": "aws_iam_policy_document",
+                    "change": {"actions": ["read"]},
+                }
+            )
+    return {"resource_changes": changes}
+
+
 def test_bounded_create_only_plan_passes() -> None:
     result = MODULE.validate(bounded_apply_plan(), "apply")
 
@@ -112,3 +133,54 @@ def test_canonical_no_state_destroy_plan_is_safe() -> None:
 
 def test_malformed_destroy_plan_without_changes_fails_closed() -> None:
     assert MODULE.validate({"applyable": False}, "destroy")["result"] == "FAIL"
+
+
+def test_exact_apply_and_destroy_envelopes_pass() -> None:
+    apply = MODULE.validate(exact_plan(), "apply", exact_envelope=True)
+    destroy = MODULE.validate(
+        exact_plan(action="delete", include_data=False), "destroy", exact_envelope=True
+    )
+
+    assert apply["result"] == "PASS"
+    assert apply["resource_count"] == 40
+    assert destroy["result"] == "PASS"
+    assert destroy["resource_count"] == 40
+
+
+def test_exact_envelope_rejects_omission_substitution_and_extra_data() -> None:
+    for plan in (
+        exact_plan(),
+        exact_plan(),
+        exact_plan(),
+    ):
+        assert isinstance(plan["resource_changes"], list)
+    omitted, substituted, extra_data = (exact_plan(), exact_plan(), exact_plan())
+    omitted["resource_changes"].pop(0)
+    substituted["resource_changes"][0]["address"] = "aws_kms_key.substitute"
+    extra_data["resource_changes"].append(data_change("aws_iam_policy_document"))
+
+    assert MODULE.validate(omitted, "apply", exact_envelope=True)["result"] == "FAIL"
+    assert MODULE.validate(substituted, "apply", exact_envelope=True)["result"] == "FAIL"
+    assert MODULE.validate(extra_data, "apply", exact_envelope=True)["result"] == "FAIL"
+
+
+def test_partial_destroy_recovery_accepts_only_expected_address_subset() -> None:
+    partial = exact_plan(action="delete", include_data=False)
+    partial["resource_changes"] = partial["resource_changes"][:7]
+
+    result = MODULE.validate(partial, "destroy", allow_partial_destroy=True)
+
+    assert result["result"] == "PASS"
+    assert result["resource_count"] == 7
+    assert result["partial_destroy_recovery"] is True
+
+
+def test_partial_destroy_recovery_rejects_out_of_envelope_address() -> None:
+    partial = exact_plan(action="delete", include_data=False)
+    partial["resource_changes"] = partial["resource_changes"][:1]
+    partial["resource_changes"][0]["address"] = "aws_kms_key.not_atlasretail"
+
+    result = MODULE.validate(partial, "destroy", allow_partial_destroy=True)
+
+    assert result["result"] == "FAIL"
+    assert any("unexpected managed addresses" in error for error in result["errors"])

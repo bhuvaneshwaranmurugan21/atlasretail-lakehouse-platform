@@ -13,17 +13,97 @@ on:
         description: Maximum permitted budget headroom consumed by this run (1-5 USD)
         required: true
         default: "5"
+      preflight_run_id:
+        description: Successful current-source AWS read-only preflight run ID
+        required: true
+      glue_probe_run_id:
+        description: Successful current-source Glue capability probe run ID
+        required: true
+      plan_run_id:
+        description: Successful current-source exact plan-only proof run ID
+        required: true
 
 permissions:
   id-token: write
   contents: read
+  actions: read
 
 concurrency:
   group: portfolio-aws-account
   cancel-in-progress: false
 
 jobs:
+  admission:
+    permissions:
+      actions: read
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      ADMISSION_DIR: .control/admission/${{ github.run_id }}
+      EVIDENCE_DIR: evidence/deployment/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Enforce deployment source and operator bounds
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${GITHUB_ACTOR}" = "${GITHUB_REPOSITORY_OWNER}"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          [[ "${{ inputs.preflight_run_id }}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${{ inputs.glue_probe_run_id }}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${{ inputs.plan_run_id }}" =~ ^[1-9][0-9]*$ ]]
+          mkdir -p "${ADMISSION_DIR}" "${EVIDENCE_DIR}"
+      - name: Download the exact preflight prerequisite
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-read-only-preflight-${{ inputs.preflight_run_id }}
+          path: .control/admission/${{ github.run_id }}/preflight
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.preflight_run_id }}
+      - name: Download the exact Glue capability prerequisite
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-glue-service-probe-${{ inputs.glue_probe_run_id }}
+          path: .control/admission/${{ github.run_id }}/glue-probe
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.glue_probe_run_id }}
+      - name: Download the exact plan-only prerequisite
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-plan-only-${{ inputs.plan_run_id }}
+          path: .control/admission/${{ github.run_id }}/plan
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.plan_run_id }}
+      - name: Fail closed over current-source prerequisite evidence
+        run: |
+          python scripts/validate_phase5_admission.py \
+            --preflight-dir "${ADMISSION_DIR}/preflight" \
+            --glue-probe-dir "${ADMISSION_DIR}/glue-probe" \
+            --plan-dir "${ADMISSION_DIR}/plan" \
+            --preflight-run-id "${{ inputs.preflight_run_id }}" \
+            --glue-probe-run-id "${{ inputs.glue_probe_run_id }}" \
+            --plan-run-id "${{ inputs.plan_run_id }}" \
+            --source-commit "${GITHUB_SHA}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --ref "${GITHUB_REF}" \
+            --output "${EVIDENCE_DIR}/admission-verification.json"
+      - name: Persist admitted prerequisite proof
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-deployment-admission-${{ github.run_id }}
+          path: evidence/deployment/${{ github.run_id }}/admission-verification.json
+          if-no-files-found: error
+          retention-days: 1
+
   deploy:
+    needs: admission
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
@@ -48,7 +128,16 @@ jobs:
             --expect-role-arn "${{ vars.AWS_ROLE_ARN }}" \
             --expect-region "${{ vars.AWS_REGION }}" \
             --expect-repository "${GITHUB_REPOSITORY}" \
-            --expect-ref "${GITHUB_REF}"
+            --expect-ref "${GITHUB_REF}" \
+            --source-identity "${EVIDENCE_DIR}/deploy-source-identity.json" \
+            --source-commit "${GITHUB_SHA}" \
+            --github-run-id "${GITHUB_RUN_ID}"
+      - name: Render the deployment session boundary
+        id: session-policy
+        run: |
+          policy="$(python scripts/build_phase5_session_policy.py \
+            --mode deploy --output "${EVIDENCE_DIR}/deploy-session-policy.json")"
+          printf 'json=%s\n' "${policy}" >> "${GITHUB_OUTPUT}"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
@@ -56,11 +145,22 @@ jobs:
         with:
           terraform_version: 1.11.4
           terraform_wrapper: false
+      - name: Recover the admitted prerequisite proof
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-deployment-admission-${{ github.run_id }}
+          path: evidence/deployment/${{ github.run_id }}
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-deploy-${{ github.run_id }}
+          role-duration-seconds: 3600
+          allowed-account-ids: ${{ steps.target.outputs.aws_account_id }}
+          inline-session-policy: ${{ steps.session-policy.outputs.json }}
+          unset-current-credentials: true
+          mask-aws-account-id: true
+          action-timeout-s: 120
 
       - name: Validate immutable admission bounds
         run: |
@@ -200,6 +300,7 @@ jobs:
             > "${GITHUB_WORKSPACE}/${CONTROL_DIR}/terraform-apply-plan.txt"
           python scripts/validate_terraform_plan.py \
             --mode apply \
+            --exact-envelope \
             --plan "${CONTROL_DIR}/terraform-apply-plan.json" \
             --output "${EVIDENCE_DIR}/terraform-apply-plan-validation.json"
           python scripts/summarize_terraform_plan.py \
@@ -282,8 +383,8 @@ jobs:
           retention-days: 1
 
   teardown:
-    needs: deploy
-    if: ${{ always() }}
+    needs: [admission, deploy]
+    if: ${{ always() && needs.admission.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
@@ -294,6 +395,7 @@ jobs:
       EVIDENCE_DIR: evidence/deployment/${{ github.run_id }}
       CONTROL_DIR: .control/deployment/${{ github.run_id }}
       BUDGET_CEILING_USD: ${{ inputs.budget_ceiling_usd }}
+      DEPLOY_JOB_RESULT: ${{ needs.deploy.result }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Load and verify the checked-in AWS target
@@ -305,7 +407,16 @@ jobs:
             --expect-role-arn "${{ vars.AWS_ROLE_ARN }}" \
             --expect-region "${{ vars.AWS_REGION }}" \
             --expect-repository "${GITHUB_REPOSITORY}" \
-            --expect-ref "${GITHUB_REF}"
+            --expect-ref "${GITHUB_REF}" \
+            --source-identity "${EVIDENCE_DIR}/teardown-source-identity.json" \
+            --source-commit "${GITHUB_SHA}" \
+            --github-run-id "${GITHUB_RUN_ID}"
+      - name: Render the teardown session boundary
+        id: session-policy
+        run: |
+          policy="$(python scripts/build_phase5_session_policy.py \
+            --mode teardown --output "${EVIDENCE_DIR}/teardown-session-policy.json")"
+          printf 'json=%s\n' "${policy}" >> "${GITHUB_OUTPUT}"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
@@ -318,6 +429,12 @@ jobs:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-deploy-teardown-${{ github.run_id }}
+          role-duration-seconds: 3600
+          allowed-account-ids: ${{ steps.target.outputs.aws_account_id }}
+          inline-session-policy: ${{ steps.session-policy.outputs.json }}
+          unset-current-credentials: true
+          mask-aws-account-id: true
+          action-timeout-s: 120
 
       - name: Prepare teardown workspace
         run: mkdir -p "${EVIDENCE_DIR}" "${CONTROL_DIR}"
@@ -339,12 +456,13 @@ jobs:
       - name: Validate teardown authority
         id: authority
         run: |
+          set -euo pipefail
           expected="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}"
           marker="${CONTROL_DIR}/teardown-authorized.txt"
           manifest="${CONTROL_DIR}/teardown-authority.json"
           if [[ -s "${marker}" ]] && [[ "$(<"${marker}")" = "${expected}" ]] && [[ -s "${manifest}" ]]; then
-            python - "${manifest}" <<'PY'
-          import json, os, sys
+            python - "${manifest}" "${EVIDENCE_DIR}/teardown-authority-verification.json" <<'PY'
+          import hashlib, json, os, pathlib, sys
           value = json.load(open(sys.argv[1], encoding="utf-8"))
           assert value["repository"] == os.environ["GITHUB_REPOSITORY"]
           assert value["run_id"] == os.environ["GITHUB_RUN_ID"]
@@ -353,12 +471,31 @@ jobs:
           assert value["region"] == os.environ["AWS_REGION"]
           assert value["backend_bucket"] == os.environ["TERRAFORM_STATE_BUCKET"]
           assert value["backend_key"] == os.environ["TERRAFORM_STATE_KEY"]
+          root = pathlib.Path("infra/atlas")
+          digest = hashlib.sha256()
+          for path in sorted(root.rglob("*")):
+              if path.is_file() and ".terraform" not in path.parts:
+                  digest.update(path.relative_to(root).as_posix().encode())
+                  digest.update(path.read_bytes())
+          assert value["infrastructure_digest"] == "sha256:" + digest.hexdigest()
+          proof = {
+              "result": "PASS",
+              "repository": value["repository"],
+              "run_id": value["run_id"],
+              "source_commit": value["source_commit"],
+              "account": value["account"],
+              "region": value["region"],
+              "infrastructure_digest": value["infrastructure_digest"],
+          }
+          pathlib.Path(sys.argv[2]).write_text(json.dumps(proof, indent=2, sort_keys=True) + "\n")
           PY
             echo "present=true" >> "${GITHUB_OUTPUT}"
           else
             echo "present=false" >> "${GITHUB_OUTPUT}"
             printf '{"result":"FAIL","reason":"Valid teardown authority is unavailable."}\n' \
               > "${EVIDENCE_DIR}/teardown.json"
+            printf '{"result":"FAIL","reason":"Valid teardown authority is unavailable."}\n' \
+              > "${EVIDENCE_DIR}/teardown-authority-verification.json"
           fi
 
       - name: Initialize backend and recover outputs
@@ -396,8 +533,13 @@ jobs:
           terraform -chdir="${TF_DIR}" show -no-color \
             "${GITHUB_WORKSPACE}/${CONTROL_DIR}/destroy.tfplan" \
             > "${GITHUB_WORKSPACE}/${CONTROL_DIR}/terraform-destroy-plan.txt"
+          envelope=(--allow-partial-destroy)
+          if [[ "${DEPLOY_JOB_RESULT}" = "success" ]]; then
+            envelope=(--exact-envelope)
+          fi
           python scripts/validate_terraform_plan.py \
             --mode destroy \
+            "${envelope[@]}" \
             --plan "${CONTROL_DIR}/terraform-destroy-plan.json" \
             --output "${EVIDENCE_DIR}/terraform-destroy-plan-validation.json"
           sha256sum \

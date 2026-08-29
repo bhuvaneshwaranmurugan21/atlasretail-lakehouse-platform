@@ -11,9 +11,12 @@ WORKFLOW = ROOT / ".github" / "workflows" / "aws-controlled-deployment.yml"
 def test_controlled_deployment_is_manual_and_bounded() -> None:
     parsed = yaml.load(WORKFLOW.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
     assert set(parsed["on"]) == {"workflow_dispatch"}
-    assert set(parsed["jobs"]) == {"deploy", "teardown"}
-    assert parsed["jobs"]["teardown"]["needs"] == "deploy"
-    assert parsed["jobs"]["teardown"]["if"] == "${{ always() }}"
+    assert set(parsed["jobs"]) == {"admission", "deploy", "teardown"}
+    assert parsed["jobs"]["deploy"]["needs"] == "admission"
+    assert parsed["jobs"]["teardown"]["needs"] == ["admission", "deploy"]
+    assert (
+        parsed["jobs"]["teardown"]["if"] == "${{ always() && needs.admission.result == 'success' }}"
+    )
 
     workflow = WORKFLOW.read_text(encoding="utf-8")
     assert 'test "${GITHUB_REF}" = "refs/heads/main"' in workflow
