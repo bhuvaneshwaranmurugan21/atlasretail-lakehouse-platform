@@ -90,7 +90,7 @@ def test_compact_patterns_preserve_the_exact_effective_role_intersections() -> N
     # cannot gain or lose an action unnoticed.
     expected = {
         "deploy": (142, "d892b5d34dd803922642fbb633f1afadd3535b8f4c934552032fae2ce778fab6"),
-        "teardown": (104, "277a56100d2cd50a458d951389fc93e334a964adb427e508cbd670e50be57625"),
+        "teardown": (104, "b088365a4637a8cbd3f45596e449c315495b8afd29fbfa4460999b8a99a75c39"),
     }
     for mode, (count, digest) in expected.items():
         actions = sorted(_effective_actions(mode))
@@ -109,6 +109,8 @@ def test_encrypted_lease_and_service_integrations_keep_required_kms_permissions(
     assert {"kms:CreateGrant", "kms:RevokeGrant"} <= deploy
     assert "kms:RevokeGrant" in teardown
     assert "kms:CreateGrant" not in teardown
+    # aws_kms_key destroy schedules deletion; it never disables the key.
+    assert "kms:DisableKey" not in teardown
 
 
 def test_teardown_keeps_provider_delete_api_permissions_without_create_permissions() -> None:
@@ -125,3 +127,18 @@ def test_teardown_keeps_provider_delete_api_permissions_without_create_permissio
     assert "s3:PutBucketPolicy" not in teardown
     assert "s3:PutBucketTagging" not in teardown
     assert "s3:PutObjectTagging" not in teardown
+
+
+def test_teardown_keeps_step_functions_provider_refresh_but_not_mutation() -> None:
+    teardown = _effective_actions("teardown")
+
+    assert {
+        "states:DeleteStateMachine",
+        "states:DescribeStateMachine",
+        "states:ValidateStateMachineDefinition",
+    } <= teardown
+    assert {
+        "states:CreateStateMachine",
+        "states:StartExecution",
+        "states:UpdateStateMachine",
+    }.isdisjoint(teardown)

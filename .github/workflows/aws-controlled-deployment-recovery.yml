@@ -107,19 +107,13 @@ jobs:
         if: ${{ inputs.previous_recovery_run_id != '' }}
         run: |
           set -euo pipefail
-          python - "${EVIDENCE_DIR}/prior-recovery/recovery-summary.json" <<'PY'
-          import json, os, pathlib, sys
-          value = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-          assert value["project"] == "AtlasRetail", value
-          assert value["proof"] == "failed-controlled-deployment-recovery", value
-          assert value["recovery_run_id"] == os.environ["PREVIOUS_RECOVERY_RUN_ID"], value
-          assert value["failed_run_id"] == os.environ["FAILED_RUN_ID"], value
-          assert value["result"] == "FAIL", value
-          assert value["claim"] == "NONE", value
-          assert value["checks"]["immutable_authority"] is True, value
-          assert value["checks"]["saved_destroy_plan"] is True, value
-          assert value["checks"]["aws_and_terraform_clean"] is False, value
-          PY
+          python scripts/validate_recovery_handoff.py \
+            --summary "${EVIDENCE_DIR}/prior-recovery/recovery-summary.json" \
+            --lease "${EVIDENCE_DIR}/prior-recovery/recovery-lease.json" \
+            --output "${EVIDENCE_DIR}/prior-recovery-handoff-verification.json" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --failed-run-id "${FAILED_RUN_ID}" \
+            --previous-recovery-run-id "${PREVIOUS_RECOVERY_RUN_ID}"
 
       - name: Establish failed source identity from immutable authority
         id: failed_source
