@@ -72,3 +72,22 @@ def test_controlled_deployment_cannot_execute_a_data_workload() -> None:
     assert all(value not in workflow for value in forbidden)
     artifact_section = workflow.split("Upload final controlled-deployment evidence", maxsplit=1)[1]
     assert ".control" not in artifact_section
+
+
+def test_credential_dependent_always_evidence_is_credential_gated() -> None:
+    parsed = yaml.load(WORKFLOW.read_text(encoding="utf-8"), Loader=yaml.BaseLoader)
+    for job_name, evidence_step_name in (
+        ("deploy", "Capture post-deployment budget evidence"),
+        ("teardown", "Capture post-teardown budget evidence"),
+    ):
+        steps = parsed["jobs"][job_name]["steps"]
+        credential_step = next(
+            step
+            for step in steps
+            if "aws-actions/configure-aws-credentials@" in step.get("uses", "")
+        )
+        evidence_step = next(step for step in steps if step.get("name") == evidence_step_name)
+        assert credential_step["id"] == "aws-credentials"
+        assert evidence_step["if"] == (
+            "${{ always() && steps.aws-credentials.outcome == 'success' }}"
+        )
