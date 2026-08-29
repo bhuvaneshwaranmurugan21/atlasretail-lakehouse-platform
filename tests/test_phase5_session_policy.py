@@ -90,7 +90,7 @@ def test_compact_patterns_preserve_the_exact_effective_role_intersections() -> N
     # cannot gain or lose an action unnoticed.
     expected = {
         "deploy": (142, "d892b5d34dd803922642fbb633f1afadd3535b8f4c934552032fae2ce778fab6"),
-        "teardown": (99, "c8bbb0280b0ac54df6ed1e20260245bb0018c471ae73a79b46a5c91a4272310f"),
+        "teardown": (104, "277a56100d2cd50a458d951389fc93e334a964adb427e508cbd670e50be57625"),
     }
     for mode, (count, digest) in expected.items():
         actions = sorted(_effective_actions(mode))
@@ -109,3 +109,19 @@ def test_encrypted_lease_and_service_integrations_keep_required_kms_permissions(
     assert {"kms:CreateGrant", "kms:RevokeGrant"} <= deploy
     assert "kms:RevokeGrant" in teardown
     assert "kms:CreateGrant" not in teardown
+
+
+def test_teardown_keeps_provider_delete_api_permissions_without_create_permissions() -> None:
+    teardown = _effective_actions("teardown")
+    required_s3_delete_support = {
+        "s3:PutBucketOwnershipControls",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutBucketVersioning",
+        "s3:PutEncryptionConfiguration",
+        "s3:PutLifecycleConfiguration",
+    }
+
+    assert required_s3_delete_support <= teardown
+    assert "s3:PutBucketPolicy" not in teardown
+    assert "s3:PutBucketTagging" not in teardown
+    assert "s3:PutObjectTagging" not in teardown

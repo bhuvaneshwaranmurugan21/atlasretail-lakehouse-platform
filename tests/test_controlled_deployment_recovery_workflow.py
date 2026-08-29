@@ -20,7 +20,8 @@ def test_recovery_is_manual_exact_source_and_destroy_only() -> None:
     assert "ref: ${{ steps.failed_source.outputs.source_commit }}" in workflow
     assert '--legacy-terraform-root "${TF_DIR}"' in workflow
     assert 'terraform -chdir="${TF_DIR}" plan -destroy' in workflow
-    assert "--mode destroy --exact-envelope" in workflow
+    assert "envelope=(--exact-envelope)" in workflow
+    assert "envelope=(--allow-partial-destroy)" in workflow
     assert 'terraform -chdir="${TF_DIR}" apply -auto-approve' in workflow
     assert "python scripts/verify_teardown.py" in workflow
 
@@ -38,7 +39,7 @@ def test_recovery_lease_and_evidence_fail_closed() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     authority = workflow.index("Validate the failed run legacy authority")
     lease = workflow.index("Atomically recover only the failed run account-wide lease")
-    plan = workflow.index("Create and validate the exact saved recovery destroy plan")
+    plan = workflow.index("Create and validate the saved recovery destroy-only plan")
     apply = workflow.index("Apply only the validated saved recovery destroy plan")
     verify = workflow.index("Prove failed run teardown across AWS and Terraform inventories")
     release = workflow.index("Release only the verified recovery account-wide lease")
@@ -47,6 +48,7 @@ def test_recovery_lease_and_evidence_fail_closed() -> None:
     upload = workflow.index("Upload final controlled-deployment recovery evidence")
 
     assert authority < lease < plan < apply < verify < release < cleanup < summary < upload
-    assert "attribute_not_exists(lock_id) OR #owner = :failed_owner" in workflow
+    assert "attribute_not_exists(lock_id) OR #owner = :expected_owner" in workflow
     assert "steps.verify_teardown.outcome == 'success'" in workflow
+    assert "steps.destroy_plan.outcome == 'success'" in workflow
     assert '"claim": "AWS_TEARDOWN_VERIFIED" if all(checks.values()) else "NONE"' in workflow
