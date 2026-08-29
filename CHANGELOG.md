@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Hardened the Part 3 zero-workload deployment gate with current-source prerequisite-artifact
+  admission, exact 40-address apply/destroy envelopes, workload-denying OIDC session boundaries,
+  expanded S3/Glue/CloudWatch inactivity checks, digest-bound teardown, and fail-closed runtime and
+  budget evidence.
+
 - Hardened the persistent AWS foundation with email budget alerts, two encrypted PITR-enabled
   DynamoDB control tables, TTL-backed account leases, exact post-deployment verification, and
   manual mutation confirmation.

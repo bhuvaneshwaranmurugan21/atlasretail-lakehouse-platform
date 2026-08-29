@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: atlasretail-plan-only
+  group: portfolio-aws-account
   cancel-in-progress: false
 
 jobs:
@@ -33,7 +33,16 @@ jobs:
             --expect-role-arn "${{ vars.AWS_ROLE_ARN }}" \
             --expect-region "${{ vars.AWS_REGION }}" \
             --expect-repository "${GITHUB_REPOSITORY}" \
-            --expect-ref "${GITHUB_REF}"
+            --expect-ref "${GITHUB_REF}" \
+            --source-identity "${EVIDENCE_DIR}/source-identity.json" \
+            --source-commit "${GITHUB_SHA}" \
+            --github-run-id "${GITHUB_RUN_ID}"
+      - name: Render the non-mutating plan session policy
+        id: session-policy
+        run: |
+          policy="$(python scripts/build_phase5_session_policy.py \
+            --mode plan --output "${EVIDENCE_DIR}/plan-session-policy.json")"
+          printf 'json=%s\n' "${policy}" >> "${GITHUB_OUTPUT}"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
@@ -46,6 +55,12 @@ jobs:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-plan-${{ github.run_id }}
+          role-duration-seconds: 900
+          allowed-account-ids: ${{ steps.target.outputs.aws_account_id }}
+          inline-session-policy: ${{ steps.session-policy.outputs.json }}
+          unset-current-credentials: true
+          mask-aws-account-id: true
+          action-timeout-s: 120
 
       - name: Verify identity, account plan, and budget envelope
         run: |
@@ -129,11 +144,20 @@ jobs:
             > "${GITHUB_WORKSPACE}/${CONTROL_DIR}/terraform-plan.txt"
           python scripts/validate_terraform_plan.py \
             --mode apply \
+            --exact-envelope \
             --plan "${CONTROL_DIR}/terraform-plan.json" \
             --output "${EVIDENCE_DIR}/terraform-plan-validation.json"
           python scripts/summarize_terraform_plan.py \
             "${CONTROL_DIR}/terraform-plan.json" \
             "${EVIDENCE_DIR}/terraform-plan-inventory.json"
+          python - "${EVIDENCE_DIR}/terraform-plan-validation.json" <<'PY'
+          import json, sys
+          value = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert value["result"] == "PASS", value
+          assert value["exact_envelope"] is True, value
+          assert value["resource_count"] == 40, value
+          assert value["read_only_data_source_counts"] == {"aws_iam_policy_document": 6}, value
+          PY
           sha256sum \
             "${CONTROL_DIR}/atlasretail.tfplan" \
             "${CONTROL_DIR}/terraform-plan.json" \

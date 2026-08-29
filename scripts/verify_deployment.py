@@ -203,6 +203,28 @@ def verify(
         )
         add(f"s3:{bucket}:tls-only", tls_denied, policy_document)
 
+        versions = call_json(
+            "aws", "s3api", "list-object-versions", "--bucket", bucket, "--output", "json"
+        )
+        version_items = versions.get("Versions", []) if versions is not None else None
+        delete_markers = versions.get("DeleteMarkers", []) if versions is not None else None
+        expected_keys = ["code/atlasretail_iceberg.py"] if output_name == "landing_bucket" else []
+        observed_keys = (
+            sorted(item.get("Key") for item in version_items if isinstance(item, dict))
+            if isinstance(version_items, list)
+            else None
+        )
+        inventory_ok = (
+            observed_keys == expected_keys
+            and delete_markers == []
+            and all(item.get("IsLatest") is True for item in version_items or [])
+        )
+        add(
+            f"zero-workload:s3-inventory:{bucket}",
+            inventory_ok,
+            {"versions": version_items, "delete_markers": delete_markers},
+        )
+
     if kms_arn:
         key = call_json("aws", "kms", "describe-key", "--key-id", kms_arn, "--output", "json")
         metadata = key.get("KeyMetadata", {}) if key else {}
@@ -275,6 +297,14 @@ def verify(
             "glue:database",
             bool(database and database.get("Database", {}).get("Name") == database_name),
             database or {},
+        )
+        tables = call_json(
+            "aws", "glue", "get-tables", "--database-name", database_name, "--output", "json"
+        )
+        add(
+            "zero-workload:glue-tables",
+            bool(tables is not None and tables.get("TableList") == []),
+            tables or {},
         )
 
     job_name = values.get("glue_job_name")
@@ -413,22 +443,19 @@ def verify(
             len(exact) == 1 and exact[0].get("retentionInDays") == 7,
             exact,
         )
-
-    lambda_log_group = values.get("lambda_log_group_name")
-    if lambda_log_group:
         events = call_json(
             "aws",
             "logs",
             "filter-log-events",
             "--log-group-name",
-            lambda_log_group,
+            log_group,
             "--limit",
             "1",
             "--output",
             "json",
         )
         add(
-            "zero-workload:lambda",
+            f"zero-workload:cloudwatch-logs:{log_group}",
             bool(events is not None and events.get("events") == []),
             events or {},
         )
