@@ -1,0 +1,69 @@
+{
+  "artifact": {
+    "expires_at": "2026-09-28T02:44:32Z",
+    "id": 9708073144,
+    "name": "atlasretail-glue-service-probe-33229660062",
+    "sha256": "ee2dd1690819d774e46e235efafbb1989a52a070fe445cef60abbfd474111f42",
+    "size_bytes": 4709
+  },
+  "aws_account_id": "857229544428",
+  "aws_region": "ap-southeast-2",
+  "committed_summaries": {
+    "cleanup-verification.json": "177b495ee614c5cd6ee8695bc7aed1635ec0789c72d62ad0b16f59e430c16dc0",
+    "glue-service-probe.json": "1c2b10bbc63073cfc046cccebbb6ed9c67d0e4484e8042592d0c2b5a1c3bf18b",
+    "phase-4-summary.json": "3467688e688de99aa51b04c2223cb86658c9ba85fcaad72e4b79a580616df4f1"
+  },
+  "evidence_type": "glue-definition-capability-probe",
+  "excluded_final_artifact_files_sha256": {
+    "caller-identity.json": "6225f50713469bb6b7c41553d0f16538b6bfaf25cdfab96716e605b577737396",
+    "cleanup-caller-identity.json": "5c3b18ee882a5a4d0cdbe93a5d85e16282489312a6a7e879331dd3df63b3a43d",
+    "cleanup-session-policy.json": "876803ed81e4fba002cb9bbc9cf8551554ab2b9e0943ee3989733196a94a2234",
+    "cleanup-source-identity.json": "b9fc59c19c395a892f4f79095f0ba697fb6cb09486fd79ee0a081f25caa306b9",
+    "manifest.json": "8a1d8deb2c3872915f33c759e3dcdabce6da1e2dd2586261219aabe2c1af0f7f",
+    "probe-session-policy.json": "40dfc7132e3f886f7147bc8bda9e2c96a0d0650ea79c5bc6567fd890d5f10ece",
+    "source-identity.json": "b9fc59c19c395a892f4f79095f0ba697fb6cb09486fd79ee0a081f25caa306b9"
+  },
+  "jobs": {
+    "cleanup": {
+      "id": 99040133687,
+      "result": "success"
+    },
+    "finalize": {
+      "id": 99040169094,
+      "result": "success"
+    },
+    "probe": {
+      "id": 99040082335,
+      "result": "success"
+    }
+  },
+  "preflight_comment": 5459844656,
+  "preflight_run": 33229379263,
+  "project": "AtlasRetail",
+  "raw_artifacts": {
+    "cleanup": {
+      "expires_at": "2026-08-30T02:44:23Z",
+      "id": 9708071310,
+      "name": "atlasretail-glue-cleanup-raw-33229660062",
+      "sha256": "65a5d7545f1187f5792b949daadf98fb9f4f0c6ce8c17e505c775c260e6c28a9",
+      "size_bytes": 1663
+    },
+    "probe": {
+      "expires_at": "2026-08-30T02:44:05Z",
+      "id": 9708067620,
+      "name": "atlasretail-glue-probe-raw-33229660062",
+      "sha256": "338a12a47196dcaaca3e9e99c284e35f1afa48c2a71a46fe3595a0382b8e9ec4",
+      "size_bytes": 1864
+    }
+  },
+  "repository": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
+  "result": "PASS",
+  "run_id": 33229660062,
+  "run_url": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33229660062",
+  "schema_version": "1.0",
+  "source_commit": "55ae4e67cd94fe50465e2ae023e01258d69596a5",
+  "source_lock_comment": 5459810346,
+  "source_tree": "e02f9c0e13f473519ff10fd075079ad57f938004",
+  "workflow": "AWS Glue create/delete capability probe",
+  "workload_started": false
+}

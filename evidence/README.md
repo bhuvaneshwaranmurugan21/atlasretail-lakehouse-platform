@@ -10,7 +10,7 @@ establish data-processing correctness.
 | GitHub OIDC identity, current target | AWS | `32848093194` | Pass |
 | IAM and persistent foundation, current target | AWS | `32926893305` | Pass |
 | Budget, create-only plan, and zero-change proof, current target | AWS | `33060606145` | Pass |
-| Glue create/delete capability and cleanup, current target | AWS | `32930567869` | Pass |
+| Glue create/delete capability and cleanup, current target | AWS | `33229660062` | Pass |
 | Partial-apply recovery and exact-state teardown, current target | AWS | `32952618876` | Pass |
 | Managed bounded data path and exact-state teardown, current target | AWS | `33167646509` | Pass |
 | Initial partial-apply recovery, legacy target | AWS | `31794022586` and corrected continuation | Resolved |
@@ -42,8 +42,11 @@ establish data-processing correctness.
   raw plan, caller identity, and logs remain outside Git.
 - `aws/plan/32929299555/` preserves the earlier current-target plan-only proof before the
   permission fix and partial-apply recovery.
-- `aws/glue-probe/32930567869/` preserves the sanitized definition-only Glue probe and independent
-  cleanup summary. Caller identity and raw AWS command output remain only in the expiring artifact.
+- `aws/glue-probe/33229660062/` preserves the sanitized source-bound definition-only Glue probe,
+  inert-role checks, zero-run proof, independent cleanup summary, and digest-bound publication
+  manifest. Caller identities and session policies remain only in the expiring artifact.
+- `aws/glue-probe/32930567869/` preserves the earlier current-target capability proof for its
+  attributed source commit.
 - `aws/recovery/32952618876/` preserves the sanitized destroy-plan, incomplete-execution, and
   exact-state teardown summaries from the current target. Raw plans, logs, caller identity, AWS
   stderr, and live resource identifiers remain only in the expiring workflow artifact.
@@ -64,7 +67,8 @@ establish data-processing correctness.
 - [Previous post-DynamoDB-fix budget and create-only plan proof 33055480837](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33055480837)
 - [Previous post-recovery budget and create-only plan proof 33038682324](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33038682324)
 - [Earlier current-target budget and create-only plan proof 32929299555](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32929299555)
-- [Current-target Glue create/delete capability probe 32930567869](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32930567869)
+- [Current-target hardened Glue create/delete capability probe 33229660062](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33229660062)
+- [Earlier current-target Glue create/delete capability probe 32930567869](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32930567869)
 - [Current-target partial-apply recovery and exact-state teardown 32952618876](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32952618876)
 - [Current-target managed bounded data path and teardown 33167646509](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33167646509)
 - The following plan/deployment/recovery runs are legacy-target evidence only:

@@ -1,0 +1,27 @@
+{
+  "account": "857229544428",
+  "cleanup": {
+    "glue_job": "DELETED_AND_VERIFIED",
+    "iam_role": "DELETED_AND_VERIFIED"
+  },
+  "completed_at": "2026-08-29T02:44:05.167753+00:00",
+  "errors": [],
+  "glue_job_name": "atlasretail-probe-33229660062",
+  "glue_job_runs": 0,
+  "iam_role_name": "atlasretail-probe-33229660062-glue",
+  "job_definition": {
+    "exact_configuration": true,
+    "exact_ownership": true
+  },
+  "region": "ap-southeast-2",
+  "role_inertness": {
+    "exact_identity": true,
+    "glue_only_trust": true,
+    "no_permissions": true
+  },
+  "run_id": "33229660062",
+  "source_commit": "55ae4e67cd94fe50465e2ae023e01258d69596a5",
+  "started_at": "2026-08-29T02:43:49.046702+00:00",
+  "status": "GLUE_CREATE_JOB_VERIFIED",
+  "workload_started": false
+}

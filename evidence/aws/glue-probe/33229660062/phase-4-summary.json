@@ -1,0 +1,28 @@
+{
+  "account": "857229544428",
+  "aws_verified": {
+    "definition_created_and_read": true,
+    "independent_cleanup": true,
+    "oidc_callers": true,
+    "role_inert": true,
+    "zero_glue_job_runs": true
+  },
+  "claim": "AWS_GLUE_DEFINITION_CAPABILITY_VERIFIED",
+  "cleanup_job_result": "success",
+  "errors": [],
+  "probe_job_result": "success",
+  "region": "ap-southeast-2",
+  "result": "PASS",
+  "run_id": "33229660062",
+  "source_commit": "55ae4e67cd94fe50465e2ae023e01258d69596a5",
+  "unclaimed": [
+    "actual_billed_cost",
+    "controlled_deployment",
+    "global_account_cleanliness",
+    "glue_runtime_execution",
+    "current_source_plan_only_proof",
+    "spark_runtime_correctness_on_aws",
+    "workload_execution"
+  ],
+  "workload_started": false
+}
