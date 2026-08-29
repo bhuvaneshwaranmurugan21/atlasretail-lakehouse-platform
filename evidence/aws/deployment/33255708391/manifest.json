@@ -1,0 +1,52 @@
+{
+  "artifact": {
+    "created_at": "2026-08-29T13:49:28Z",
+    "expires_at": "2026-09-28T13:49:28Z",
+    "id": 9715810551,
+    "name": "atlasretail-controlled-deployment-33255708391",
+    "sha256": "e6cee2ddf8eaf35ebefbb7e8d5a6656032b4e5a7fb4185d2240ea0c00e0461d6",
+    "size_bytes": 39500
+  },
+  "aws_account_id": "857229544428",
+  "aws_region": "ap-southeast-2",
+  "committed_summaries": {
+    "admission-verification.json": "ef73ed1b38d4dd19e4230f74fd0cf8c761a4ed392ae21f6b4dbaccace35c1508",
+    "budget-summary.json": "1f9031ba51d8469dface90ba064db648eb37aa9dd0faf09ff8caf6a54541a563",
+    "deployment-summary.json": "0807d29db993c03d35d7d1ed7c7c41521671b4dec35253277ee211bab3458ad8",
+    "part-3-summary.json": "95f8ad42d25472dc98a0e9eb6574c4a453687393a80c3d1a9271f442afce6ce2",
+    "plan-summary.json": "72e06ac9ca51011b7685a981ddc7cfd3121f3b28ca692ebbb76cabb03579eeb9",
+    "teardown-summary.json": "311939bd9c45589ce7f1f039727637798f4d664ee5543aa729a79801232c07fc"
+  },
+  "evidence_type": "zero-workload-controlled-deployment",
+  "production_claim": false,
+  "project": "AtlasRetail",
+  "repository": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
+  "result": "PASS",
+  "run_id": 33255708391,
+  "run_number": 5,
+  "run_url": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33255708391",
+  "sanitization": {
+    "caller_identity": "EXCLUDED",
+    "live_resource_identifiers": "EXCLUDED",
+    "raw_aws_responses": "EXCLUDED",
+    "raw_terraform_logs_and_plans": "EXCLUDED",
+    "session_policies": "EXCLUDED"
+  },
+  "schema_version": "1.0",
+  "source_commit": "c4f2a24d89c1770fe4eb020174e047c67e010e3b",
+  "source_evidence_sha256": {
+    "admission-verification.json": "ef73ed1b38d4dd19e4230f74fd0cf8c761a4ed392ae21f6b4dbaccace35c1508",
+    "budget-after-deployment-verification.json": "34451e53bf980adba1fc3bd7bf8a8cd1ddc42c874bbc1109ce26a5396fc9e854",
+    "budget-after-teardown-verification.json": "34451e53bf980adba1fc3bd7bf8a8cd1ddc42c874bbc1109ce26a5396fc9e854",
+    "budget-before-verification.json": "34451e53bf980adba1fc3bd7bf8a8cd1ddc42c874bbc1109ce26a5396fc9e854",
+    "deployment-verification.json": "d62d378489e81c52cecd1fe30ef55d577e141d874f5c4c154b9365612f998800",
+    "iam-parity.json": "ef99989938f10b89b62ead5e8f388c1236770a21c5d1275674625133f71b1def",
+    "part-3-summary.json": "95f8ad42d25472dc98a0e9eb6574c4a453687393a80c3d1a9271f442afce6ce2",
+    "teardown-authority-verification.json": "9d529b70c007b128d5dde4ae2f5e580775cfdb31ec1fafbcea09cb60411a1a40",
+    "teardown.json": "e815b1d0274d58a81e80bc1e6bd0b1a3ecf170d0239016e203d15006175ab73f",
+    "terraform-apply-plan-validation.json": "1a8d3a39e54d1cd16ac9369b339e2ef8da915747a7e42c59f29c68328d22b164",
+    "terraform-destroy-plan-validation.json": "d96c6f330181f40171d1cd59280da65f13e76a6d30caae0f737e15c287395c0e"
+  },
+  "workflow": "AWS controlled deployment canary",
+  "workflow_total_seconds": 416
+}
