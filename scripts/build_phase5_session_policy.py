@@ -116,7 +116,6 @@ TEARDOWN_ACTIONS = (
     "iam:Get*",
     "iam:List*",
     "kms:De*",
-    "kms:Disable*",
     "kms:Encrypt",
     "kms:Generate*",
     "kms:Get*",
@@ -139,6 +138,7 @@ TEARDOWN_ACTIONS = (
     "s3:PutObject",
     "states:De*",
     "states:List*",
+    "states:ValidateStateMachineDefinition",
     "sts:GetCallerIdentity",
     "tag:GetResources",
 )

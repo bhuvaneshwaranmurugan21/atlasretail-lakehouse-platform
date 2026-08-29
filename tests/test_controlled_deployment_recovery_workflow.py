@@ -52,3 +52,14 @@ def test_recovery_lease_and_evidence_fail_closed() -> None:
     assert "steps.verify_teardown.outcome == 'success'" in workflow
     assert "steps.destroy_plan.outcome == 'success'" in workflow
     assert '"claim": "AWS_TEARDOWN_VERIFIED" if all(checks.values()) else "NONE"' in workflow
+
+
+def test_failed_recovery_handoff_proves_exact_lease_owner_without_requiring_a_plan() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    assert "prior-recovery/recovery-lease.json" in workflow
+    assert "python scripts/validate_recovery_handoff.py" in workflow
+    assert "prior-recovery-handoff-verification.json" in workflow
+    assert '--failed-run-id "${FAILED_RUN_ID}"' in workflow
+    assert '--previous-recovery-run-id "${PREVIOUS_RECOVERY_RUN_ID}"' in workflow
+    assert 'value["checks"]["saved_destroy_plan"] is True' not in workflow
