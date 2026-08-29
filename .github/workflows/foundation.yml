@@ -179,7 +179,8 @@ jobs:
             -backend-config="encrypt=true" \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-init.log"
           python scripts/verify_preflight.py \
-            "${TF_DIR}" "${EVIDENCE_DIR}/zero-workload-preflight.json"
+            "${TF_DIR}" "${EVIDENCE_DIR}/zero-workload-preflight.json" \
+            "${ACCOUNT_LEASE_TABLE}"
       - name: Acquire the account lease
         run: bash scripts/acquire_lock.sh
       - name: Prove lease contention
