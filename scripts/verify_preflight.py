@@ -78,8 +78,13 @@ def verify(terraform_directory: str, account_lease_table: str) -> dict[str, Any]
     lease_document = _json(lease_code, lease_detail)
     lease_absent = False
     lease_item: dict[str, Any] | None = None
-    if lease_document is None:
+    if lease_code != 0:
         errors.append("Account-wide lease is unreadable")
+    elif not lease_detail.strip():
+        # The AWS CLI emits no JSON document for a successful GetItem miss.
+        lease_absent = True
+    elif lease_document is None:
+        errors.append("Account-wide lease response is malformed")
     elif "Item" not in lease_document:
         lease_absent = True
     elif isinstance(lease_document["Item"], dict) and lease_document["Item"]:
@@ -160,6 +165,7 @@ def verify(terraform_directory: str, account_lease_table: str) -> dict[str, Any]
         "result": "PASS" if not errors else "FAIL",
         "terraform_state_resources": remaining_state,
         "account_lease_table": account_lease_table,
+        "account_lease_read_exit_code": lease_code,
         "account_lease_absent": lease_absent,
         "account_lease_item": lease_item,
         "allowed_pending_deletion_kms_keys": allowed_pending_kms,

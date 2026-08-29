@@ -21,7 +21,7 @@ def clean_runner(*arguments: str) -> tuple[int, str]:
     if arguments[0] == "terraform":
         return 0, json.dumps({"format_version": "1.0"})
     if "dynamodb get-item" in command:
-        return 0, json.dumps({})
+        return 0, ""
     if "resourcegroupstaggingapi" in command:
         return 0, json.dumps({"ResourceTagMappingList": [{"ResourceARN": PENDING_KEY}]})
     if "kms describe-key" in command:
@@ -45,6 +45,7 @@ def test_empty_state_and_historical_pending_key_pass(monkeypatch: object) -> Non
 
     assert result["result"] == "PASS"
     assert result["account_lease_table"] == LEASE_TABLE
+    assert result["account_lease_read_exit_code"] == 0
     assert result["account_lease_absent"] is True
     assert result["account_lease_item"] is None
     assert result["allowed_pending_deletion_kms_keys"] == [PENDING_KEY]
@@ -195,5 +196,22 @@ def test_unreadable_account_lease_fails(monkeypatch: object) -> None:
 
     assert result["result"] == "FAIL"
     assert result["account_lease_absent"] is False
+    assert result["account_lease_read_exit_code"] == 254
     assert result["account_lease_item"] is None
     assert "Account-wide lease is unreadable" in result["errors"]
+
+
+def test_malformed_successful_account_lease_response_fails(monkeypatch: object) -> None:
+    def malformed_lease_runner(*arguments: str) -> tuple[int, str]:
+        if "dynamodb get-item" in " ".join(arguments):
+            return 0, "not-json"
+        return clean_runner(*arguments)
+
+    monkeypatch.setattr(MODULE, "command", malformed_lease_runner)
+
+    result = MODULE.verify("infra/atlas", LEASE_TABLE)
+
+    assert result["result"] == "FAIL"
+    assert result["account_lease_read_exit_code"] == 0
+    assert result["account_lease_absent"] is False
+    assert "Account-wide lease response is malformed" in result["errors"]
