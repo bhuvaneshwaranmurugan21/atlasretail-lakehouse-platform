@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Completed Part 4 Stage 6 managed execution and finality for source `08559b0`: exact-source
+  preflight, Glue capability and 40-resource plan prerequisites; all 20 bounded execution contract
+  domains; six Glue runs; eight Step Functions outcomes; generation-pinned Athena results;
+  run-bound CloudWatch evidence; exact apply and destroy plans; clean inventories; conditional
+  lease release; independent post-teardown verification; and the sole final `AWS_VERIFIED` claim.
+  Preserved the earlier provider-lock teardown failure as `UNCLAIMED` and recorded its exact,
+  cleanup-only deterministic recovery.
+
 - Added Part 4 immutable teardown authority and deterministic recovery: strict run-attempt/source/
   target/backend/plan binding, immutable authority artifact identity, conditional lease states with
   no expiry takeover, apply-outcome receipts, cleanup-only trusted-main recovery, hash-checked saved

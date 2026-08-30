@@ -1,0 +1,67 @@
+{
+  "artifact": {
+    "created_at": "2026-08-30T19:33:05Z",
+    "id": 9737679077,
+    "name": "atlasretail-aws-evidence-33329861907",
+    "sha256": "f9971511d6de33c11d73c7fb64df5fe30c9a1ff7b2e4b802ae6a36b707fd1399",
+    "size_bytes": 1710288
+  },
+  "aws_account_id": "857229544428",
+  "aws_region": "ap-southeast-2",
+  "committed_summaries": {
+    "failure-isolation.json": "c58cd87798040c183e8cfe6ede8f79491f500683bfd8782eff21626dccb9cb55",
+    "plan-summary.json": "888c7bff1a016aa39586879b2a0c5ab7cd0e358be838ed8848be81f7d8e87935",
+    "summary.json": "ee0e97b8b509c4ffae0680351354ef7b592aae7933a09aff668778d61d98d578",
+    "teardown-summary.json": "1425b4f85190a2cb1824548cbf6b9b651c34f0091dfe97a394c62643acb52d03"
+  },
+  "evidence_type": "part4-stage6-bounded-managed-execution",
+  "execute_job_id": 99306415292,
+  "prerequisite_artifacts": {
+    "glue_capability_probe": {
+      "artifact_id": 9737259594,
+      "artifact_sha256": "64b8031a6d96d48c34c6c37d671728dc17a74b9e445324cee8a4eb6f23ae79dd",
+      "run_id": 33329607444
+    },
+    "plan_only_proof": {
+      "artifact_id": 9737293923,
+      "artifact_sha256": "2ed65448d318867ba6132f2f913372444f14df6309c0cc19a3efeca49003a508",
+      "run_id": 33329689861
+    },
+    "read_only_preflight": {
+      "artifact_id": 9736958383,
+      "artifact_sha256": "9a6fafd2801bde102341e713a1a822e68b45fa1f86201be17d8e699d2f889806",
+      "run_id": 33328532420
+    }
+  },
+  "production_claim": false,
+  "project": "AtlasRetail",
+  "repository": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
+  "result": "PASS",
+  "run_attempt": 1,
+  "run_id": 33329861907,
+  "run_number": 18,
+  "run_url": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33329861907",
+  "sanitization": {
+    "caller_identity": "EXCLUDED",
+    "live_resource_identifiers": "EXCLUDED",
+    "raw_cloudwatch_events": "EXCLUDED",
+    "raw_execution_histories": "EXCLUDED",
+    "terraform_plan_payloads": "EXCLUDED"
+  },
+  "schema_version": "1.0",
+  "source_commit": "08559b0f48708080335282c6d59faa3826635d67",
+  "source_evidence_sha256": {
+    "athena-validation.json": "6ee39397ef1d5faf4a88bc8e8c7b2967abfb5d446031f9b4801463d6e2bda875",
+    "cloudwatch-export-receipt.json": "9b3a5e75980efdf99bc6124a7ab7aaa472a15c2f8ef4d8febb04b1b646baa891",
+    "execution-checkpoint.json": "c860d03a5b908349bf28f55d9ac602d530c616aba0e8e8aca402f1aff3d5b5c7",
+    "execution-evidence-manifest.json": "fc11a0e9275d03a358bd1c40e84dcea85d20bfbba1f07a82549a199cd6cc41eb",
+    "final-summary.json": "747e510a474e22e34a8224dad7a515852e56cf1ba6d339afb891c8757e068f19",
+    "lease-release-verification.json": "86ef01a652e760c49c6644b33ce3ff989c523f97c0cefa7d3079c300dbcfd9a9",
+    "post-teardown-budget-verification.json": "13dec578164a87407e1cf29d018a0f038fccdddeb100700fe1b9cd0f9d916be3",
+    "teardown.json": "661584409bcaf1f004b5883692bc4b7630181967c9d0b7c13e75cab9fd54886a",
+    "terraform-apply-plan-validation.json": "1a8d3a39e54d1cd16ac9369b339e2ef8da915747a7e42c59f29c68328d22b164",
+    "terraform-destroy-plan-validation.json": "d96c6f330181f40171d1cd59280da65f13e76a6d30caae0f737e15c287395c0e"
+  },
+  "teardown_job_id": 99309569420,
+  "workflow": "AWS bounded lab"
+}

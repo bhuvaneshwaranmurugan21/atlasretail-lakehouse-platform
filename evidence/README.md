@@ -9,18 +9,20 @@ establish data-processing correctness.
 | Deterministic retail failure scenarios | Local and CI | Reproducible | Pass |
 | GitHub OIDC identity, current target | AWS | `32848093194` | Pass |
 | IAM and persistent foundation, current target | AWS | `32926893305` | Pass |
-| Budget, create-only plan, and zero-change proof, current source | AWS | `33255077636` | Pass |
-| Glue create/delete capability and cleanup, current source | AWS | `33255546906` | Pass |
+| Budget, create-only plan, and zero-change proof, current source | AWS | `33329689861` | Pass |
+| Glue create/delete capability and cleanup, current source | AWS | `33329607444` | Pass |
 | Zero-workload controlled deployment and exact-state teardown, current source | AWS | `33255708391` | Pass |
-| Independent post-teardown clean inventory, current source | AWS | `33257068545` | Pass |
+| Stage 6 cleanup-only deterministic recovery | AWS | `33328391707` | Pass |
+| Stage 6 bounded managed execution and exact-state teardown | AWS | `33329861907` | Pass |
+| Independent post-Stage 6 clean inventory, current source | AWS | `33331233341` | Pass |
 | Partial-apply recovery and exact-state teardown, current target | AWS | `32952618876` | Pass |
-| Managed bounded data path and exact-state teardown, current target | AWS | `33167646509` | Pass |
+| Previous managed bounded data path and exact-state teardown | AWS | `33167646509` | Pass |
 | Initial partial-apply recovery, legacy target | AWS | `31794022586` and corrected continuation | Resolved |
 | Free-plan denial exact-state recovery, legacy target | AWS | `31812211040` | Pass |
-| Glue and Iceberg transformation | AWS | `33167646509` | Pass |
-| Managed replay, failure, and recovery | AWS | `33167646509` | Pass |
-| Athena result validation | AWS | `33167646509` | Pass |
-| Bounded runtime, scan, and workload cost estimate | AWS | `33167646509` | Measured |
+| Glue and Iceberg transformation | AWS | `33329861907` | Pass |
+| Managed replay, failure, and recovery | AWS | `33329861907` | Pass |
+| Athena result validation | AWS | `33329861907` | Pass |
+| Bounded runtime, scan, and workload cost estimate | AWS | `33329861907` | Measured |
 
 ## Committed evidence
 
@@ -64,6 +66,16 @@ establish data-processing correctness.
   plan, usage, cost-estimate, CloudWatch-count, Athena-result, and exact-state teardown summaries.
   Raw CloudWatch events, execution histories, caller identity, and live resource identifiers remain
   only in the expiring workflow artifact.
+- `aws/recovery/33328391707/` preserves the sanitized cleanup-only proof for failed bounded run
+  `33326519783`: exact authority recovery, a validated 40-resource destroy plan, 20 clean-inventory
+  checks, and conditional lease release. It makes no workload or correctness claim.
+- `aws/bounded/33329861907/` preserves the current-source Stage 6 final proof: exact prerequisite
+  artifact binding, all 20 contract domains, eight Step Functions outcomes, six Glue runs,
+  CloudWatch and Athena evidence, exact 40-resource apply/destroy plans, budget evidence, clean
+  inventories, lease release, and the final `AWS_VERIFIED` claim.
+- `aws/preflight/33331233341/` preserves the independent post-Stage 6 clean-inventory summary and
+  artifact digest. Pending-deletion KMS identifiers are replaced with counts; caller identity stays
+  in the expiring workflow artifact.
 - `incidents/31791499897/terraform-outputs.json` preserves the exact resource identifiers required
   for recovery after partial Terraform state removal.
 - `../docs/incidents/legacy/` preserves the former rescue workflow and its exact authorization
@@ -73,10 +85,13 @@ establish data-processing correctness.
 
 - [Current-target OIDC identity 32848093194](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32848093194)
 - [Current-target IAM and persistent foundation 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305)
-- [Current-source budget and create-only plan proof 33255077636](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33255077636)
-- [Current-source Glue create/delete capability probe 33255546906](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33255546906)
+- [Current-source budget and create-only plan proof 33329689861](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33329689861)
+- [Current-source Glue create/delete capability probe 33329607444](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33329607444)
+- [Stage 6 cleanup-only deterministic recovery 33328391707](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33328391707)
+- [Stage 6 bounded managed execution and teardown 33329861907](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33329861907)
+- [Independent post-Stage 6 clean inventory 33331233341](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33331233341)
 - [Current-source zero-workload controlled deployment 33255708391](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33255708391)
-- [Independent post-teardown clean inventory 33257068545](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33257068545)
+- [Previous independent post-teardown clean inventory 33257068545](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33257068545)
 - [Previous post-Lambda-fix budget and create-only plan proof 33060606145](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33060606145)
 - [Previous post-DynamoDB-fix budget and create-only plan proof 33055480837](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33055480837)
 - [Previous post-recovery budget and create-only plan proof 33038682324](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33038682324)
@@ -84,7 +99,7 @@ establish data-processing correctness.
 - [Current-target hardened Glue create/delete capability probe 33229660062](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33229660062)
 - [Earlier current-target Glue create/delete capability probe 32930567869](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32930567869)
 - [Current-target partial-apply recovery and exact-state teardown 32952618876](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32952618876)
-- [Current-target managed bounded data path and teardown 33167646509](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33167646509)
+- [Previous managed bounded data path and teardown 33167646509](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33167646509)
 - The following plan/deployment/recovery runs are legacy-target evidence only:
 - [Initial failed deployment 31791499897](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/31791499897)
 - [First recovery attempt 31794022586](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/31794022586)

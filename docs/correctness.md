@@ -21,9 +21,10 @@ registered object version and checksum, independently recomputes each ordered ta
 those immutable object versions, and server-side copies the exact versions into a
 generation-isolated read prefix. The ordered digest is streamed with bounded memory and preserves
 the existing `retail-v2` contract. Runtime-compatible local execution is verified against the
-pinned Glue 5 Spark and Iceberg versions. AWS run 33167646509 verified the same managed path with
+pinned Glue 5 Spark and Iceberg versions. AWS run 33329861907 verified the same managed path with
 exact-version reads, physical Iceberg builds, fail-closed object-identity rejection, replay, and
-deterministic recovery for its bounded 500-order workload.
+deterministic recovery for its bounded 500-order workload. It also passed the complete Part 4
+finality contract after exact teardown and lease release.
 
 ## Generation lifecycle
 

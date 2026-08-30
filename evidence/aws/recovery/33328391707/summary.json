@@ -1,0 +1,20 @@
+{
+  "authority_sha256": "f7234bf8bce4e7a9f9e0c153510e57e5e50d409c97f302257f07e55d5f820652",
+  "aws_execution": true,
+  "claim_level": "AWS_VERIFIED",
+  "cleanup_mode": "DESTROY_APPLIED",
+  "cleanup_only": true,
+  "errors": [],
+  "failed_run_attempt": 1,
+  "failed_run_id": 33326519783,
+  "failed_source_commit": "d074175c0e1b7937400e488dd2e8265d900b8841",
+  "lease_released": true,
+  "proof": "part4-bounded-lab-deterministic-recovery",
+  "recovery_control_commit": "08559b0f48708080335282c6d59faa3826635d67",
+  "recovery_run_attempt": 1,
+  "recovery_run_id": 33328391707,
+  "result": "PASS",
+  "schema_version": "1.0",
+  "teardown_complete": true,
+  "workload_execution": false
+}

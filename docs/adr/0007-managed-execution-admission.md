@@ -45,3 +45,16 @@ execution occurred.
 - A missing runtime file still results in a structured failing final summary and uploaded evidence.
 - The final `AWS_VERIFIED` claim remains unavailable until the bounded run, teardown, lease release,
   and independent post-teardown verification all pass.
+
+## Verification
+
+Source `08559b0f48708080335282c6d59faa3826635d67` passed the required preflight, Glue capability,
+and exact plan-only prerequisites in runs `33328532420`, `33329607444`, and `33329689861`.
+Bounded run `33329861907` then passed all 20 contract domains, exact-state teardown, budget finality,
+and lease release before emitting `AWS_VERIFIED`. Independent preflight `33331233341` confirmed
+empty Terraform state, an absent lease, and no unexpected active resources after the run.
+
+The preceding attempt `33326519783` remains failed and `UNCLAIMED`: its workload checkpoint passed,
+but automatic teardown could not reproduce the provider lock file. Cleanup-only recovery run
+`33328391707` used the exact failed-run authority, destroyed the 40-resource partial state, passed
+all 20 cleanup checks, and released the lease without promoting the failed workload claim.

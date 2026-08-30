@@ -23,25 +23,26 @@ environment that produced it.
 | Part 4 pre-AWS admission controls | `LOCAL_VERIFIED` | Exact operator, `main` source, run attempt, distinct confirmations, cost/workload bounds and source tree are revalidated before OIDC; lease release requires verified clean state |
 | Part 4 contract-complete evidence readiness | `LOCAL_VERIFIED` | Execution checkpoint cannot claim final verification; the sole finalizer requires all 20 domains, 18 provenance fields, clean teardown, post-teardown budget proof, and consistent-read lease absence |
 | Part 4 immutable teardown authority and deterministic recovery | `LOCAL_VERIFIED` | Exact run/attempt/source/plan authority, immutable artifact and lease binding, cleanup-only recovery, saved destroy-plan integrity, inventory proof and adversarial CI validation; Stage 5 performs no AWS operation |
-| Part 4 managed-execution readiness | `LOCAL_VERIFIED` | Exact current-source prerequisite admission, bounded credential lifetime, embedded workflow shell parsing, saved destroy-binary recheck, structured failure finalization, and exact pre-authority lease recovery; Stage 6 readiness performs no AWS operation |
+| Part 4 Stage 6 managed execution and finality | `AWS_VERIFIED` | [Run 33329861907](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33329861907) admitted the exact current-source prerequisite chain, passed all 20 contract domains, finalized after exact teardown and lease release, and was independently followed by clean-inventory run 33331233341 |
 | GitHub OIDC identity | `AWS_VERIFIED` | Current-target short-lived credentials issued to the repository's `main` branch |
 | Organization-shared credit safety | `OWNER_ATTESTED` | Management-account credit balance and unrestricted organization sharing were reviewed; the attestation expires quickly and must be refreshed |
 | IAM and persistent foundation | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) verified exact live IAM parity, hardened persistent resources, budget alerts, lease contention and release, an empty backend, and zero AtlasRetail workload resources |
-| Current-source plan-only environment proof | `AWS_VERIFIED` | [Run 33255077636](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33255077636) verified source `c4f2a24`, an absent account lease, empty Terraform state, no unexpected active resources, organization-shared credit, budget headroom, exact live IAM parity, a bounded 40-resource create-only plan, the managed definition, and zero persistent change |
-| Current-source Glue definition capability | `AWS_VERIFIED` | [Run 33255546906](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33255546906) verified exact `glue:CreateJob` definition-plane access under a run-scoped session, an inert no-policy Glue role, exact configuration and ownership, zero job runs, self-cleanup, and absence under an independent cleanup-only OIDC session |
+| Current-source plan-only environment proof | `AWS_VERIFIED` | [Run 33329689861](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33329689861) verified source `08559b0`, an absent account lease, empty Terraform state, no unexpected active resources, organization-shared credit, budget headroom, exact live IAM parity, a bounded 40-resource create-only plan, the managed definition, and zero persistent change |
+| Current-source Glue definition capability | `AWS_VERIFIED` | [Run 33329607444](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33329607444) verified exact `glue:CreateJob` definition-plane access under a run-scoped session, an inert no-policy Glue role, exact configuration and ownership, zero job runs, self-cleanup, and absence under an independent cleanup-only OIDC session |
 | Current-target partial-apply recovery and teardown | `AWS_VERIFIED` | [Run 32952618876](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32952618876) validated a 39-resource destroy-only plan, applied that saved plan, proved empty Terraform state and zero unexpected tagged resources, and verified the remaining KMS key was scheduled for deletion |
 | Current-source zero-workload controlled deployment and exact-state teardown | `AWS_VERIFIED` | [Run 33255708391](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33255708391) admitted the exact current-source prerequisite chain, applied only the validated 40-resource saved plan, verified the control plane with zero workload, applied only the validated 40-resource destroy plan, and proved zero active residue |
-| Independent post-teardown clean inventory | `AWS_VERIFIED` | [Run 33257068545](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33257068545) independently proved the account lease absent, Terraform state empty, no unexpected active AtlasRetail resources, and 11 historical KMS keys pending deletion with no aliases |
-| Attributed-source managed workload and teardown | `AWS_VERIFIED` | [Run 33167646509](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33167646509) applied the validated 40-resource saved plan, completed its attributed bounded workload, destroyed the same 40 resources, proved empty Terraform state and zero unexpected tagged resources, and verified KMS pending deletion |
-| Glue, Iceberg, Step Functions data path | `AWS_VERIFIED` | Run 33167646509 proved success, replay, conflict rejection, failure isolation, deterministic recovery, temporal and financial gates, S3 object-identity rejection, stale-publisher rejection, one six-table serving resolution, and matching Athena results |
-| CloudWatch execution evidence | `AWS_VERIFIED` | Run 33167646509 exported 28,921 Glue events, 187 Step Functions events, and 84 Lambda events; the evidence gate requires each export to be non-empty |
+| Stage 6 deterministic recovery | `AWS_VERIFIED` | [Run 33328391707](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33328391707) validated the exact failed-run authority, applied a 40-resource cleanup-only destroy plan, passed all 20 cleanup checks, and released the recovery-bound lease; it makes no workload claim |
+| Independent post-teardown clean inventory | `AWS_VERIFIED` | [Run 33331233341](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33331233341) independently proved the account lease absent, Terraform state empty, no unexpected active AtlasRetail resources, and 13 historical KMS keys pending deletion with no aliases |
+| Current-source managed workload and teardown | `AWS_VERIFIED` | [Run 33329861907](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33329861907) applied the validated 40-resource saved plan, completed its bounded workload, destroyed the same 40 resources, proved empty Terraform state and zero unexpected tagged resources, released the lease, and emitted the final claim |
+| Glue, Iceberg, Step Functions data path | `AWS_VERIFIED` | Run 33329861907 proved success, replay, conflict rejection, failure isolation, deterministic recovery, temporal and financial gates, S3 object-identity rejection, stale-publisher rejection, one six-table serving resolution, and matching Athena results |
+| CloudWatch execution evidence | `AWS_VERIFIED` | Run 33329861907 exported 29,538 Glue events, 184 Step Functions events, and 90 Lambda events with complete pagination and non-empty source gates |
 | Controlled-deployment runtime and budget envelope | `AWS_VERIFIED` | Run 33255708391 measured 351 seconds from apply start to evidence collection and verified a $5 gross-cost ceiling against $19.551 budget headroom before deployment, after deployment, and after teardown; actual billed cost is `UNCLAIMED` |
-| Bounded workload runtime, Athena scan, and workload cost estimate | `AWS_VERIFIED` | Run 33167646509 measured 1,325 seconds to evidence, 1,562 Glue DPU-seconds, two Athena queries scanning 2,192 bytes, and a $0.191016 Glue-plus-Athena estimate; minor charges and settled billing remain outside the claim |
+| Bounded workload runtime, Athena scan, and workload cost estimate | `AWS_VERIFIED` | Run 33329861907 measured 1,646.816 seconds from execution start to finality, 1,323 Glue DPU-seconds, two Athena queries scanning 2,192 bytes, and a $0.161805 Glue-plus-Athena estimate; minor charges and settled billing remain outside the claim |
 | Sustained production operation | Not established | No continuous workload or operational-history evidence |
 
 The runtime-integration job pins the AWS Glue 5 runtime versions: Python 3.11, Spark 3.5.4, and
 the SHA-512-verified Iceberg 1.7.1 runtime. It remains the deterministic local compatibility gate.
-Run 33167646509 separately establishes the bounded managed behaviour of Glue, S3, Glue Data
+Run 33329861907 establishes the bounded managed behaviour of Glue, S3, Glue Data
 Catalog, Step Functions, Lambda, DynamoDB, CloudWatch Logs, and Athena for its attributed source
 commit and inputs; it does not establish production scale or sustained operation.
 
@@ -80,6 +81,12 @@ structured failure finalization, and lease-only recovery constraints. It contain
 `aws_execution: false` and `claim_level: LOCAL_VERIFIED`; it does not claim the managed Stage 6 run
 has occurred.
 
+The completed Stage 6 evidence is separate from that readiness artifact. Run `33329861907` is the
+current-source final managed proof: the sole finalizer emitted `AWS_VERIFIED` only after all 20
+domains, the saved destroy plan, clean AWS and Terraform inventories, post-teardown budget proof,
+and exact consistent-read lease release passed. Run `33331233341` then independently reread the
+account and backend and found no active residue.
+
 Sanitized summaries may be committed under `evidence/`. Detailed logs remain attached to their
 GitHub Actions runs and must not contain credentials or customer data.
 
@@ -95,9 +102,10 @@ the current target can recover exact Terraform state and independently verify cl
 not promote the deployment, managed transformation, replay, failure, recovery, or Athena data-path
 claims.
 
-The bounded-run artifact for 33167646509 promotes those managed data-path claims for its exact
-500-order workload. The committed snapshot retains digests and sanitized summaries; raw execution
-histories, CloudWatch events, caller identity, and live resource identifiers remain only in the
-expiring workflow artifact.
+The bounded-run artifact for `33329861907` promotes those managed data-path and finality claims for
+its exact 500-order workload. The committed snapshot retains digests and sanitized summaries; raw
+execution histories, CloudWatch events, caller identity, live resource identifiers, and Terraform
+plan payloads remain only in the expiring workflow artifact. Run `33167646509` remains valid
+historical evidence for its attributed source.
 
 The Phase 5 controlled-deployment evidence is intentionally a zero-workload infrastructure proof. It does not re-claim managed data processing, replay, failure isolation, Athena result correctness, production scale, or settled cost for source `c4f2a24`; those dimensions remain attributed to their explicitly listed evidence runs.

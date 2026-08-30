@@ -1,0 +1,19 @@
+{
+  "checks": {
+    "failure_did_not_move_pointer": true,
+    "recovery_succeeded": true,
+    "stale_publisher_compare_and_swap_rejected": true
+  },
+  "glue_job_runs": {
+    "expected_failed": 4,
+    "succeeded": 2,
+    "total": 6
+  },
+  "observed_failure_markers": [
+    "INJECTED_FAILURE",
+    "QUALITY_GATE:AMBIGUOUS_DIMENSION",
+    "QUALITY_GATE:OBJECT_IDENTITY",
+    "QUALITY_GATE:ORDER_TOTAL"
+  ],
+  "result": "PASS"
+}
