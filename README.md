@@ -17,6 +17,8 @@ active-generation pointer only after the complete generation passes validation.
 - Bind a batch identifier to one canonical manifest digest.
 - Bind every bounded source to its generator parameters, source commit, schemas, logical digests,
   deterministic gzip bytes, and independently validated provenance receipt.
+- Admit the exact operator, run attempt, confirmations, bounded cost, and complete source-byte tree
+  before either execution or teardown can request AWS credentials.
 - Bind every managed input to an exact S3 key, version, byte count, ETag, and SHA-256 checksum.
 - Recompute every ordered table digest before upload and independently inside the Glue job.
 - Treat an identical redelivery as idempotent and reject conflicting content reuse.
@@ -49,7 +51,9 @@ Iceberg provides atomic table snapshots, schema evolution, partition evolution, 
 AtlasRetail adds a publication control plane because table-level atomicity does not provide one
 transaction across six business tables. See the [architecture](docs/architecture.md),
 [generation-publication ADR](docs/adr/0001-generation-publication.md), and
-[manifest-identity ADR](docs/adr/0002-manifest-identity.md).
+[manifest-identity ADR](docs/adr/0002-manifest-identity.md). Part 4 source and dispatch boundaries
+are recorded in the [source-provenance ADR](docs/adr/0003-source-provenance.md) and
+[pre-AWS admission ADR](docs/adr/0004-pre-aws-admission.md).
 
 ## Components
 
@@ -79,6 +83,7 @@ atlasretail generate --output /tmp/atlasretail-input --orders 1000 --batch-id de
 atlasretail generate-sources --output /tmp/atlasretail-part4-sources --orders 500 \
   --source-commit "$(git rev-parse HEAD)" --run-id local-proof
 python scripts/validate_part4_sources.py --directory /tmp/atlasretail-part4-sources
+python scripts/validate_part4_admission_controls.py
 ```
 
 CI regenerates [the deterministic local evidence](evidence/local/failure-lab.json) and rejects an
@@ -97,6 +102,8 @@ execution.
 |---|---|---|
 | Domain, immutable-object manifest, and retail invariants | `LOCAL_VERIFIED` | Automated tests and deterministic failure scenarios |
 | Managed lifecycle, recovery, serving resolver, and stale-writer rejection | `LOCAL_VERIFIED` | Control-plane, resolver, and infrastructure-contract tests |
+| Part 4 deterministic source provenance | `LOCAL_VERIFIED` | Contract-bound five-family source materialization, strict receipts, byte-for-byte CI reproduction, and tamper evidence |
+| Part 4 pre-AWS admission controls | `LOCAL_VERIFIED` | Exact operator, ref, run-attempt, confirmation, bound and source-tree admission; independent pre-OIDC revalidation; clean-only lease release |
 | Glue 5-compatible Spark transformation and real local Iceberg snapshots | `LOCAL_VERIFIED` | Pinned Glue 5-compatible integration job with isolated Hadoop catalog |
 | GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` in the current target |
 | Current-target IAM and foundation safety baseline | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) proved exact live IAM parity, the hardened persistent foundation, lease safety, budget alerts, an empty backend, and zero workload resources |
