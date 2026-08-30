@@ -15,6 +15,8 @@ active-generation pointer only after the complete generation passes validation.
 ## System behaviour
 
 - Bind a batch identifier to one canonical manifest digest.
+- Bind every bounded source to its generator parameters, source commit, schemas, logical digests,
+  deterministic gzip bytes, and independently validated provenance receipt.
 - Bind every managed input to an exact S3 key, version, byte count, ETag, and SHA-256 checksum.
 - Recompute every ordered table digest before upload and independently inside the Glue job.
 - Treat an identical redelivery as idempotent and reject conflicting content reuse.
@@ -54,7 +56,7 @@ transaction across six business tables. See the [architecture](docs/architecture
 | Path | Responsibility |
 |---|---|
 | `src/atlasretail` | Domain model, deterministic generator, manifest logic, quality gates, and local publication model |
-| `contracts` | Versioned batch-manifest JSON Schema |
+| `contracts` | Versioned batch-manifest, execution, and source-provenance contracts |
 | `aws/glue` | Glue 5 / Spark transformation and Iceberg writes |
 | `aws/lambda` | DynamoDB batch registration and conditional publication |
 | `infra/foundation` | Shared Terraform state, account lease, and cost budget |
@@ -74,6 +76,9 @@ python -m pip install -e '.[dev]'
 pytest
 atlasretail simulate --output /tmp/atlasretail-evidence.json
 atlasretail generate --output /tmp/atlasretail-input --orders 1000 --batch-id demo-001
+atlasretail generate-sources --output /tmp/atlasretail-part4-sources --orders 500 \
+  --source-commit "$(git rev-parse HEAD)" --run-id local-proof
+python scripts/validate_part4_sources.py --directory /tmp/atlasretail-part4-sources
 ```
 
 CI regenerates [the deterministic local evidence](evidence/local/failure-lab.json) and rejects an

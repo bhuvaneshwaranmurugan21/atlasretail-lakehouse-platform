@@ -1,0 +1,104 @@
+{
+  "contract_sha256": "f8a82688f47e9e99266c029e4952b35f8c191fa295c33cc9677facd7b60d89a8",
+  "generator": {
+    "canonical_json": {
+      "encoding": "utf-8",
+      "ensure_ascii": true,
+      "key_order": "SORTED",
+      "line_ending": "LF",
+      "separators": [
+        ",",
+        ":"
+      ]
+    },
+    "compression": {
+      "algorithm": "gzip",
+      "compresslevel": 9,
+      "filename": "",
+      "mtime": 0,
+      "os_byte": 255
+    },
+    "format_version": "1.0.0"
+  },
+  "schema_version": "1.0",
+  "scenario_bindings": {
+    "athena_verification": {
+      "operation": "VERIFY_ACTIVE_RECOVERED_SOURCE",
+      "source_family": "failure_recovery"
+    },
+    "conflict": {
+      "operation": "CONTRADICT_IDENTITY",
+      "source_family": "success"
+    },
+    "failure": {
+      "operation": "INJECT_RUNTIME_FAILURE",
+      "source_family": "failure_recovery"
+    },
+    "financial": {
+      "operation": "EXECUTE_SOURCE",
+      "source_family": "financial"
+    },
+    "recovery": {
+      "operation": "REUSE_EXACT_FAILURE_SOURCE",
+      "source_family": "failure_recovery"
+    },
+    "replay": {
+      "operation": "REUSE_EXACT_REGISTRATION",
+      "source_family": "success"
+    },
+    "stale_publisher": {
+      "operation": "REUSE_PUBLISHED_WINNER",
+      "source_family": "success"
+    },
+    "success": {
+      "operation": "EXECUTE_SOURCE",
+      "source_family": "success"
+    },
+    "tamper": {
+      "operation": "MUTATE_ONE_REGISTERED_OBJECT_VERSION",
+      "source_family": "tamper"
+    },
+    "temporal": {
+      "operation": "EXECUTE_SOURCE",
+      "source_family": "temporal"
+    }
+  },
+  "source_families": {
+    "failure_recovery": {
+      "as_of_knowledge_time": 1700100000,
+      "batch_prefix": "failure",
+      "fault": "none",
+      "produced_at": 1700100000,
+      "seed": 84
+    },
+    "financial": {
+      "as_of_knowledge_time": 1700100000,
+      "batch_prefix": "financial",
+      "fault": "financial",
+      "produced_at": 1700100000,
+      "seed": 63
+    },
+    "success": {
+      "as_of_knowledge_time": 1700100000,
+      "batch_prefix": "success",
+      "fault": "none",
+      "produced_at": 1700100000,
+      "seed": 21
+    },
+    "tamper": {
+      "as_of_knowledge_time": 1700100000,
+      "batch_prefix": "tamper",
+      "fault": "none",
+      "produced_at": 1700100000,
+      "seed": 77
+    },
+    "temporal": {
+      "as_of_knowledge_time": 1700100000,
+      "batch_prefix": "temporal",
+      "fault": "temporal-overlap",
+      "produced_at": 1700100000,
+      "seed": 42
+    }
+  },
+  "target_sha256": "2b2122ea1907eb5ce5707cc619a8888d94634b422c6470f48ab9a2e7c2e8d9c5"
+}

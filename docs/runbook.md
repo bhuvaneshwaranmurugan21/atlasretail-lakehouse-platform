@@ -147,6 +147,28 @@ input text advertises a one-to-ten-dollar range although the authoritative targe
 five-dollar maximum, and the workflow does not yet expose the distinct Part 4 execution
 confirmation. Do not dispatch Part 4 until later implementation conforms to both frozen bounds.
 
+### Stage 2 deterministic source provenance
+
+Stage 2 binds every physical input family to `contracts/part4/scenario-sources.json`. Validate the
+catalogue and its contract and target digests with `python scripts/validate_part4_sources.py`.
+Materialize the five bounded source families with `atlasretail generate-sources`; this produces a
+strict provenance receipt for each source and a separate mutation receipt for the tamper proof.
+
+The receipts deliberately distinguish three identities: canonical business-record digests,
+compressed object-byte digests, and the execution provenance that names the source commit,
+contract, schemas, generator parameters, Python runtime, and zlib runtime. Gzip members use a
+fixed level-nine header with `mtime=0`, no filename, and OS byte 255, so wall-clock time, output
+directory, timezone, locale, and hash seed cannot change their bytes. Failure and recovery bind to
+one physical source; replay reuses the exact success registration. Substitute recovery sources,
+undeclared scenarios, changed schemas, symlinks, missing fields, and modified bytes fail closed.
+The identity separation and the pre-upload-to-managed boundary are recorded in
+`docs/adr/0003-source-provenance.md`.
+
+Stage 2 performs no AWS operation and adds no `AWS_VERIFIED` claim. CI regenerates the complete
+100-order source set twice, validates each set independently, compares every byte, and retains only
+compact receipts as the `part4-stage2-source-provenance` artifact. The current Part 4 dispatch
+remains prohibited until the outstanding admission gaps above are resolved in their later stage.
+
 ## Deploy and execute
 
 Run `AWS bounded lab` manually with `order_count=500` and `confirm_destroy=DESTROY`. The workflow:

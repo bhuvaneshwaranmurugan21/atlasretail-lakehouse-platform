@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added contract-bound Part 4 source provenance with a single scenario catalogue, deterministic
+  gzip bytes, separate source and managed manifest schemas, independent receipts, declared tamper
+  mutation evidence, adversarial validation, and CI byte-for-byte reproduction.
+
 - Hardened the Part 3 zero-workload deployment gate with current-source prerequisite-artifact
   admission, exact 40-address apply/destroy envelopes, workload-denying OIDC session boundaries,
   expanded S3/Glue/CloudWatch inactivity checks, digest-bound teardown, and fail-closed runtime and
