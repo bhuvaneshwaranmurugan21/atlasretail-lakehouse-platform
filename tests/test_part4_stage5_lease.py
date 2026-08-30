@@ -106,6 +106,34 @@ def test_consistent_verification_rejects_authority_substitution(
         LEASE.verify(args())
 
 
+def test_pre_authority_verification_requires_exact_acquired_lease(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    acquired = item(state="ACQUIRED")
+    acquired.pop("authority_sha256")
+    acquired.pop("authority_artifact_id")
+    acquired.pop("authority_artifact_digest")
+    monkeypatch.setattr(LEASE, "consistent_item", lambda _table, _region: acquired)
+
+    proof = LEASE.verify_acquired(args())
+
+    assert proof["state"] == "ACQUIRED"
+    assert proof["authority_absent"] is True
+    assert proof["contract_sha256"] == "c" * 64
+
+
+def test_pre_authority_verification_rejects_any_authority(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        LEASE,
+        "consistent_item",
+        lambda _table, _region: item(state="ACQUIRED"),
+    )
+    with pytest.raises(LEASE.LeaseError, match="unexpectedly contains"):
+        LEASE.verify_acquired(args())
+
+
 def test_recovery_transitions_only_the_exact_failed_owner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

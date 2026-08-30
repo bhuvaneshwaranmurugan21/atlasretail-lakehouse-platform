@@ -177,6 +177,7 @@ REQUIRED_PROVENANCE_FIELDS = {
     "destroy_plan_sha256",
     "execution_started_at",
     "execution_finished_at",
+    "prerequisite_admission_sha256",
 }
 
 
@@ -246,7 +247,7 @@ def load_json_object(path: Path) -> dict[str, Any]:
 
 def _validate_identity(contract: dict[str, Any]) -> None:
     _require_equal("schema_version", contract["schema_version"], "1.0")
-    _require_equal("version", contract["version"], "1.0.0")
+    _require_equal("version", contract["version"], "1.1.0")
     _require_equal("contract_id", contract["contract_id"], "atlasretail-part4-bounded-execution")
     _require_equal("project", contract["project"], "AtlasRetail")
     _require_equal("execution_class", contract["execution_class"], "BOUNDED_NON_PRODUCTION_LAB")

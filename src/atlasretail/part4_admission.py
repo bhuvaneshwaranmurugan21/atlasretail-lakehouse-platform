@@ -17,6 +17,7 @@ from .part4_contract import (
     load_json_object,
     validate_part4_contract_file,
 )
+from .part4_stage6_prerequisites import PrerequisiteError, load_prerequisite_receipt
 from .provenance import (
     CATALOG_RELATIVE_PATH,
     PROVENANCE_SCHEMA_RELATIVE_PATH,
@@ -39,6 +40,7 @@ RECEIPT_KEYS = {
     "bounds",
     "execution_class",
     "project",
+    "prerequisites",
     "receipt_sha256",
     "result",
     "schema_version",
@@ -69,6 +71,7 @@ class AdmissionContext:
     budget_ceiling_usd: str
     confirm_execute: str
     confirm_destroy: str
+    prerequisite_receipt: Path
 
 
 def _fail(path: str, observed: object, required: object) -> NoReturn:
@@ -228,6 +231,19 @@ def _build_admission_receipt(
         repo_root / PROVENANCE_SCHEMA_RELATIVE_PATH
     )
     summary = verify_materialized_sources(source_directory, repo_root=repo_root)
+    prerequisite_receipt = load_prerequisite_receipt(context.prerequisite_receipt)
+    prerequisite_identity = prerequisite_receipt["source_identity"]
+    _require_equal(
+        "prerequisites.source_commit",
+        prerequisite_identity.get("source_commit"),
+        context.source_commit,
+    )
+    _require_equal(
+        "prerequisites.repository",
+        prerequisite_identity.get("repository"),
+        context.repository,
+    )
+    _require_equal("prerequisites.ref", prerequisite_identity.get("ref"), context.ref)
     _require_equal("sources.order_count", summary.get("order_count"), order_count)
     _require_equal("sources.source_commit", summary.get("source_commit"), context.source_commit)
     file_count, source_bytes, tree_sha256 = _source_tree(source_directory)
@@ -260,6 +276,10 @@ def _build_admission_receipt(
         },
         "execution_class": contract["execution_class"],
         "project": contract["project"],
+        "prerequisites": {
+            "receipt_sha256": prerequisite_receipt["receipt_sha256"],
+            **prerequisite_receipt["prerequisite_runs"],
+        },
         "result": "PASS",
         "schema_version": "1.0",
         "sources": {
@@ -297,7 +317,7 @@ def build_admission_receipt(
         )
     except AdmissionError:
         raise
-    except (ContractError, ProvenanceError, OSError) as error:
+    except (ContractError, PrerequisiteError, ProvenanceError, OSError) as error:
         raise AdmissionError(str(error)) from error
 
 

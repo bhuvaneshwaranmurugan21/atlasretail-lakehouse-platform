@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 from dataclasses import replace
@@ -7,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from atlasretail.canonical import digest
 from atlasretail.part4_admission import (
     ADMISSION_SCHEMA_RELATIVE_PATH,
     AdmissionContext,
@@ -37,7 +39,44 @@ def source_directory(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture()
-def context() -> AdmissionContext:
+def prerequisite_receipt(tmp_path: Path) -> Path:
+    payload = {
+        "artifact_manifests": {
+            "glue_capability_probe": {"summary.json": "1" * 64},
+            "plan_only_proof": {"summary.json": "2" * 64},
+            "read_only_preflight": {"summary.json": "3" * 64},
+        },
+        "errors": [],
+        "prerequisite_runs": {
+            "glue_capability_probe": "102",
+            "plan_only_proof": "103",
+            "read_only_preflight": "101",
+        },
+        "project": "AtlasRetail",
+        "proof": "part4-stage6-managed-execution-prerequisites",
+        "result": "PASS",
+        "schema_sha256": hashlib.sha256(
+            (ROOT / "contracts/part4/stage6-prerequisite-admission.schema.json").read_bytes()
+        ).hexdigest(),
+        "schema_version": "1.0",
+        "source_identity": {
+            "ref": "refs/heads/main",
+            "repository": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
+            "source_commit": COMMIT,
+        },
+        "validations": {
+            "clean_preflight": True,
+            "exact_plan": True,
+            "glue_create_delete": True,
+        },
+    }
+    path = tmp_path / "prerequisite-admission.json"
+    path.write_text(json.dumps({**payload, "receipt_sha256": digest(payload)}), encoding="utf-8")
+    return path
+
+
+@pytest.fixture()
+def context(prerequisite_receipt: Path) -> AdmissionContext:
     return AdmissionContext(
         repository="bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
         workflow_name="AWS bounded lab",
@@ -53,6 +92,7 @@ def context() -> AdmissionContext:
         budget_ceiling_usd="5",
         confirm_execute="EXECUTE_ATLASRETAIL_PART4",
         confirm_destroy="DESTROY",
+        prerequisite_receipt=prerequisite_receipt,
     )
 
 

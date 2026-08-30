@@ -165,7 +165,12 @@ jobs:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-part4-recovery-${{ github.run_id }}
+          role-duration-seconds: 3600
+          allowed-account-ids: ${{ steps.target.outputs.aws_account_id }}
           inline-session-policy: ${{ steps.recovery-session-policy.outputs.policy }}
+          unset-current-credentials: true
+          mask-aws-account-id: true
+          action-timeout-s: 120
       - name: Prove live identity and bind recovery to the exact failed lease
         working-directory: trusted
         run: |
@@ -345,6 +350,10 @@ jobs:
           authority_sha="$(jq -er '.authority_sha256' \
             "${GITHUB_WORKSPACE}/${AUTHORITY_DIR}/teardown-authority-digest.json")"
           recovery_owner="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
+          contract_sha="$(jq -er '.bindings.contract_sha256' \
+            "${GITHUB_WORKSPACE}/${AUTHORITY_DIR}/admission-receipt.json")"
+          target_sha="$(jq -er '.bindings.target_sha256' \
+            "${GITHUB_WORKSPACE}/${AUTHORITY_DIR}/admission-receipt.json")"
           python scripts/verify_lease_release.py \
             --table "${ACCOUNT_LEASE_TABLE}" \
             --region "${AWS_REGION}" \
@@ -352,6 +361,9 @@ jobs:
             --run-attempt "${FAILED_RUN_ATTEMPT}" \
             --source-commit "${FAILED_SOURCE_COMMIT}" \
             --authority-sha256 "${authority_sha}" \
+            --contract-sha256 "${contract_sha}" \
+            --target-sha256 "${target_sha}" \
+            --expected-state RECOVERY_BOUND \
             --output "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/recovery-lease-release.json"
       - name: Remove ephemeral recovery outputs
         if: always()

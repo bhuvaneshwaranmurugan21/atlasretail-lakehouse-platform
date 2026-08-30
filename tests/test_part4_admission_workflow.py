@@ -20,7 +20,10 @@ def test_dispatch_exposes_only_the_frozen_authorization_and_bounds() -> None:
         "budget_ceiling_usd",
         "confirm_destroy",
         "confirm_execute",
+        "glue_probe_run_id",
         "order_count",
+        "plan_run_id",
+        "preflight_run_id",
     }
     assert inputs["order_count"]["default"] == "500"
     assert inputs["budget_ceiling_usd"]["default"] == "5"
@@ -35,7 +38,7 @@ def test_admission_has_no_oidc_or_aws_reachability() -> None:
     workflow = parsed()
     assert workflow["permissions"] == {"contents": "read"}
     admission = workflow["jobs"]["admission"]
-    assert admission["permissions"] == {"contents": "read"}
+    assert admission["permissions"] == {"actions": "read", "contents": "read"}
     rendered = "\n".join(
         str(step.get("uses", "")) + "\n" + str(step.get("run", "")) for step in admission["steps"]
     )

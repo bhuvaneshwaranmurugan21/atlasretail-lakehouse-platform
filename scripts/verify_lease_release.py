@@ -18,6 +18,9 @@ def main() -> int:
     parser.add_argument("--authority-sha256")
     parser.add_argument("--run-attempt")
     parser.add_argument("--source-commit")
+    parser.add_argument("--contract-sha256")
+    parser.add_argument("--target-sha256")
+    parser.add_argument("--expected-state")
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
     key = '{"lock_id":{"S":"portfolio-lab"}}'
@@ -33,6 +36,16 @@ def main() -> int:
     if arguments.source_commit:
         expected[":source"] = {"S": arguments.source_commit}
         conditions.append("source_commit = :source")
+    if arguments.contract_sha256:
+        expected[":contract"] = {"S": arguments.contract_sha256}
+        conditions.append("contract_sha256 = :contract")
+    if arguments.target_sha256:
+        expected[":target"] = {"S": arguments.target_sha256}
+        conditions.append("target_sha256 = :target")
+    if arguments.expected_state:
+        expected[":state"] = {"S": arguments.expected_state}
+        conditions.append("#state = :state")
+        names["#state"] = "state"
     values = json.dumps(expected, separators=(",", ":"))
     deleted = subprocess.run(
         [
@@ -70,6 +83,9 @@ def main() -> int:
         "authority_sha256": arguments.authority_sha256,
         "run_attempt": arguments.run_attempt,
         "source_commit": arguments.source_commit,
+        "contract_sha256": arguments.contract_sha256,
+        "target_sha256": arguments.target_sha256,
+        "expected_state": arguments.expected_state,
     }
     if deleted.returncode == 0:
         try:
@@ -80,6 +96,9 @@ def main() -> int:
         removed_authority = old.get("Attributes", {}).get("authority_sha256", {}).get("S")
         removed_attempt = old.get("Attributes", {}).get("run_attempt", {}).get("S")
         removed_source = old.get("Attributes", {}).get("source_commit", {}).get("S")
+        removed_contract = old.get("Attributes", {}).get("contract_sha256", {}).get("S")
+        removed_target = old.get("Attributes", {}).get("target_sha256", {}).get("S")
+        removed_state = old.get("Attributes", {}).get("state", {}).get("S")
         removed_matches = (
             removed_owner == arguments.owner
             and (
@@ -88,6 +107,9 @@ def main() -> int:
             )
             and (arguments.run_attempt is None or removed_attempt == arguments.run_attempt)
             and (arguments.source_commit is None or removed_source == arguments.source_commit)
+            and (arguments.contract_sha256 is None or removed_contract == arguments.contract_sha256)
+            and (arguments.target_sha256 is None or removed_target == arguments.target_sha256)
+            and (arguments.expected_state is None or removed_state == arguments.expected_state)
         )
         if removed_matches:
             observed = subprocess.run(

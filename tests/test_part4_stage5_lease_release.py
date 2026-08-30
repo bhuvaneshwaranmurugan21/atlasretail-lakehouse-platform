@@ -21,6 +21,8 @@ SPEC.loader.exec_module(MODULE)
 OWNER = "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/123/2"
 AUTHORITY = "a" * 64
 SOURCE = "b" * 40
+CONTRACT = "c" * 64
+TARGET = "d" * 64
 
 
 def completed(stdout: object, code: int = 0) -> subprocess.CompletedProcess[str]:
@@ -56,6 +58,43 @@ def deleted_item(authority: str = AUTHORITY) -> dict[str, object]:
             "authority_sha256": {"S": authority},
             "run_attempt": {"S": "2"},
             "source_commit": {"S": SOURCE},
+        }
+    }
+
+
+def lease_only_arguments(output: Path) -> list[str]:
+    return [
+        "verify_lease_release.py",
+        "--table",
+        "portfolio-lab-account-lease",
+        "--owner",
+        OWNER,
+        "--region",
+        "ap-southeast-2",
+        "--run-attempt",
+        "2",
+        "--source-commit",
+        SOURCE,
+        "--contract-sha256",
+        CONTRACT,
+        "--target-sha256",
+        TARGET,
+        "--expected-state",
+        "ACQUIRED",
+        "--output",
+        str(output),
+    ]
+
+
+def lease_only_deleted_item(state: str = "ACQUIRED") -> dict[str, object]:
+    return {
+        "Attributes": {
+            "owner": {"S": OWNER},
+            "run_attempt": {"S": "2"},
+            "source_commit": {"S": SOURCE},
+            "contract_sha256": {"S": CONTRACT},
+            "target_sha256": {"S": TARGET},
+            "state": {"S": state},
         }
     }
 
@@ -114,3 +153,39 @@ def test_release_rejects_lease_reappearance_after_delete(
     assert MODULE.main() == 1
     proof = json.loads(output.read_text(encoding="utf-8"))
     assert proof["lease_absent"] is False
+
+
+def test_pre_authority_release_conditions_contract_target_and_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[list[str]] = []
+
+    def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(command)
+        return completed(lease_only_deleted_item()) if len(calls) == 1 else completed({})
+
+    output = tmp_path / "lease-only-release.json"
+    monkeypatch.setattr(MODULE.subprocess, "run", run)
+    monkeypatch.setattr(sys, "argv", lease_only_arguments(output))
+
+    assert MODULE.main() == 0
+    condition = calls[0][calls[0].index("--condition-expression") + 1]
+    assert "contract_sha256 = :contract" in condition
+    assert "target_sha256 = :target" in condition
+    assert "#state = :state" in condition
+    assert json.loads(output.read_text(encoding="utf-8"))["result"] == "PASS"
+
+
+def test_pre_authority_release_rejects_bound_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "lease-only-release.json"
+    monkeypatch.setattr(
+        MODULE.subprocess,
+        "run",
+        lambda *_args, **_kwargs: completed(lease_only_deleted_item("AUTHORITY_BOUND")),
+    )
+    monkeypatch.setattr(sys, "argv", lease_only_arguments(output))
+
+    assert MODULE.main() == 1
+    assert json.loads(output.read_text(encoding="utf-8"))["result"] == "FAIL"

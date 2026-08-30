@@ -1,0 +1,93 @@
+{
+  "$id": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/contracts/part4/stage6-prerequisite-admission.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_manifests": {
+      "additionalProperties": false,
+      "properties": {
+        "glue_capability_probe": {"$ref": "#/$defs/manifest"},
+        "plan_only_proof": {"$ref": "#/$defs/manifest"},
+        "read_only_preflight": {"$ref": "#/$defs/manifest"}
+      },
+      "required": [
+        "glue_capability_probe",
+        "plan_only_proof",
+        "read_only_preflight"
+      ],
+      "type": "object"
+    },
+    "errors": {"maxItems": 0, "type": "array"},
+    "prerequisite_runs": {
+      "additionalProperties": false,
+      "properties": {
+        "glue_capability_probe": {"$ref": "#/$defs/runId"},
+        "plan_only_proof": {"$ref": "#/$defs/runId"},
+        "read_only_preflight": {"$ref": "#/$defs/runId"}
+      },
+      "required": [
+        "glue_capability_probe",
+        "plan_only_proof",
+        "read_only_preflight"
+      ],
+      "type": "object"
+    },
+    "project": {"const": "AtlasRetail"},
+    "proof": {"const": "part4-stage6-managed-execution-prerequisites"},
+    "receipt_sha256": {"$ref": "#/$defs/sha256"},
+    "result": {"const": "PASS"},
+    "schema_sha256": {"$ref": "#/$defs/sha256"},
+    "schema_version": {"const": "1.0"},
+    "source_identity": {
+      "additionalProperties": false,
+      "properties": {
+        "ref": {"const": "refs/heads/main"},
+        "repository": {
+          "const": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform"
+        },
+        "source_commit": {"pattern": "^[0-9a-f]{40}$", "type": "string"}
+      },
+      "required": ["ref", "repository", "source_commit"],
+      "type": "object"
+    },
+    "validations": {
+      "additionalProperties": false,
+      "properties": {
+        "clean_preflight": {"const": true},
+        "exact_plan": {"const": true},
+        "glue_create_delete": {"const": true}
+      },
+      "required": ["clean_preflight", "exact_plan", "glue_create_delete"],
+      "type": "object"
+    }
+  },
+  "required": [
+    "artifact_manifests",
+    "errors",
+    "prerequisite_runs",
+    "project",
+    "proof",
+    "receipt_sha256",
+    "result",
+    "schema_sha256",
+    "schema_version",
+    "source_identity",
+    "validations"
+  ],
+  "title": "AtlasRetail Part 4 Stage 6 prerequisite admission",
+  "type": "object",
+  "$defs": {
+    "manifest": {
+      "additionalProperties": {"$ref": "#/$defs/sha256"},
+      "minProperties": 1,
+      "propertyNames": {
+        "minLength": 1,
+        "not": {"pattern": "(^/)|(^|/)\\.\\.(/|$)"},
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "runId": {"pattern": "^[1-9][0-9]*$", "type": "string"},
+    "sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"}
+  }
+}
