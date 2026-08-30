@@ -6,6 +6,7 @@ test:
 quality:
 	python -m ruff check .
 	python -m mypy src
+	python scripts/validate_part4_contract.py
 	python -m pytest
 
 evidence:

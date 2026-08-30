@@ -1,0 +1,270 @@
+{
+  "authorization": {
+    "allowed_event": "workflow_dispatch",
+    "allowed_ref": "refs/heads/main",
+    "destroy_confirmation": "DESTROY",
+    "execute_confirmation": "EXECUTE_ATLASRETAIL_PART4",
+    "persist_teardown_authority_before_mutation": true,
+    "require_distinct_confirmations": true
+  },
+  "change_control": {
+    "invalidate_bound_prerequisites_on_semantic_change": true,
+    "require_rationale": true,
+    "require_test_updates": true,
+    "semantic_changes_require_version_increment": true
+  },
+  "claim_policy": {
+    "allowed_levels": [
+      "LOCAL_VERIFIED",
+      "AWS_VERIFIED",
+      "DESIGNED/MODELED",
+      "UNCLAIMED"
+    ],
+    "aws_verified_requires_complete_evidence": true,
+    "aws_verified_requires_clean_teardown": true,
+    "production_claim": false,
+    "prohibited_claims": [
+      "PRODUCTION_READY",
+      "PRODUCTION_SCALE",
+      "SLA_PROVEN",
+      "SETTLED_BILLING_PROVEN"
+    ],
+    "stage_1_result_after_validation": "LOCAL_VERIFIED"
+  },
+  "contract_id": "atlasretail-part4-bounded-execution",
+  "cost": {
+    "actual_billed_cost_claim": "UNCLAIMED",
+    "fresh_account_plan_or_owner_attestation_required": true,
+    "run_ceiling_usd": {
+      "default": 5,
+      "maximum": 5,
+      "minimum": 1
+    }
+  },
+  "evidence": {
+    "artifact_upload_required": true,
+    "cloudwatch_exports": {
+      "non_empty_required": true,
+      "sources": [
+        "glue",
+        "states",
+        "lambda"
+      ]
+    },
+    "failure_policy": "ANY_MISSING_OR_FAILED_EVIDENCE_FAILS_RUN",
+    "required_domains": [
+      "admission",
+      "source_provenance",
+      "iam_session",
+      "account_lease",
+      "terraform_preflight",
+      "saved_apply_plan",
+      "deployed_inventory",
+      "scenario_inputs",
+      "step_functions_histories",
+      "glue_job_runs",
+      "control_state_transitions",
+      "active_pointer_comparisons",
+      "athena_queries_and_results",
+      "cloudwatch_logs",
+      "runtime_and_metered_usage",
+      "budget",
+      "saved_destroy_plan",
+      "post_teardown_inventories",
+      "lease_release",
+      "final_summary"
+    ],
+    "required_provenance_fields": [
+      "repository",
+      "workflow_name",
+      "workflow_run_id",
+      "workflow_attempt",
+      "source_commit",
+      "contract_version",
+      "contract_sha256",
+      "target_sha256",
+      "aws_account_id",
+      "aws_region",
+      "oidc_role_arn",
+      "terraform_version",
+      "provider_lock_sha256",
+      "apply_plan_sha256",
+      "destroy_plan_sha256",
+      "execution_started_at",
+      "execution_finished_at"
+    ],
+    "sensitive_values_excluded": [
+      "aws_credentials",
+      "oidc_tokens",
+      "session_tokens",
+      "signed_urls"
+    ]
+  },
+  "execution_class": "BOUNDED_NON_PRODUCTION_LAB",
+  "project": "AtlasRetail",
+  "scenarios": [
+    {
+      "expected_result": "SUCCEEDED",
+      "failure_signal": null,
+      "glue_job_run": true,
+      "name": "success",
+      "pointer_effect": "ADVANCE_EXACTLY_ONCE",
+      "proof_kind": "STEP_FUNCTIONS_EXECUTION",
+      "required_assertions": [
+        "GENERATION_VALIDATED",
+        "GENERATION_PUBLISHED"
+      ],
+      "step_functions_execution": true
+    },
+    {
+      "expected_result": "SUCCEEDED",
+      "failure_signal": null,
+      "glue_job_run": false,
+      "name": "replay",
+      "pointer_effect": "NO_CHANGE",
+      "proof_kind": "STEP_FUNCTIONS_EXECUTION",
+      "required_assertions": [
+        "SAME_BATCH_IDENTITY",
+        "NO_SECOND_LOGICAL_GENERATION"
+      ],
+      "step_functions_execution": true
+    },
+    {
+      "expected_result": "FAILED",
+      "failure_signal": "CONFLICT:",
+      "glue_job_run": false,
+      "name": "conflict",
+      "pointer_effect": "NO_CHANGE",
+      "proof_kind": "STEP_FUNCTIONS_EXECUTION",
+      "required_assertions": [
+        "REUSED_BATCH_HAS_DIFFERENT_CONTENT"
+      ],
+      "step_functions_execution": true
+    },
+    {
+      "expected_result": "FAILED",
+      "failure_signal": "INJECTED_FAILURE",
+      "glue_job_run": true,
+      "name": "failure",
+      "pointer_effect": "NO_CHANGE",
+      "proof_kind": "STEP_FUNCTIONS_EXECUTION",
+      "required_assertions": [
+        "FAILED_GENERATION_REMAINS_RECOVERABLE"
+      ],
+      "step_functions_execution": true
+    },
+    {
+      "expected_result": "SUCCEEDED",
+      "failure_signal": null,
+      "glue_job_run": true,
+      "name": "recovery",
+      "pointer_effect": "ADVANCE_EXACTLY_ONCE",
+      "proof_kind": "STEP_FUNCTIONS_EXECUTION",
+      "required_assertions": [
+        "SAME_BATCH_IDENTITY_AS_FAILURE",
+        "SAME_GENERATION_ID_AS_FAILURE",
+        "ATTEMPT_COUNTER_INCREASED",
+        "VALIDATED_BEFORE_PUBLICATION"
+      ],
+      "step_functions_execution": true
+    },
+    {
+      "expected_result": "FAILED",
+      "failure_signal": "QUALITY_GATE:AMBIGUOUS_DIMENSION",
+      "glue_job_run": true,
+      "name": "temporal",
+      "pointer_effect": "NO_CHANGE",
+      "proof_kind": "STEP_FUNCTIONS_EXECUTION",
+      "required_assertions": [
+        "OVERLAPPING_DIMENSION_REJECTED"
+      ],
+      "step_functions_execution": true
+    },
+    {
+      "expected_result": "FAILED",
+      "failure_signal": "QUALITY_GATE:ORDER_TOTAL",
+      "glue_job_run": true,
+      "name": "financial",
+      "pointer_effect": "NO_CHANGE",
+      "proof_kind": "STEP_FUNCTIONS_EXECUTION",
+      "required_assertions": [
+        "ORDER_TOTAL_IMBALANCE_REJECTED"
+      ],
+      "step_functions_execution": true
+    },
+    {
+      "expected_result": "FAILED",
+      "failure_signal": "QUALITY_GATE:OBJECT_IDENTITY",
+      "glue_job_run": true,
+      "name": "tamper",
+      "pointer_effect": "NO_CHANGE",
+      "proof_kind": "STEP_FUNCTIONS_EXECUTION",
+      "required_assertions": [
+        "S3_VERSION_BYTES_CONTRADICT_EVIDENCE"
+      ],
+      "step_functions_execution": true
+    },
+    {
+      "expected_result": "PASS",
+      "failure_signal": "STALE_PUBLISHER:",
+      "glue_job_run": false,
+      "name": "stale_publisher",
+      "pointer_effect": "NO_CHANGE",
+      "proof_kind": "DIRECT_CONTROL_PLANE_PROOF",
+      "required_assertions": [
+        "COMPARE_AND_SWAP_REJECTED",
+        "WINNER_REMAINS_ACTIVE"
+      ],
+      "step_functions_execution": false
+    },
+    {
+      "expected_result": "PASS",
+      "failure_signal": null,
+      "glue_job_run": false,
+      "name": "athena_verification",
+      "pointer_effect": "READ_ONE_ACTIVE_GENERATION",
+      "proof_kind": "ATHENA_QUERY_PROOF",
+      "required_assertions": [
+        "RUNTIME_EXPECTED_RESULTS_MATCH",
+        "SIX_TABLE_SERVING_QUERY_ONE_DATA_ROW",
+        "QUERY_IDS_AND_SCANNED_BYTES_RECORDED"
+      ],
+      "step_functions_execution": false
+    }
+  ],
+  "schema_version": "1.0",
+  "target_binding": {
+    "forbidden_regions": [
+      "ap-south-1"
+    ],
+    "path": ".github/atlas-target.json",
+    "required_values": {
+      "aws_account_id": "857229544428",
+      "aws_region": "ap-southeast-2",
+      "branch_ref": "refs/heads/main",
+      "oidc_role_arn": "arn:aws:iam::857229544428:role/AtlasRetailGitHubOidcRole",
+      "repository": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
+      "run_ceiling_usd": 5
+    },
+    "sha256": "2b2122ea1907eb5ce5707cc619a8888d94634b422c6470f48ab9a2e7c2e8d9c5"
+  },
+  "teardown": {
+    "always_run_after_admitted_mutation": true,
+    "apply_only_validated_saved_destroy_plan": true,
+    "clean_aws_inventory_required": true,
+    "empty_terraform_state_required": true,
+    "kms_pending_deletion_requires_alias_absent": true,
+    "lease_release_requires_clean_teardown": true,
+    "saved_destroy_plan_must_be_destroy_only": true,
+    "successful_workload_with_failed_teardown_is_failure": true
+  },
+  "version": "1.0.0",
+  "workload": {
+    "order_count": {
+      "default": 500,
+      "maximum": 2000,
+      "minimum": 100
+    },
+    "runtime_expansion_prohibited": true
+  }
+}
