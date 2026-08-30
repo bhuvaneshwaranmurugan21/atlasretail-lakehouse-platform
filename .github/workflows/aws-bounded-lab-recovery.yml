@@ -121,6 +121,7 @@ jobs:
           order_count="$(jq -er '.bounds.order_count' "${authority}")"
           budget_ceiling="$(jq -er '.bounds.budget_ceiling_usd' "${authority}")"
           failed_owner="${GITHUB_REPOSITORY}/${FAILED_RUN_ID}/${FAILED_RUN_ATTEMPT}"
+          terraform -chdir="${FAILED_ROOT}/infra/atlas" init -backend=false >/dev/null
           python scripts/validate_part4_teardown_authority.py \
             --repository-root "${FAILED_ROOT}" \
             --authority "${authority}" \
