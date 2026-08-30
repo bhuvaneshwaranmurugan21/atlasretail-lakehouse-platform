@@ -25,6 +25,7 @@ jobs:
           ruff check .
           ruff format --check .
           mypy src
+          python scripts/validate_part4_contract.py
           cfn-lint infra/foundation/template.yml --regions ap-southeast-2
           python -m compileall -q src tests aws
           bash -n scripts/*.sh

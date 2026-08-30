@@ -122,6 +122,31 @@ pass. Immediate budget verification is not a settled-invoice claim; actual bille
 `UNCLAIMED`. Until attributable AWS evidence satisfies the complete contract, the deployment claim
 remains `UNCLAIMED`.
 
+## Part 4 frozen execution contract
+
+Part 4 is governed by `contracts/part4/run-contract.json`. Validate it with
+`python scripts/validate_part4_contract.py` before changing any Part 4 implementation. The
+validator binds the contract to the exact checked-in `.github/atlas-target.json`, requires a
+manually dispatched `main`-branch source, freezes 100/500/2,000-order bounds and a five-dollar
+maximum run ceiling, and requires distinct `EXECUTE_ATLASRETAIL_PART4` and `DESTROY`
+confirmations. The emitted canonical SHA-256 identifies the contract independently of JSON
+formatting.
+
+The contract requires ten proofs: eight Step Functions executions, six Glue job runs, direct stale
+publisher rejection, and bounded Athena verification. Expected failures must carry their exact
+semantic signal; a generic `FAILED` status is insufficient. Evidence collection, artifact upload,
+saved-plan teardown, empty Terraform state, clean AWS inventory, and safe lease release are part of
+the result. A successful workload with missing evidence or failed cleanup is a failed Part 4 run.
+
+Stage 1 freezes and locally validates this contract; it performs no AWS operation and creates no
+new `AWS_VERIFIED` claim. Existing managed evidence remains attributed to its original source.
+Production readiness, sustained scale, SLA behaviour, and settled billing remain `UNCLAIMED`.
+
+Two implementation gaps are deliberately preserved rather than hidden: the current bounded-lab
+input text advertises a one-to-ten-dollar range although the authoritative target enforces a
+five-dollar maximum, and the workflow does not yet expose the distinct Part 4 execution
+confirmation. Do not dispatch Part 4 until later implementation conforms to both frozen bounds.
+
 ## Deploy and execute
 
 Run `AWS bounded lab` manually with `order_count=500` and `confirm_destroy=DESTROY`. The workflow:

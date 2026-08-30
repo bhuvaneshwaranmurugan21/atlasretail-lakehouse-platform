@@ -185,6 +185,7 @@ def test_active_configuration_has_no_legacy_target_literals() -> None:
         ROOT / "docs" / "incidents",
         ROOT / "evidence" / "incidents",
     )
+    part4_contract = ROOT / "contracts" / "part4" / "run-contract.json"
     violations: list[str] = []
     for path in ROOT.rglob("*"):
         if (
@@ -200,6 +201,11 @@ def test_active_configuration_has_no_legacy_target_literals() -> None:
         try:
             content = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
+            continue
+        if path == part4_contract:
+            value = json.loads(content)
+            assert value["target_binding"]["forbidden_regions"] == [OLD_REGION]
+            assert content.count(OLD_REGION) == 1
             continue
         if OLD_ACCOUNT in content or OLD_REGION in content:
             violations.append(path.relative_to(ROOT).as_posix())
