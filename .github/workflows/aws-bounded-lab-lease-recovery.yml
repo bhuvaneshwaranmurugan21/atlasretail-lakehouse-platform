@@ -174,7 +174,7 @@ jobs:
           unset-current-credentials: true
           mask-aws-account-id: true
           action-timeout-s: 120
-      - name: Prove no deployment and the exact live pre-authority lease
+      - name: Prove no deployment and the exact live-or-absent pre-authority lease
         working-directory: trusted
         run: |
           set -euo pipefail
@@ -192,8 +192,9 @@ jobs:
             "${FAILED_ROOT}/infra/atlas" \
             "${EVIDENCE_DIR}/lease-recovery-clean-preflight.json" \
             "${ACCOUNT_LEASE_TABLE}" \
-            "${owner}"
-          python scripts/manage_part4_lease.py verify-acquired \
+            "${owner}" \
+            ALLOW_ABSENT
+          python scripts/manage_part4_lease.py verify-acquired-or-absent \
             --table "${ACCOUNT_LEASE_TABLE}" \
             --region "${AWS_REGION}" \
             --owner "${owner}" \
@@ -218,6 +219,7 @@ jobs:
             --contract-sha256 "${contract_sha}" \
             --target-sha256 "${target_sha}" \
             --expected-state ACQUIRED \
+            --allow-absent \
             --output "${EVIDENCE_DIR}/lease-release-verification.json"
       - name: Build strict lease-only recovery summary
         if: always()

@@ -187,7 +187,7 @@ def validate_lease_recovery(path: Path) -> int:
     values = steps(workflow, "recover-lease")
     admission = index(values, "Validate failed admission and lease acquisition before AWS access")
     credentials = credential_index(values)
-    clean = index(values, "Prove no deployment and the exact live pre-authority lease")
+    clean = index(values, "Prove no deployment and the exact live-or-absent pre-authority lease")
     release = index(values, "Release only the exact verified pre-authority lease")
     summary = index(values, "Build strict lease-only recovery summary")
     require(
@@ -199,8 +199,10 @@ def validate_lease_recovery(path: Path) -> int:
         "atlasretail-part4-lease-${{ inputs.failed_run_id }}-",
         "validate_part4_admission.py",
         "verify_preflight.py",
-        "manage_part4_lease.py verify-acquired",
+        "manage_part4_lease.py verify-acquired-or-absent",
+        "ALLOW_ABSENT",
         "--expected-state ACQUIRED",
+        "--allow-absent",
         '"workload_execution": False',
         '"terraform_apply": False',
         '"silent_expiry_takeover": False',
@@ -258,7 +260,10 @@ def validate(root: Path) -> dict[str, Any]:
     shell_blocks = validate_shell(root)
     lease_source = (root / LEASE).read_text(encoding="utf-8")
     release_source = (root / LEASE_RELEASE).read_text(encoding="utf-8")
-    require("verify-acquired" in lease_source, "pre-authority lease verification is absent")
+    require(
+        "verify-acquired-or-absent" in lease_source,
+        "idempotent pre-authority lease verification is absent",
+    )
     require("authority_absent" in lease_source, "authority absence is not proved")
     for token in ("--contract-sha256", "--target-sha256", "--expected-state"):
         require(token in release_source, f"lease release is missing {token}")

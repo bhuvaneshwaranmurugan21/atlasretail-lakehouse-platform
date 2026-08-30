@@ -43,7 +43,7 @@ def string(item: dict[str, Any], name: str) -> str | None:
     return value.get("S") if isinstance(value, dict) else None
 
 
-def consistent_item(table: str, region: str) -> dict[str, Any]:
+def consistent_optional_item(table: str, region: str) -> dict[str, Any] | None:
     response = aws(
         [
             "dynamodb",
@@ -58,7 +58,16 @@ def consistent_item(table: str, region: str) -> dict[str, Any]:
         ]
     )
     item = response.get("Item")
+    if item is None:
+        return None
     if not isinstance(item, dict):
+        raise LeaseError("account lease response is malformed")
+    return item
+
+
+def consistent_item(table: str, region: str) -> dict[str, Any]:
+    item = consistent_optional_item(table, region)
+    if item is None:
         raise LeaseError("account lease is absent")
     return item
 
@@ -221,6 +230,45 @@ def verify_acquired(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def verify_acquired_or_absent(args: argparse.Namespace) -> dict[str, Any]:
+    """Prove the exact pre-authority lease or its strongly consistent absence."""
+    item = consistent_optional_item(args.table, args.region)
+    if item is None:
+        return {
+            "schema_version": "1.0",
+            "proof": "part4-lease-pre-authority-or-absence-verification",
+            "result": "PASS",
+            "lock_id": LOCK_ID,
+            "owner": args.owner,
+            "run_attempt": args.run_attempt,
+            "source_commit": args.source_commit,
+            "contract_sha256": args.contract_sha256,
+            "target_sha256": args.target_sha256,
+            "state": "ABSENT",
+            "authority_absent": True,
+            "lease_absent": True,
+            "consistent_read": True,
+        }
+    verify_fields(item, expected_common(args), "ACQUIRED")
+    if string(item, "authority_sha256") is not None:
+        raise LeaseError("pre-authority lease unexpectedly contains teardown authority")
+    return {
+        "schema_version": "1.0",
+        "proof": "part4-lease-pre-authority-or-absence-verification",
+        "result": "PASS",
+        "lock_id": LOCK_ID,
+        "owner": args.owner,
+        "run_attempt": args.run_attempt,
+        "source_commit": args.source_commit,
+        "contract_sha256": args.contract_sha256,
+        "target_sha256": args.target_sha256,
+        "state": "ACQUIRED",
+        "authority_absent": True,
+        "lease_absent": False,
+        "consistent_read": True,
+    }
+
+
 def recover(args: argparse.Namespace) -> dict[str, Any]:
     recovery_owner = args.recovery_owner
     names = {"#owner": "owner", "#state": "state"}
@@ -314,7 +362,15 @@ def recover(args: argparse.Namespace) -> dict[str, Any]:
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
     result.add_argument(
-        "operation", choices=("acquire", "bind", "verify", "verify-acquired", "recover")
+        "operation",
+        choices=(
+            "acquire",
+            "bind",
+            "verify",
+            "verify-acquired",
+            "verify-acquired-or-absent",
+            "recover",
+        ),
     )
     result.add_argument("--table", required=True)
     result.add_argument("--region", required=True)
@@ -348,6 +404,7 @@ def main() -> int:
             "bind": bind,
             "verify": verify,
             "verify-acquired": verify_acquired,
+            "verify-acquired-or-absent": verify_acquired_or_absent,
             "recover": recover,
         }[args.operation]
         evidence = operation(args)

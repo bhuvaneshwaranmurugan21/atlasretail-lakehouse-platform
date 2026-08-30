@@ -13,6 +13,7 @@ from terraform_source_digest import source_digest
 from atlasretail.part4_contract import (
     CONTRACT_RELATIVE_PATH,
     TARGET_RELATIVE_PATH,
+    load_json_object,
     validate_part4_contract_file,
 )
 from atlasretail.part4_teardown_authority import (
@@ -59,7 +60,9 @@ def arguments() -> argparse.Namespace:
 def main() -> int:
     args = arguments()
     root = args.repository_root.resolve()
-    contract = validate_part4_contract_file(root / CONTRACT_RELATIVE_PATH, repo_root=root)
+    contract_path = root / CONTRACT_RELATIVE_PATH
+    contract_validation = validate_part4_contract_file(contract_path, repo_root=root)
+    contract = load_json_object(contract_path)
     admission = load_object(args.admission_receipt)
     plan_validation = load_object(args.apply_plan_validation)
     context = AuthorityContext(
@@ -85,9 +88,9 @@ def main() -> int:
         terraform_version=args.terraform_version,
     )
     inputs = AuthorityInputs(
-        contract_id=contract.contract_id,
-        contract_version=contract.version,
-        contract_sha256=contract.contract_sha256,
+        contract_id=contract["contract_id"],
+        contract_version=contract["version"],
+        contract_sha256=contract_validation.contract_sha256,
         target_sha256=sha256_path(root / TARGET_RELATIVE_PATH),
         authority_schema_sha256=sha256_path(
             root / "contracts/part4/teardown-authority.schema.json"

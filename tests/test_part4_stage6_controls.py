@@ -76,7 +76,7 @@ def test_lease_recovery_cannot_apply_or_start_workload(tmp_path: Path) -> None:
 def test_lease_recovery_requires_clean_proof_before_release(tmp_path: Path) -> None:
     source = ROOT / CONTROLS.LEASE_RECOVERY
     changed = source.read_text(encoding="utf-8").replace(
-        "Prove no deployment and the exact live pre-authority lease",
+        "Prove no deployment and the exact live-or-absent pre-authority lease",
         "Unverified lease state",
         1,
     )

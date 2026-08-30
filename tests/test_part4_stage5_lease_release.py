@@ -86,6 +86,12 @@ def lease_only_arguments(output: Path) -> list[str]:
     ]
 
 
+def idempotent_lease_only_arguments(output: Path) -> list[str]:
+    values = lease_only_arguments(output)
+    values.insert(-2, "--allow-absent")
+    return values
+
+
 def lease_only_deleted_item(state: str = "ACQUIRED") -> dict[str, object]:
     return {
         "Attributes": {
@@ -153,6 +159,7 @@ def test_release_rejects_lease_reappearance_after_delete(
     assert MODULE.main() == 1
     proof = json.loads(output.read_text(encoding="utf-8"))
     assert proof["lease_absent"] is False
+    assert proof["post_delete_item"] == {"owner": {"S": OWNER}}
 
 
 def test_pre_authority_release_conditions_contract_target_and_state(
@@ -189,3 +196,26 @@ def test_pre_authority_release_rejects_bound_state(
 
     assert MODULE.main() == 1
     assert json.loads(output.read_text(encoding="utf-8"))["result"] == "FAIL"
+
+
+def test_recovery_release_accepts_strongly_consistent_prior_absence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[list[str]] = []
+
+    def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(command)
+        return completed({})
+
+    output = tmp_path / "lease-only-release.json"
+    monkeypatch.setattr(MODULE.subprocess, "run", run)
+    monkeypatch.setattr(sys, "argv", idempotent_lease_only_arguments(output))
+
+    assert MODULE.main() == 0
+    assert len(calls) == 1
+    assert "get-item" in calls[0]
+    proof = json.loads(output.read_text(encoding="utf-8"))
+    assert proof["result"] == "PASS"
+    assert proof["already_absent"] is True
+    assert proof["delete_attempted"] is False
+    assert proof["lease_absent"] is True
