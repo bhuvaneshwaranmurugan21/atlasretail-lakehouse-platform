@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+import atlasretail.part4_stage6_prerequisites as prerequisite_module
 from atlasretail.canonical import digest
 from atlasretail.part4_admission import (
     ADMISSION_SCHEMA_RELATIVE_PATH,
@@ -121,6 +122,22 @@ def test_builds_and_revalidates_exact_admission(
         )
         == receipt
     )
+
+
+def test_admission_resolves_prerequisite_schema_from_explicit_repo_root(
+    source_directory: Path,
+    context: AdmissionContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        prerequisite_module,
+        "__file__",
+        "/opt/python/lib/python3.12/site-packages/atlasretail/part4_stage6_prerequisites.py",
+    )
+    receipt = build_admission_receipt(
+        repo_root=ROOT, source_directory=source_directory, context=context
+    )
+    assert receipt["result"] == "PASS"
 
 
 def test_run_attempt_changes_receipt_not_source_tree(

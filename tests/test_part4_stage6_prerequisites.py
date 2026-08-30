@@ -5,13 +5,16 @@ from pathlib import Path
 
 import pytest
 
+import atlasretail.part4_stage6_prerequisites as prerequisite_module
 from atlasretail.part4_stage6_prerequisites import (
     PrerequisiteContext,
     PrerequisiteError,
     build_prerequisite_receipt,
+    load_prerequisite_receipt,
     validate_prerequisite_receipt,
 )
 
+ROOT = Path(__file__).parents[1]
 COMMIT = "a" * 40
 REPOSITORY = "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform"
 REF = "refs/heads/main"
@@ -114,6 +117,31 @@ def test_exact_current_source_prerequisites_are_self_bound(tmp_path: Path) -> No
         "glue_capability_probe": "102",
         "plan_only_proof": "103",
     }
+
+
+def test_explicit_schema_is_independent_of_package_install_location(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    preflight, glue, plan, context = valid_inputs(tmp_path)
+    schema = ROOT / prerequisite_module.PREREQUISITE_SCHEMA_RELATIVE_PATH
+    monkeypatch.setattr(
+        prerequisite_module,
+        "__file__",
+        "/opt/python/lib/python3.12/site-packages/atlasretail/part4_stage6_prerequisites.py",
+    )
+
+    receipt = build_prerequisite_receipt(
+        preflight_dir=preflight,
+        glue_probe_dir=glue,
+        plan_dir=plan,
+        context=context,
+        schema_path=schema,
+    )
+    path = tmp_path / "prerequisite-admission.json"
+    path.write_text(json.dumps(receipt), encoding="utf-8")
+
+    validate_prerequisite_receipt(receipt, schema_path=schema)
+    assert load_prerequisite_receipt(path, schema_path=schema) == receipt
 
 
 def test_artifact_byte_change_changes_receipt_digest(tmp_path: Path) -> None:

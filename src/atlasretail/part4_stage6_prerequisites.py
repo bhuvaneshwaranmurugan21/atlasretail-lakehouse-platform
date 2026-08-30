@@ -344,7 +344,7 @@ def validate_prerequisite_receipt(
                 raise PrerequisiteError(f"prerequisite artifact manifest entry is invalid: {name}")
 
 
-def load_prerequisite_receipt(path: Path) -> dict[str, Any]:
+def load_prerequisite_receipt(path: Path, *, schema_path: Path | None = None) -> dict[str, Any]:
     """Load and validate one persisted prerequisite receipt."""
 
     try:
@@ -353,5 +353,5 @@ def load_prerequisite_receipt(path: Path) -> dict[str, Any]:
         raise PrerequisiteError(f"prerequisite receipt is unreadable: {error}") from error
     if not isinstance(value, dict):
         raise PrerequisiteError("prerequisite receipt must be a JSON object")
-    validate_prerequisite_receipt(value)
+    validate_prerequisite_receipt(value, schema_path=schema_path)
     return value

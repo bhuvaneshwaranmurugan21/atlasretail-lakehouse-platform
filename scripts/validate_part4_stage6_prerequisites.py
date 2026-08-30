@@ -8,9 +8,12 @@ import json
 from pathlib import Path
 
 from atlasretail.part4_stage6_prerequisites import (
+    PREREQUISITE_SCHEMA_RELATIVE_PATH,
     PrerequisiteContext,
     build_prerequisite_receipt,
 )
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> int:
@@ -24,6 +27,11 @@ def main() -> int:
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--repository", required=True)
     parser.add_argument("--ref", required=True)
+    parser.add_argument(
+        "--schema",
+        type=Path,
+        default=ROOT / PREREQUISITE_SCHEMA_RELATIVE_PATH,
+    )
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
     receipt = build_prerequisite_receipt(
@@ -38,6 +46,7 @@ def main() -> int:
             glue_probe_run_id=arguments.glue_probe_run_id,
             plan_run_id=arguments.plan_run_id,
         ),
+        schema_path=arguments.schema,
     )
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.output.write_text(
