@@ -207,6 +207,7 @@ def complete_evidence(root: Path) -> EvidenceContext:
                 "aws_account_id": EXPECTED_ACCOUNT,
                 "aws_region": EXPECTED_REGION,
             },
+            "prerequisites": {"receipt_sha256": "e" * 64},
         },
     )
     for name in (
@@ -554,6 +555,22 @@ def complete_final_evidence(root: Path) -> EvidenceContext:
     )
     write(root, "terraform-apply-plan.json", {"plan": "apply"})
     write(root, "terraform-destroy-plan.json", {"plan": "destroy"})
+    write(
+        root,
+        "terraform-destroy-plan-digests.json",
+        {
+            "schema_version": "1.0",
+            "proof": "part4-saved-destroy-plan-digests",
+            "result": "PASS",
+            "binary_sha256": "f" * 64,
+            "json_sha256": hashlib.sha256(
+                (root / "terraform-destroy-plan.json").read_bytes()
+            ).hexdigest(),
+            "validation_sha256": hashlib.sha256(
+                (root / "terraform-destroy-plan-validation.json").read_bytes()
+            ).hexdigest(),
+        },
+    )
     return context
 
 
@@ -574,6 +591,13 @@ def test_finalizer_requires_all_twenty_domains(tmp_path: Path) -> None:
     assert result["claim_level"] == "AWS_VERIFIED"
     assert result["production_claim"] is False
     assert len(result["domains"]) == 20
+
+
+def test_destroy_plan_json_tamper_breaks_saved_binary_binding(tmp_path: Path) -> None:
+    context = complete_final_evidence(tmp_path)
+    write(tmp_path, "terraform-destroy-plan.json", {"plan": "substituted"})
+    with pytest.raises(EvidenceError, match="destroy plan JSON digest differs"):
+        finalize_evidence(context)
 
 
 @pytest.mark.parametrize(

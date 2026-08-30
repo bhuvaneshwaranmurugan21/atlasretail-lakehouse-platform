@@ -50,7 +50,7 @@
           "$ref": "#/$defs/sha256"
         },
         "contract_version": {
-          "const": "1.0.0"
+          "const": "1.1.0"
         },
         "managed_manifest_schema_sha256": {
           "$ref": "#/$defs/sha256"
@@ -113,6 +113,30 @@
     },
     "project": {
       "const": "AtlasRetail"
+    },
+    "prerequisites": {
+      "additionalProperties": false,
+      "properties": {
+        "glue_capability_probe": {
+          "$ref": "#/$defs/positiveIntegerString"
+        },
+        "plan_only_proof": {
+          "$ref": "#/$defs/positiveIntegerString"
+        },
+        "read_only_preflight": {
+          "$ref": "#/$defs/positiveIntegerString"
+        },
+        "receipt_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "glue_capability_probe",
+        "plan_only_proof",
+        "read_only_preflight",
+        "receipt_sha256"
+      ],
+      "type": "object"
     },
     "receipt_sha256": {
       "$ref": "#/$defs/sha256"
@@ -214,6 +238,7 @@
     "bounds",
     "execution_class",
     "project",
+    "prerequisites",
     "receipt_sha256",
     "result",
     "schema_version",

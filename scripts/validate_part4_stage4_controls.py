@@ -132,7 +132,7 @@ def validate(repo_root: Path) -> dict[str, Any]:
     for domain in REQUIRED_EVIDENCE_DOMAINS:
         if f'"{domain}"' not in evidence_source:
             fail(f"evidence implementation does not name required domain {domain}")
-    if len(REQUIRED_PROVENANCE_FIELDS) != 17 or len(REQUIRED_EVIDENCE_DOMAINS) != 20:
+    if len(REQUIRED_PROVENANCE_FIELDS) != 18 or len(REQUIRED_EVIDENCE_DOMAINS) != 20:
         fail("frozen contract cardinalities changed")
     source_files = (
         repo_root / "src/atlasretail/part4_evidence.py",
@@ -151,7 +151,7 @@ def validate(repo_root: Path) -> dict[str, Any]:
         "evidence_domain_count": 20,
         "implementation_sha256": implementation_sha,
         "proof": "part4-stage4-contract-complete-evidence-readiness",
-        "provenance_field_count": 17,
+        "provenance_field_count": 18,
         "result": "PASS",
         "schema_sha256": schema_hashes,
         "target_sha256": contract.target_sha256,

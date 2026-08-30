@@ -1,0 +1,270 @@
+name: AWS bounded lab lease recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      failed_run_id:
+        description: Failed bounded-lab run ID that acquired the exact lease
+        required: true
+      failed_run_attempt:
+        description: Failed bounded-lab run attempt that acquired the exact lease
+        required: true
+        default: "1"
+      failed_source_commit:
+        description: Exact 40-character source commit admitted by the failed run
+        required: true
+      confirm_recovery:
+        description: Type RELEASE_ATLASRETAIL_PART4_PREAUTHORITY_LEASE
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portfolio-aws-account
+  cancel-in-progress: false
+
+jobs:
+  recover-lease:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      FAILED_RUN_ID: ${{ inputs.failed_run_id }}
+      FAILED_RUN_ATTEMPT: ${{ inputs.failed_run_attempt }}
+      FAILED_SOURCE_COMMIT: ${{ inputs.failed_source_commit }}
+      CONFIRM_RECOVERY: ${{ inputs.confirm_recovery }}
+      FAILED_ROOT: ${{ github.workspace }}/.control/failed-source
+      ADMISSION_DIR: ${{ github.workspace }}/.control/failed-admission
+      LEASE_DIR: ${{ github.workspace }}/.control/failed-lease
+      EVIDENCE_DIR: ${{ github.workspace }}/evidence/aws-lease-recovery/${{ github.run_id }}
+    steps:
+      - name: Check out trusted recovery controls from main
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: refs/heads/main
+          path: trusted
+      - name: Check out the exact failed source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.failed_source_commit }}
+          path: .control/failed-source
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: 1.11.4
+          terraform_wrapper: false
+      - name: Enforce exact recovery intent before artifact access
+        working-directory: trusted
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "$(git -C "${FAILED_ROOT}" rev-parse HEAD)" = "${FAILED_SOURCE_COMMIT}"
+          [[ "${FAILED_RUN_ID}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${FAILED_RUN_ATTEMPT}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${FAILED_SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+          test "${CONFIRM_RECOVERY}" = "RELEASE_ATLASRETAIL_PART4_PREAUTHORITY_LEASE"
+          mkdir -p "${ADMISSION_DIR}" "${LEASE_DIR}" "${EVIDENCE_DIR}"
+          python -m pip install --disable-pip-version-check "${FAILED_ROOT}"
+      - name: Recover the exact failed admission artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-part4-admission-${{ inputs.failed_run_id }}-${{ inputs.failed_run_attempt }}
+          path: .control/failed-admission
+          run-id: ${{ inputs.failed_run_id }}
+          github-token: ${{ github.token }}
+      - name: Recover the exact failed lease artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-part4-lease-${{ inputs.failed_run_id }}-${{ inputs.failed_run_attempt }}
+          path: .control/failed-lease
+          run-id: ${{ inputs.failed_run_id }}
+          github-token: ${{ github.token }}
+      - name: Validate failed admission and lease acquisition before AWS access
+        working-directory: trusted
+        run: |
+          set -euo pipefail
+          receipt="${ADMISSION_DIR}/admission-receipt.json"
+          lease="${LEASE_DIR}/lease-acquisition.json"
+          actor="$(jq -er '.workflow.actor' "${receipt}")"
+          order_count="$(jq -er '.bounds.order_count' "${receipt}")"
+          budget_ceiling="$(jq -er '.bounds.budget_ceiling_usd' "${receipt}")"
+          python "${FAILED_ROOT}/scripts/validate_part4_admission.py" \
+            --repo-root "${FAILED_ROOT}" \
+            --source-directory "${ADMISSION_DIR}/sources" \
+            --receipt "${receipt}" \
+            --prerequisite-receipt "${ADMISSION_DIR}/prerequisite-admission.json" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --workflow-name "AWS bounded lab" \
+            --event workflow_dispatch \
+            --ref refs/heads/main \
+            --actor "${actor}" \
+            --repository-owner "${GITHUB_REPOSITORY_OWNER}" \
+            --source-commit "${FAILED_SOURCE_COMMIT}" \
+            --checked-out-commit "${FAILED_SOURCE_COMMIT}" \
+            --run-id "${FAILED_RUN_ID}" \
+            --run-attempt "${FAILED_RUN_ATTEMPT}" \
+            --order-count "${order_count}" \
+            --budget-ceiling-usd "${budget_ceiling}" \
+            --confirm-execute EXECUTE_ATLASRETAIL_PART4 \
+            --confirm-destroy DESTROY
+          python - "${receipt}" "${lease}" <<'PY'
+          import json, os, sys
+          from pathlib import Path
+
+          receipt = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          lease = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+          expected = {
+              "result": "PASS",
+              "proof": "part4-lease-acquisition",
+              "lock_id": "portfolio-lab",
+              "owner": (
+                  f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['FAILED_RUN_ID']}/"
+                  f"{os.environ['FAILED_RUN_ATTEMPT']}"
+              ),
+              "run_attempt": os.environ["FAILED_RUN_ATTEMPT"],
+              "source_commit": os.environ["FAILED_SOURCE_COMMIT"],
+              "state": "ACQUIRED",
+              "silent_expiry_takeover": False,
+              "consistent_read": True,
+          }
+          for key, value in expected.items():
+              if lease.get(key) != value:
+                  raise SystemExit(f"lease acquisition artifact has wrong {key}")
+          if receipt["bindings"]["contract_sha256"] == receipt["bindings"]["target_sha256"]:
+              raise SystemExit("admission contract and target bindings are ambiguous")
+          PY
+          cp "${receipt}" "${EVIDENCE_DIR}/admission-receipt.json"
+          cp "${lease}" "${EVIDENCE_DIR}/lease-acquisition.json"
+      - name: Load and verify the trusted AWS target
+        id: target
+        working-directory: trusted
+        run: |
+          python scripts/load_aws_target.py \
+            --github-output "${GITHUB_OUTPUT}" \
+            --github-env "${GITHUB_ENV}" \
+            --expect-role-arn "${{ vars.AWS_ROLE_ARN }}" \
+            --expect-region "${{ vars.AWS_REGION }}" \
+            --expect-repository "${GITHUB_REPOSITORY}" \
+            --expect-ref "${GITHUB_REF}"
+      - name: Build cleanup-only session policy
+        id: session-policy
+        working-directory: trusted
+        run: |
+          python scripts/build_part4_session_policy.py \
+            --mode teardown \
+            --output "${EVIDENCE_DIR}/lease-recovery-session-policy.json" \
+            --github-output "${GITHUB_OUTPUT}"
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
+          aws-region: ${{ steps.target.outputs.aws_region }}
+          role-session-name: atlasretail-lease-recovery-${{ github.run_id }}
+          role-duration-seconds: 3600
+          allowed-account-ids: ${{ steps.target.outputs.aws_account_id }}
+          inline-session-policy: ${{ steps.session-policy.outputs.policy }}
+          unset-current-credentials: true
+          mask-aws-account-id: true
+          action-timeout-s: 120
+      - name: Prove no deployment and the exact live pre-authority lease
+        working-directory: trusted
+        run: |
+          set -euo pipefail
+          test "$(aws sts get-caller-identity --query Account --output text)" = "${AWS_ACCOUNT_ID}"
+          owner="${GITHUB_REPOSITORY}/${FAILED_RUN_ID}/${FAILED_RUN_ATTEMPT}"
+          contract_sha="$(jq -er '.bindings.contract_sha256' "${ADMISSION_DIR}/admission-receipt.json")"
+          target_sha="$(jq -er '.bindings.target_sha256' "${ADMISSION_DIR}/admission-receipt.json")"
+          terraform -chdir="${FAILED_ROOT}/infra/atlas" init \
+            -backend-config="bucket=${TERRAFORM_STATE_BUCKET}" \
+            -backend-config="key=${TERRAFORM_STATE_KEY}" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=${TERRAFORM_LOCK_TABLE}" \
+            -backend-config="encrypt=true"
+          python scripts/verify_preflight.py \
+            "${FAILED_ROOT}/infra/atlas" \
+            "${EVIDENCE_DIR}/lease-recovery-clean-preflight.json" \
+            "${ACCOUNT_LEASE_TABLE}" \
+            "${owner}"
+          python scripts/manage_part4_lease.py verify-acquired \
+            --table "${ACCOUNT_LEASE_TABLE}" \
+            --region "${AWS_REGION}" \
+            --owner "${owner}" \
+            --run-attempt "${FAILED_RUN_ATTEMPT}" \
+            --source-commit "${FAILED_SOURCE_COMMIT}" \
+            --contract-sha256 "${contract_sha}" \
+            --target-sha256 "${target_sha}" \
+            --output "${EVIDENCE_DIR}/live-pre-authority-lease.json"
+      - name: Release only the exact verified pre-authority lease
+        working-directory: trusted
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY}/${FAILED_RUN_ID}/${FAILED_RUN_ATTEMPT}"
+          contract_sha="$(jq -er '.bindings.contract_sha256' "${ADMISSION_DIR}/admission-receipt.json")"
+          target_sha="$(jq -er '.bindings.target_sha256' "${ADMISSION_DIR}/admission-receipt.json")"
+          python scripts/verify_lease_release.py \
+            --table "${ACCOUNT_LEASE_TABLE}" \
+            --region "${AWS_REGION}" \
+            --owner "${owner}" \
+            --run-attempt "${FAILED_RUN_ATTEMPT}" \
+            --source-commit "${FAILED_SOURCE_COMMIT}" \
+            --contract-sha256 "${contract_sha}" \
+            --target-sha256 "${target_sha}" \
+            --expected-state ACQUIRED \
+            --output "${EVIDENCE_DIR}/lease-release-verification.json"
+      - name: Build strict lease-only recovery summary
+        if: always()
+        working-directory: trusted
+        run: |
+          python - "${EVIDENCE_DIR}" <<'PY'
+          import json, sys
+          from pathlib import Path
+
+          root = Path(sys.argv[1])
+          required = (
+              "admission-receipt.json",
+              "lease-acquisition.json",
+              "lease-recovery-clean-preflight.json",
+              "live-pre-authority-lease.json",
+              "lease-release-verification.json",
+          )
+          errors = []
+          for name in required:
+              try:
+                  value = json.loads((root / name).read_text(encoding="utf-8"))
+              except (OSError, json.JSONDecodeError) as error:
+                  errors.append(f"{name}: {error}")
+                  continue
+              if value.get("result") != "PASS":
+                  errors.append(f"{name}: result is not PASS")
+          summary = {
+              "schema_version": "1.0",
+              "proof": "part4-pre-authority-lease-recovery",
+              "result": "PASS" if not errors else "FAIL",
+              "cleanup_only": True,
+              "workload_execution": False,
+              "terraform_apply": False,
+              "silent_expiry_takeover": False,
+              "errors": errors,
+          }
+          (root / "summary.json").write_text(
+              json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          if errors:
+              raise SystemExit("lease-only recovery evidence is incomplete")
+          PY
+      - name: Upload lease-only recovery evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-part4-lease-recovery-${{ github.run_id }}
+          path: evidence/aws-lease-recovery/${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 30

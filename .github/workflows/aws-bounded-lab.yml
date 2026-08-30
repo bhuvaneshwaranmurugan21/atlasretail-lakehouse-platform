@@ -17,6 +17,15 @@ on:
         description: Maximum planned gross cost for this bounded run (1-5 USD)
         required: true
         default: "5"
+      preflight_run_id:
+        description: Successful current-source AWS read-only preflight run ID
+        required: true
+      glue_probe_run_id:
+        description: Successful current-source Glue capability probe run ID
+        required: true
+      plan_run_id:
+        description: Successful current-source exact plan-only proof run ID
+        required: true
 
 permissions:
   contents: read
@@ -28,6 +37,7 @@ concurrency:
 jobs:
   admission:
     permissions:
+      actions: read
       contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 12
@@ -38,6 +48,9 @@ jobs:
       CONFIRM_EXECUTE: ${{ inputs.confirm_execute }}
       CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
       BUDGET_CEILING_USD: ${{ inputs.budget_ceiling_usd }}
+      PREFLIGHT_RUN_ID: ${{ inputs.preflight_run_id }}
+      GLUE_PROBE_RUN_ID: ${{ inputs.glue_probe_run_id }}
+      PLAN_RUN_ID: ${{ inputs.plan_run_id }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -46,6 +59,70 @@ jobs:
           cache: pip
       - name: Install the exact local admission implementation
         run: python -m pip install --disable-pip-version-check .
+      - name: Enforce exact prerequisite run identifiers
+        run: |
+          set -euo pipefail
+          [[ "${PREFLIGHT_RUN_ID}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${GLUE_PROBE_RUN_ID}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${PLAN_RUN_ID}" =~ ^[1-9][0-9]*$ ]]
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          mkdir -p "${ADMISSION_DIR}"
+      - name: Download the exact read-only preflight prerequisite
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-read-only-preflight-${{ inputs.preflight_run_id }}
+          path: .control/admission/preflight
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.preflight_run_id }}
+      - name: Download the exact Glue capability prerequisite
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-glue-service-probe-${{ inputs.glue_probe_run_id }}
+          path: .control/admission/glue-probe
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.glue_probe_run_id }}
+      - name: Download the exact plan-only prerequisite
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-plan-only-${{ inputs.plan_run_id }}
+          path: .control/admission/plan
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.plan_run_id }}
+      - name: Admit only current-source prerequisite evidence
+        run: |
+          set -euo pipefail
+          python scripts/validate_part4_stage6_prerequisites.py \
+            --preflight-dir "${ADMISSION_DIR}/preflight" \
+            --glue-probe-dir "${ADMISSION_DIR}/glue-probe" \
+            --plan-dir "${ADMISSION_DIR}/plan" \
+            --preflight-run-id "${PREFLIGHT_RUN_ID}" \
+            --glue-probe-run-id "${GLUE_PROBE_RUN_ID}" \
+            --plan-run-id "${PLAN_RUN_ID}" \
+            --source-commit "${GITHUB_SHA}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --ref "${GITHUB_REF}" \
+            --output "${ADMISSION_DIR}/prerequisite-admission.json"
+      - name: Independently reproduce prerequisite admission
+        run: |
+          set -euo pipefail
+          python scripts/validate_part4_stage6_prerequisites.py \
+            --preflight-dir "${ADMISSION_DIR}/preflight" \
+            --glue-probe-dir "${ADMISSION_DIR}/glue-probe" \
+            --plan-dir "${ADMISSION_DIR}/plan" \
+            --preflight-run-id "${PREFLIGHT_RUN_ID}" \
+            --glue-probe-run-id "${GLUE_PROBE_RUN_ID}" \
+            --plan-run-id "${PLAN_RUN_ID}" \
+            --source-commit "${GITHUB_SHA}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --ref "${GITHUB_REF}" \
+            --output "${ADMISSION_DIR}/prerequisite-admission-second.json"
+          diff -u \
+            "${ADMISSION_DIR}/prerequisite-admission.json" \
+            "${ADMISSION_DIR}/prerequisite-admission-second.json"
+          rm "${ADMISSION_DIR}/prerequisite-admission-second.json"
       - name: Materialize the exact pre-AWS source tree
         run: |
           set -euo pipefail
@@ -77,7 +154,8 @@ jobs:
             --order-count "${ORDER_COUNT}" \
             --budget-ceiling-usd "${BUDGET_CEILING_USD}" \
             --confirm-execute "${CONFIRM_EXECUTE}" \
-            --confirm-destroy "${CONFIRM_DESTROY}"
+            --confirm-destroy "${CONFIRM_DESTROY}" \
+            --prerequisite-receipt "${ADMISSION_DIR}/prerequisite-admission.json"
       - name: Independently revalidate the produced admission
         run: |
           python scripts/validate_part4_admission.py \
@@ -96,7 +174,8 @@ jobs:
             --order-count "${ORDER_COUNT}" \
             --budget-ceiling-usd "${BUDGET_CEILING_USD}" \
             --confirm-execute "${CONFIRM_EXECUTE}" \
-            --confirm-destroy "${CONFIRM_DESTROY}"
+            --confirm-destroy "${CONFIRM_DESTROY}" \
+            --prerequisite-receipt "${ADMISSION_DIR}/prerequisite-admission.json"
       - name: Persist the immutable admitted source handoff
         id: upload-admission
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -113,7 +192,7 @@ jobs:
       contents: read
       id-token: write
     runs-on: ubuntu-24.04
-    timeout-minutes: 100
+    timeout-minutes: 55
     env:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
@@ -124,6 +203,9 @@ jobs:
       CONFIRM_EXECUTE: ${{ inputs.confirm_execute }}
       CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
       BUDGET_CEILING_USD: ${{ inputs.budget_ceiling_usd }}
+      PREFLIGHT_RUN_ID: ${{ inputs.preflight_run_id }}
+      GLUE_PROBE_RUN_ID: ${{ inputs.glue_probe_run_id }}
+      PLAN_RUN_ID: ${{ inputs.plan_run_id }}
       ADMISSION_DIR: .control/admission
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -150,6 +232,20 @@ jobs:
       - name: Revalidate admission before requesting AWS credentials
         run: |
           set -euo pipefail
+          python scripts/validate_part4_stage6_prerequisites.py \
+            --preflight-dir "${ADMISSION_DIR}/preflight" \
+            --glue-probe-dir "${ADMISSION_DIR}/glue-probe" \
+            --plan-dir "${ADMISSION_DIR}/plan" \
+            --preflight-run-id "${PREFLIGHT_RUN_ID}" \
+            --glue-probe-run-id "${GLUE_PROBE_RUN_ID}" \
+            --plan-run-id "${PLAN_RUN_ID}" \
+            --source-commit "${GITHUB_SHA}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --ref "${GITHUB_REF}" \
+            --output .control/prerequisite-revalidation.json
+          diff -u \
+            "${ADMISSION_DIR}/prerequisite-admission.json" \
+            .control/prerequisite-revalidation.json
           python scripts/validate_part4_admission.py \
             --source-directory "${ADMISSION_DIR}/sources" \
             --receipt "${ADMISSION_DIR}/admission-receipt.json" \
@@ -166,7 +262,8 @@ jobs:
             --order-count "${ORDER_COUNT}" \
             --budget-ceiling-usd "${BUDGET_CEILING_USD}" \
             --confirm-execute "${CONFIRM_EXECUTE}" \
-            --confirm-destroy "${CONFIRM_DESTROY}"
+            --confirm-destroy "${CONFIRM_DESTROY}" \
+            --prerequisite-receipt "${ADMISSION_DIR}/prerequisite-admission.json"
           mkdir -p "${EVIDENCE_DIR}"
           cp "${ADMISSION_DIR}/admission-receipt.json" \
             "${EVIDENCE_DIR}/admission-receipt.json"
@@ -186,7 +283,12 @@ jobs:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-${{ github.run_id }}
+          role-duration-seconds: 3600
+          allowed-account-ids: ${{ steps.target.outputs.aws_account_id }}
           inline-session-policy: ${{ steps.session-policy.outputs.policy }}
+          unset-current-credentials: true
+          mask-aws-account-id: true
+          action-timeout-s: 120
       - name: Validate admitted bounds and live AWS identity
         run: |
           set -euo pipefail
@@ -505,7 +607,8 @@ jobs:
             --order-count "${ORDER_COUNT}" \
             --budget-ceiling-usd "${BUDGET_CEILING_USD}" \
             --confirm-execute "${CONFIRM_EXECUTE}" \
-            --confirm-destroy "${CONFIRM_DESTROY}"
+            --confirm-destroy "${CONFIRM_DESTROY}" \
+            --prerequisite-receipt "${ADMISSION_DIR}/prerequisite-admission.json"
       - name: Execute success and replay proofs
         run: |
           set -euo pipefail
@@ -848,6 +951,9 @@ jobs:
       CONFIRM_EXECUTE: ${{ inputs.confirm_execute }}
       CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
       BUDGET_CEILING_USD: ${{ inputs.budget_ceiling_usd }}
+      PREFLIGHT_RUN_ID: ${{ inputs.preflight_run_id }}
+      GLUE_PROBE_RUN_ID: ${{ inputs.glue_probe_run_id }}
+      PLAN_RUN_ID: ${{ inputs.plan_run_id }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Load and verify the checked-in AWS target
@@ -875,6 +981,20 @@ jobs:
       - name: Revalidate teardown admission before requesting AWS credentials
         run: |
           set -euo pipefail
+          python scripts/validate_part4_stage6_prerequisites.py \
+            --preflight-dir "${ADMISSION_DIR}/preflight" \
+            --glue-probe-dir "${ADMISSION_DIR}/glue-probe" \
+            --plan-dir "${ADMISSION_DIR}/plan" \
+            --preflight-run-id "${PREFLIGHT_RUN_ID}" \
+            --glue-probe-run-id "${GLUE_PROBE_RUN_ID}" \
+            --plan-run-id "${PLAN_RUN_ID}" \
+            --source-commit "${GITHUB_SHA}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --ref "${GITHUB_REF}" \
+            --output .control/prerequisite-revalidation.json
+          diff -u \
+            "${ADMISSION_DIR}/prerequisite-admission.json" \
+            .control/prerequisite-revalidation.json
           python scripts/validate_part4_admission.py \
             --source-directory "${ADMISSION_DIR}/sources" \
             --receipt "${ADMISSION_DIR}/admission-receipt.json" \
@@ -891,7 +1011,8 @@ jobs:
             --order-count "${ORDER_COUNT}" \
             --budget-ceiling-usd "${BUDGET_CEILING_USD}" \
             --confirm-execute "${CONFIRM_EXECUTE}" \
-            --confirm-destroy "${CONFIRM_DESTROY}"
+            --confirm-destroy "${CONFIRM_DESTROY}" \
+            --prerequisite-receipt "${ADMISSION_DIR}/prerequisite-admission.json"
           cp "${ADMISSION_DIR}/admission-receipt.json" \
             "${EVIDENCE_DIR}/admission-receipt.json"
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
@@ -910,7 +1031,12 @@ jobs:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-teardown-${{ github.run_id }}
+          role-duration-seconds: 3600
+          allowed-account-ids: ${{ steps.target.outputs.aws_account_id }}
           inline-session-policy: ${{ steps.teardown-session-policy.outputs.policy }}
+          unset-current-credentials: true
+          mask-aws-account-id: true
+          action-timeout-s: 120
       - name: Recover pre-teardown evidence
         continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
@@ -1092,7 +1218,6 @@ jobs:
               json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
           )
           PY
-          fi
       - name: Create and validate the saved destroy-only plan
         if: >-
           ${{ steps.authority.outputs.present == 'true' &&
@@ -1120,12 +1245,54 @@ jobs:
             --plan "${EVIDENCE_DIR}/terraform-destroy-plan.json" \
             --output "${EVIDENCE_DIR}/terraform-destroy-plan-validation.json" \
             "${envelope[@]}"
+          python - \
+            "${TF_DIR}/destroy.tfplan" \
+            "${EVIDENCE_DIR}/terraform-destroy-plan.json" \
+            "${EVIDENCE_DIR}/terraform-destroy-plan-validation.json" \
+            "${EVIDENCE_DIR}/terraform-destroy-plan-digests.json" <<'PY'
+          import hashlib, json, sys
+          from pathlib import Path
+
+          names = ("binary_sha256", "json_sha256", "validation_sha256")
+          result = {
+              "schema_version": "1.0",
+              "proof": "part4-saved-destroy-plan-digests",
+              "result": "PASS",
+              **{
+                  name: hashlib.sha256(Path(path).read_bytes()).hexdigest()
+                  for name, path in zip(names, sys.argv[1:4], strict=True)
+              },
+          }
+          Path(sys.argv[4]).write_text(
+              json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PY
       - name: Apply only the validated saved destroy plan
         if: >-
           ${{ steps.authority.outputs.present == 'true' &&
               steps.backend.outputs.state_has_resources == 'true' }}
         run: |
           set -euo pipefail
+          python - \
+            "${TF_DIR}/destroy.tfplan" \
+            "${EVIDENCE_DIR}/terraform-destroy-plan.json" \
+            "${EVIDENCE_DIR}/terraform-destroy-plan-validation.json" \
+            "${EVIDENCE_DIR}/terraform-destroy-plan-digests.json" <<'PY'
+          import hashlib, json, sys
+          from pathlib import Path
+
+          receipt = json.loads(Path(sys.argv[4]).read_text(encoding="utf-8"))
+          if receipt.get("result") != "PASS":
+              raise SystemExit("destroy plan digest receipt did not pass")
+          for key, path in zip(
+              ("binary_sha256", "json_sha256", "validation_sha256"),
+              sys.argv[1:4],
+              strict=True,
+          ):
+              observed = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+              if receipt.get(key) != observed:
+                  raise SystemExit(f"saved destroy plan binding changed: {key}")
+          PY
           terraform -chdir="${TF_DIR}" apply -auto-approve destroy.tfplan \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-destroy.log"
       - name: Prove teardown across AWS and Terraform inventories
@@ -1171,6 +1338,11 @@ jobs:
             --region "${AWS_REGION}"
             --run-attempt "${GITHUB_RUN_ATTEMPT}"
             --source-commit "${GITHUB_SHA}"
+            --contract-sha256 "$(jq -er '.bindings.contract_sha256' \
+              "${EVIDENCE_DIR}/admission-receipt.json")"
+            --target-sha256 "$(jq -er '.bindings.target_sha256' \
+              "${EVIDENCE_DIR}/admission-receipt.json")"
+            --expected-state AUTHORITY_BOUND
             --output "${EVIDENCE_DIR}/lease-release-verification.json"
           )
           if [[ "${{ steps.authority.outputs.present }}" = "true" ]]; then
@@ -1183,19 +1355,31 @@ jobs:
       - name: Finalize only complete execution and teardown evidence
         if: always()
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          runtime_status=0
+          set +e
           python - \
             "${EVIDENCE_DIR}/runtime-provenance.json" \
             "${EVIDENCE_DIR}/final-runtime-provenance.json" <<'PY'
           import datetime, json, sys
           from pathlib import Path
-          value = json.loads(Path(sys.argv[1]).read_text())
-          value["result"] = "PASS"
+          source = Path(sys.argv[1])
+          now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+          try:
+              value = json.loads(source.read_text(encoding="utf-8"))
+              source_valid = isinstance(value, dict)
+          except (OSError, json.JSONDecodeError):
+              value = {}
+              source_valid = False
+          value["result"] = "PASS" if source_valid else "FAIL"
+          value.setdefault("terraform_version", "1.11.4")
+          value.setdefault("execution_started_at", now)
           value["execution_finished_at"] = datetime.datetime.now(
               datetime.timezone.utc
           ).isoformat()
           Path(sys.argv[2]).write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
           PY
+          runtime_status="$?"
           python scripts/finalize_part4_evidence.py \
             --evidence-directory "${EVIDENCE_DIR}" \
             --source-commit "${GITHUB_SHA}" \
@@ -1203,6 +1387,13 @@ jobs:
             --run-attempt "${GITHUB_RUN_ATTEMPT}" \
             --budget-ceiling-usd "${BUDGET_CEILING_USD}" \
             --output "${EVIDENCE_DIR}/final-summary.json"
+          finalizer_status="$?"
+          set -e
+          test -s "${EVIDENCE_DIR}/final-summary.json"
+          if [[ "${runtime_status}" -ne 0 ]]; then
+            exit "${runtime_status}"
+          fi
+          exit "${finalizer_status}"
       - name: Upload final execution and teardown evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

@@ -21,8 +21,9 @@ environment that produced it.
 | Managed lifecycle and serving resolver | `LOCAL_VERIFIED` | Conditional-transition, publication, recovery, and query-boundary tests |
 | Part 4 deterministic source provenance | `LOCAL_VERIFIED` | Five contract-bound source families, deterministic compressed bytes, separate semantic/file identities, strict receipts, and independent CI reproduction |
 | Part 4 pre-AWS admission controls | `LOCAL_VERIFIED` | Exact operator, `main` source, run attempt, distinct confirmations, cost/workload bounds and source tree are revalidated before OIDC; lease release requires verified clean state |
-| Part 4 contract-complete evidence readiness | `LOCAL_VERIFIED` | Execution checkpoint cannot claim final verification; the sole finalizer requires all 20 domains, 17 provenance fields, clean teardown, post-teardown budget proof, and consistent-read lease absence |
+| Part 4 contract-complete evidence readiness | `LOCAL_VERIFIED` | Execution checkpoint cannot claim final verification; the sole finalizer requires all 20 domains, 18 provenance fields, clean teardown, post-teardown budget proof, and consistent-read lease absence |
 | Part 4 immutable teardown authority and deterministic recovery | `LOCAL_VERIFIED` | Exact run/attempt/source/plan authority, immutable artifact and lease binding, cleanup-only recovery, saved destroy-plan integrity, inventory proof and adversarial CI validation; Stage 5 performs no AWS operation |
+| Part 4 managed-execution readiness | `LOCAL_VERIFIED` | Exact current-source prerequisite admission, bounded credential lifetime, embedded workflow shell parsing, saved destroy-binary recheck, structured failure finalization, and exact pre-authority lease recovery; Stage 6 readiness performs no AWS operation |
 | GitHub OIDC identity | `AWS_VERIFIED` | Current-target short-lived credentials issued to the repository's `main` branch |
 | Organization-shared credit safety | `OWNER_ATTESTED` | Management-account credit balance and unrestricted organization sharing were reviewed; the attestation expires quickly and must be refreshed |
 | IAM and persistent foundation | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) verified exact live IAM parity, hardened persistent resources, budget alerts, lease contention and release, an empty backend, and zero AtlasRetail workload resources |
@@ -72,6 +73,12 @@ recovery route, saved destroy-plan integrity checks, and adversarial validator b
 `aws_execution: false` and `claim_level: LOCAL_VERIFIED`. A later successful recovery artifact may
 prove cleanup for its exact failed run, but it cannot promote workload, correctness, scale or cost
 claims.
+
+The Stage 6 managed-execution readiness artifact is repository-only evidence. It proves the exact
+prerequisite admission chain, workflow and credential bounds, destroy-plan binary binding,
+structured failure finalization, and lease-only recovery constraints. It contains
+`aws_execution: false` and `claim_level: LOCAL_VERIFIED`; it does not claim the managed Stage 6 run
+has occurred.
 
 Sanitized summaries may be committed under `evidence/`. Detailed logs remain attached to their
 GitHub Actions runs and must not contain credentials or customer data.

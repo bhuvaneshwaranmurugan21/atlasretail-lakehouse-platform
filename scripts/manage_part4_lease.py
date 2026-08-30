@@ -199,6 +199,28 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def verify_acquired(args: argparse.Namespace) -> dict[str, Any]:
+    """Prove an exact pre-authority lease without permitting state takeover."""
+    item = consistent_item(args.table, args.region)
+    verify_fields(item, expected_common(args), "ACQUIRED")
+    if string(item, "authority_sha256") is not None:
+        raise LeaseError("pre-authority lease unexpectedly contains teardown authority")
+    return {
+        "schema_version": "1.0",
+        "proof": "part4-lease-pre-authority-verification",
+        "result": "PASS",
+        "lock_id": LOCK_ID,
+        "owner": args.owner,
+        "run_attempt": args.run_attempt,
+        "source_commit": args.source_commit,
+        "contract_sha256": args.contract_sha256,
+        "target_sha256": args.target_sha256,
+        "state": "ACQUIRED",
+        "authority_absent": True,
+        "consistent_read": True,
+    }
+
+
 def recover(args: argparse.Namespace) -> dict[str, Any]:
     recovery_owner = args.recovery_owner
     names = {"#owner": "owner", "#state": "state"}
@@ -291,7 +313,9 @@ def recover(args: argparse.Namespace) -> dict[str, Any]:
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=__doc__)
-    result.add_argument("operation", choices=("acquire", "bind", "verify", "recover"))
+    result.add_argument(
+        "operation", choices=("acquire", "bind", "verify", "verify-acquired", "recover")
+    )
     result.add_argument("--table", required=True)
     result.add_argument("--region", required=True)
     result.add_argument("--owner", required=True)
@@ -323,6 +347,7 @@ def main() -> int:
             "acquire": acquire,
             "bind": bind,
             "verify": verify,
+            "verify-acquired": verify_acquired,
             "recover": recover,
         }[args.operation]
         evidence = operation(args)

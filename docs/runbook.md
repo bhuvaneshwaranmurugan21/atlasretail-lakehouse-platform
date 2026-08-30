@@ -253,12 +253,15 @@ claim is `LOCAL_VERIFIED` with `aws_execution: false`.
 
 ## Deploy and execute
 
-When the later Part 4 stages authorize execution, run `AWS bounded lab` manually with
-`order_count=500`, `budget_ceiling_usd=5`,
-`confirm_execute=EXECUTE_ATLASRETAIL_PART4`, and `confirm_destroy=DESTROY`. The workflow:
+When the later Part 4 stages authorize execution, first complete a read-only preflight, Glue
+create/delete capability probe, and exact plan-only proof for the exact merged source commit. Run
+`AWS bounded lab` manually with those three successful run IDs, `order_count=500`,
+`budget_ceiling_usd=5`, `confirm_execute=EXECUTE_ATLASRETAIL_PART4`, and
+`confirm_destroy=DESTROY`. The workflow:
 
-1. Admits the exact operator, source, attempt, bounds, confirmations and deterministic source bytes
-   without AWS credentials.
+1. Downloads and admits the exact current-source prerequisite artifacts, then binds their complete
+   byte manifests and run IDs to the operator, source, attempt, bounds, confirmations, and
+   deterministic source bytes without AWS credentials.
 2. Revalidates the immutable admission artifact before requesting OIDC credentials.
 3. Validates the account and region, then acquires the account-wide DynamoDB lease.
 4. Initializes the locked remote Terraform state.
@@ -315,6 +318,12 @@ recovery` with the exact failed run, attempt and source recorded by the authorit
 different run's artifact, edit the lease, rely on TTL expiry, or issue manual resource deletes. The
 previous environment's rescue workflow and authorizations are a non-executable forensic archive
 under `docs/incidents/legacy/`; they must never be dispatched against the current target.
+
+If a run acquired the account lease but failed before immutable teardown authority was persisted,
+use `AWS bounded lab lease recovery` with the exact failed run, attempt, and source. This path is
+valid only for an exact live `ACQUIRED` lease with no authority and only after empty Terraform and
+AWS inventories pass. If state or resources exist, stop; the lease-only workflow must not release
+the lease or perform cleanup.
 
 ## Teardown verification
 

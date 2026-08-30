@@ -216,7 +216,8 @@ def _validate_provenance(context: EvidenceContext) -> dict[str, Any]:
     return {
         **required,
         "workflow_name": "AWS bounded lab",
-        "contract_version": "1.0.0",
+        "contract_version": "1.1.0",
+        "prerequisite_admission_sha256": receipt.get("prerequisites", {}).get("receipt_sha256"),
         "oidc_role_arn": f"arn:aws:iam::{EXPECTED_ACCOUNT}:role/AtlasRetailGitHubOidcRole",
     }
 
@@ -892,6 +893,27 @@ def finalize_evidence(context: EvidenceContext) -> dict[str, Any]:
     domains["saved_destroy_plan"] = _domain(
         context.root / "terraform-destroy-plan-validation.json", mode="destroy"
     )
+    destroy_digests = _pass(context.root / "terraform-destroy-plan-digests.json")
+    _require(
+        destroy_digests.get("proof") == "part4-saved-destroy-plan-digests",
+        "destroy plan digest receipt has wrong proof",
+    )
+    _require(
+        destroy_digests.get("json_sha256") == _sha256(context.root / "terraform-destroy-plan.json"),
+        "destroy plan JSON digest differs",
+    )
+    _require(
+        destroy_digests.get("validation_sha256")
+        == _sha256(context.root / "terraform-destroy-plan-validation.json"),
+        "destroy plan validation digest differs",
+    )
+    binary_sha256 = destroy_digests.get("binary_sha256")
+    _require(
+        isinstance(binary_sha256, str)
+        and len(binary_sha256) == 64
+        and all(character in "0123456789abcdef" for character in binary_sha256),
+        "destroy plan binary digest is invalid",
+    )
     recovered_authority = _pass(context.root / "teardown-authority-recovery-verification.json")
     teardown_lease = _pass(context.root / "teardown-lease-authority-verification.json")
     authority_digest = _pass(context.root / "teardown-authority-digest.json")
@@ -921,6 +943,7 @@ def finalize_evidence(context: EvidenceContext) -> dict[str, Any]:
     )
     domains["saved_destroy_plan"] = {
         **domains["saved_destroy_plan"],
+        "digests": destroy_digests,
         "teardown_authority": recovered_authority,
         "lease_authority": teardown_lease,
     }
@@ -1002,7 +1025,7 @@ def finalize_evidence(context: EvidenceContext) -> dict[str, Any]:
                 context.repo_root / "infra" / "atlas" / ".terraform.lock.hcl"
             ),
             "apply_plan_sha256": _sha256(context.root / "terraform-apply-plan.json"),
-            "destroy_plan_sha256": _sha256(context.root / "terraform-destroy-plan.json"),
+            "destroy_plan_sha256": binary_sha256,
             "execution_started_at": runtime.get("execution_started_at"),
             "execution_finished_at": runtime.get("execution_finished_at"),
         }

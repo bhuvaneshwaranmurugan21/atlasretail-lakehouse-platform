@@ -91,7 +91,8 @@
       "apply_plan_sha256",
       "destroy_plan_sha256",
       "execution_started_at",
-      "execution_finished_at"
+      "execution_finished_at",
+      "prerequisite_admission_sha256"
     ],
     "sensitive_values_excluded": [
       "aws_credentials",
@@ -258,7 +259,7 @@
     "saved_destroy_plan_must_be_destroy_only": true,
     "successful_workload_with_failed_teardown_is_failure": true
   },
-  "version": "1.0.0",
+  "version": "1.1.0",
   "workload": {
     "order_count": {
       "default": 500,

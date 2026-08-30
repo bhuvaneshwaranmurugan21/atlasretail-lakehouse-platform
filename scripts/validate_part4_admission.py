@@ -36,6 +36,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--budget-ceiling-usd", required=True)
     parser.add_argument("--confirm-execute", required=True)
     parser.add_argument("--confirm-destroy", required=True)
+    parser.add_argument("--prerequisite-receipt", type=Path, required=True)
     return parser.parse_args()
 
 
@@ -55,6 +56,7 @@ def context(arguments: argparse.Namespace) -> AdmissionContext:
         budget_ceiling_usd=arguments.budget_ceiling_usd,
         confirm_execute=arguments.confirm_execute,
         confirm_destroy=arguments.confirm_destroy,
+        prerequisite_receipt=arguments.prerequisite_receipt.resolve(),
     )
 
 

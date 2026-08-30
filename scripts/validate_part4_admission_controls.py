@@ -58,7 +58,15 @@ def validate(repo_root: Path) -> dict[str, Any]:
     require(
         "workflow.inputs",
         set(inputs),
-        {"budget_ceiling_usd", "confirm_destroy", "confirm_execute", "order_count"},
+        {
+            "budget_ceiling_usd",
+            "confirm_destroy",
+            "confirm_execute",
+            "glue_probe_run_id",
+            "order_count",
+            "plan_run_id",
+            "preflight_run_id",
+        },
     )
     require("workflow.inputs.order_count.default", inputs["order_count"].get("default"), "500")
     require(
@@ -80,7 +88,11 @@ def validate(repo_root: Path) -> dict[str, Any]:
     jobs = parsed["jobs"]
     require("workflow.jobs", set(jobs), {"admission", "execute", "teardown"})
     admission = jobs["admission"]
-    require("workflow.admission.permissions", admission["permissions"], {"contents": "read"})
+    require(
+        "workflow.admission.permissions",
+        admission["permissions"],
+        {"actions": "read", "contents": "read"},
+    )
     admission_text = "\n".join(
         str(step.get("uses", "")) + "\n" + str(step.get("run", "")) for step in admission["steps"]
     )
