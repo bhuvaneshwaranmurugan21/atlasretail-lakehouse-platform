@@ -26,15 +26,39 @@ jobs:
           ruff format --check .
           mypy src
           python scripts/validate_part4_contract.py
+          python scripts/validate_part4_sources.py
           cfn-lint infra/foundation/template.yml --regions ap-southeast-2
           python -m compileall -q src tests aws
           bash -n scripts/*.sh
       - name: Tests and coverage
         run: pytest
+      - name: Reproduce deterministic Part 4 source provenance
+        run: |
+          first="${RUNNER_TEMP}/part4-sources-first"
+          second="${RUNNER_TEMP}/part4-sources-second"
+          atlasretail generate-sources \
+            --output "${first}" --orders 100 \
+            --source-commit "${GITHUB_SHA}" --run-id ci
+          atlasretail generate-sources \
+            --output "${second}" --orders 100 \
+            --source-commit "${GITHUB_SHA}" --run-id ci
+          python scripts/validate_part4_sources.py --directory "${first}"
+          python scripts/validate_part4_sources.py --directory "${second}"
+          diff -ru "${first}" "${second}"
       - name: Reproduce local failure evidence
         run: |
           atlasretail simulate --output /tmp/failure-lab.json
           diff -u evidence/local/failure-lab.json /tmp/failure-lab.json
+      - name: Upload Stage 2 source-provenance evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: part4-stage2-source-provenance-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/part4-sources-first/source-provenance-summary.json
+            ${{ runner.temp }}/part4-sources-first/*/source-provenance.json
+            ${{ runner.temp }}/part4-sources-first/tamper/tamper-mutation.json
+          if-no-files-found: error
+          retention-days: 30
 
   glue-runtime-integration:
     runs-on: ubuntu-24.04

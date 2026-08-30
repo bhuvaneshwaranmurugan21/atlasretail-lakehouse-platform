@@ -170,31 +170,32 @@ jobs:
           set -euo pipefail
           landing="$(terraform -chdir="${TF_DIR}" output -raw landing_bucket)"
           kms_key="$(terraform -chdir="${TF_DIR}" output -raw kms_key_arn)"
-          for specification in \
-            "success:21:none" \
-            "failure:84:none" \
-            "tamper:77:none" \
-            "temporal:42:temporal-overlap" \
-            "financial:63:financial"; do
-            IFS=: read -r scenario seed fault <<< "${specification}"
+          atlasretail generate-sources \
+            --output .artifacts/aws \
+            --orders "${ORDER_COUNT}" \
+            --source-commit "${GITHUB_SHA}" \
+            --run-id "${RUN_ID}"
+          python scripts/validate_part4_sources.py --directory .artifacts/aws \
+            > "${EVIDENCE_DIR}/source-provenance-validation.json"
+          cp .artifacts/aws/source-provenance-summary.json \
+            "${EVIDENCE_DIR}/source-provenance-summary.json"
+          for scenario in success failure tamper temporal financial; do
             batch="${scenario}-${RUN_ID}"
-            python -m atlasretail.cli generate \
-              --output ".artifacts/aws/${batch}" \
-              --orders "${ORDER_COUNT}" \
-              --seed "${seed}" \
-              --batch-id "${batch}" \
-              --fault "${fault}"
             python scripts/upload_immutable_batch.py \
-              --directory ".artifacts/aws/${batch}" \
+              --directory ".artifacts/aws/${scenario}" \
               --bucket "${landing}" \
               --prefix "runs/${batch}" \
               --kms-key "${kms_key}" \
               --output "${EVIDENCE_DIR}/${scenario}-registration.json"
-            cp ".artifacts/aws/${batch}/managed-manifest.json" \
+            cp ".artifacts/aws/${scenario}/managed-manifest.json" \
               "${EVIDENCE_DIR}/${scenario}-managed-manifest.json"
-            cp ".artifacts/aws/${batch}/expected-results.json" \
+            cp ".artifacts/aws/${scenario}/expected-results.json" \
               "${EVIDENCE_DIR}/${scenario}-expected-results.json"
+            cp ".artifacts/aws/${scenario}/source-provenance.json" \
+              "${EVIDENCE_DIR}/${scenario}-source-provenance.json"
           done
+          cp .artifacts/aws/tamper/tamper-mutation.json \
+            "${EVIDENCE_DIR}/tamper-mutation.json"
       - name: Execute success and replay proofs
         run: |
           set -euo pipefail
@@ -288,31 +289,30 @@ jobs:
           batch="tamper-${RUN_ID}"
           registration="${EVIDENCE_DIR}/tamper-registration.json"
           object_key="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["tables"]["orders"][0]["key"])' "${registration}")"
-          python -c 'from pathlib import Path; Path(".artifacts/tampered-bytes").write_bytes(b"deliberately-corrupted-object")'
           aws s3api put-object \
             --bucket "${landing}" \
             --key "${object_key}" \
-            --body .artifacts/tampered-bytes \
+            --body .artifacts/aws/tamper/tamper-replacement.bin \
             --server-side-encryption aws:kms \
             --ssekms-key-id "${kms_key}" \
             --checksum-algorithm SHA256 \
             > "${EVIDENCE_DIR}/tampered-object-put.json"
           tampered_version="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["VersionId"])' "${EVIDENCE_DIR}/tampered-object-put.json")"
           python scripts/create_tampered_manifest.py \
-            --input ".artifacts/aws/${batch}/managed-manifest.json" \
+            --input ".artifacts/aws/tamper/managed-manifest.json" \
             --table orders \
             --version-id "${tampered_version}" \
-            --output ".artifacts/aws/${batch}/tampered-manifest.json"
+            --output ".artifacts/aws/tamper/tampered-manifest.json"
           aws s3api put-object \
             --bucket "${landing}" \
             --key "runs/${batch}/tampered-manifest.json" \
-            --body ".artifacts/aws/${batch}/tampered-manifest.json" \
+            --body ".artifacts/aws/tamper/tampered-manifest.json" \
             --server-side-encryption aws:kms \
             --ssekms-key-id "${kms_key}" \
             --checksum-algorithm SHA256 \
             > "${EVIDENCE_DIR}/tampered-manifest-put.json"
           python - \
-            ".artifacts/aws/${batch}/tampered-manifest.json" \
+            ".artifacts/aws/tamper/tampered-manifest.json" \
             "${EVIDENCE_DIR}/tampered-manifest-put.json" \
             "s3://${landing}/runs/${batch}/tampered-manifest.json" \
             "${EVIDENCE_DIR}/tamper-execution-registration.json" <<'PY'

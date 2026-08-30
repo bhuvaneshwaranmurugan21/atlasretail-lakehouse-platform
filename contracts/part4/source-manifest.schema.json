@@ -1,0 +1,61 @@
+{
+  "$id": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/contracts/part4/source-manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "as_of_knowledge_time": {"minimum": 0, "type": "integer"},
+    "batch_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "type": "string"
+    },
+    "contract_version": {"const": "retail-v2"},
+    "identity_digest": {"$ref": "#/$defs/sha256"},
+    "produced_at": {"minimum": 0, "type": "integer"},
+    "tables": {
+      "additionalProperties": false,
+      "properties": {
+        "inventory_movements": {"$ref": "#/$defs/tableProof"},
+        "order_lines": {"$ref": "#/$defs/tableProof"},
+        "orders": {"$ref": "#/$defs/tableProof"},
+        "payments": {"$ref": "#/$defs/tableProof"},
+        "products": {"$ref": "#/$defs/tableProof"},
+        "returns": {"$ref": "#/$defs/tableProof"}
+      },
+      "required": [
+        "orders",
+        "order_lines",
+        "payments",
+        "returns",
+        "inventory_movements",
+        "products"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "batch_id",
+    "contract_version",
+    "produced_at",
+    "as_of_knowledge_time",
+    "tables",
+    "identity_digest"
+  ],
+  "title": "AtlasRetail deterministic pre-upload source manifest",
+  "type": "object",
+  "$defs": {
+    "sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "tableProof": {
+      "additionalProperties": false,
+      "properties": {
+        "objects": {"maxItems": 0, "type": "array"},
+        "rows": {"minimum": 0, "type": "integer"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "required": ["rows", "sha256", "objects"],
+      "type": "object"
+    }
+  }
+}
