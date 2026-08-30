@@ -1092,6 +1092,14 @@ jobs:
           done
           if [[ "${present}" = "true" ]]; then
             set +e
+            terraform -chdir="${TF_DIR}" init -backend=false >/dev/null
+            lock_status="$?"
+            if [[ "${lock_status}" -ne 0 ]]; then
+              present=false
+            fi
+          fi
+          if [[ "${present}" = "true" ]]; then
+            set +e
             python scripts/validate_part4_teardown_authority.py \
               --repository-root "${GITHUB_WORKSPACE}" \
               --authority "${authority_dir}/teardown-authority.json" \
@@ -1099,7 +1107,7 @@ jobs:
               --admission-receipt "${authority_dir}/admission-receipt.json" \
               --apply-plan-validation \
                 "${authority_dir}/terraform-apply-plan-validation.json" \
-              --allow-authority-bound-plan-digests \
+            --allow-authority-bound-plan-digests \
               --output "${EVIDENCE_DIR}/teardown-authority-recovery-verification.json" \
               --repository "${GITHUB_REPOSITORY}" \
               --repository-owner "${GITHUB_REPOSITORY_OWNER}" \
