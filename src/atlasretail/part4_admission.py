@@ -17,7 +17,11 @@ from .part4_contract import (
     load_json_object,
     validate_part4_contract_file,
 )
-from .part4_stage6_prerequisites import PrerequisiteError, load_prerequisite_receipt
+from .part4_stage6_prerequisites import (
+    PREREQUISITE_SCHEMA_RELATIVE_PATH,
+    PrerequisiteError,
+    load_prerequisite_receipt,
+)
 from .provenance import (
     CATALOG_RELATIVE_PATH,
     PROVENANCE_SCHEMA_RELATIVE_PATH,
@@ -231,7 +235,10 @@ def _build_admission_receipt(
         repo_root / PROVENANCE_SCHEMA_RELATIVE_PATH
     )
     summary = verify_materialized_sources(source_directory, repo_root=repo_root)
-    prerequisite_receipt = load_prerequisite_receipt(context.prerequisite_receipt)
+    prerequisite_receipt = load_prerequisite_receipt(
+        context.prerequisite_receipt,
+        schema_path=repo_root / PREREQUISITE_SCHEMA_RELATIVE_PATH,
+    )
     prerequisite_identity = prerequisite_receipt["source_identity"]
     _require_equal(
         "prerequisites.source_commit",
