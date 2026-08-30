@@ -210,7 +210,7 @@ def main() -> int:
             )
             if observed.returncode == 0:
                 try:
-                    payload = json.loads(observed.stdout)
+                    payload = json.loads(observed.stdout or "{}")
                 except json.JSONDecodeError:
                     payload = {"Item": "UNREADABLE"}
                 result["post_delete_item"] = payload.get("Item")
