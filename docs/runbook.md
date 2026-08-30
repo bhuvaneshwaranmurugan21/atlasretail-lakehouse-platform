@@ -220,6 +220,37 @@ Stage 4 performs no AWS operation. Its maximum claim is `LOCAL_VERIFIED` with
 `aws_execution: false`. Do not dispatch the Part 4 bounded workflow solely on Stage 4 readiness;
 the later managed-execution authorization stages must still be completed.
 
+### Stage 5 immutable teardown authority and deterministic recovery
+
+Stage 5 replaces run-ID-only cleanup trust with a strict authority created after exact apply-plan
+validation and before apply. `contracts/part4/teardown-authority.schema.json` freezes the run and
+attempt, source commit, admission and source digests, AWS target, backend, provider and
+infrastructure digests, saved-plan digests, exact 40 managed and six read-only addresses, bounds,
+and attempt-bound account lease. The builder and independent validator must agree on every field
+and on the exact authority bytes.
+
+The execute job persists that authority as
+`atlasretail-part4-teardown-authority-<run-id>-<run-attempt>` for 30 days and conditionally binds its
+artifact identity and digest to the lease before applying the saved plan. Normal teardown requires
+both the immutable authority and the matching `AUTHORITY_BOUND` lease. TTL does not grant takeover;
+lease acquisition requires absence, and every bind, recovery and release uses conditional exact
+owner, attempt, source and authority comparisons.
+
+If normal teardown cannot finish after apply, dispatch `AWS bounded lab recovery` from `main` with
+the exact failed run ID, failed run attempt, failed source commit, and
+`RECOVER_ATLASRETAIL_PART4`. Do not guess these values. The recovery workflow validates the failed
+authority before OIDC, runs trusted `main` recovery code against the exact failed source checkout,
+uses a cleanup-only session, applies only a hash-checked saved destroy plan, proves Terraform and
+AWS inventories clean, verifies the post-recovery budget, then releases the exact recovery lease.
+It cannot run workloads or create replacement infrastructure. A conflicting lease, unavailable
+authority, digest mismatch, unbounded plan, incomplete inventory proof, or lease-release mismatch is
+a stop condition and remains unreleased for investigation.
+
+Validate repository readiness with `python scripts/validate_part4_stage5_controls.py`. CI executes
+the validator twice, diffs the receipts, and retains
+`part4-stage5-teardown-authority-<run-id>`. Stage 5 itself performs no AWS operation and its maximum
+claim is `LOCAL_VERIFIED` with `aws_execution: false`.
+
 ## Deploy and execute
 
 When the later Part 4 stages authorize execution, run `AWS bounded lab` manually with
@@ -232,10 +263,11 @@ When the later Part 4 stages authorize execution, run `AWS bounded lab` manually
 3. Validates the account and region, then acquires the account-wide DynamoDB lease.
 4. Initializes the locked remote Terraform state.
 5. Proves that state and tagged inventory are clean.
-6. Persists teardown authority before infrastructure creation.
-7. Creates and machine-validates a saved create-only plan and validates the planned ASL definition
+6. Creates and machine-validates a saved create-only plan and validates the planned ASL definition
    through the Step Functions API.
-8. Applies only that saved plan.
+7. Builds and independently validates immutable attempt/source/plan-bound teardown authority,
+   persists it, and conditionally binds it to the exact lease.
+8. Rehashes the authority and applies only the validated saved plan, recording the apply outcome.
 9. Verifies the exact deployed control plane before uploading or executing any workload.
 10. Uploads only the admitted inputs with exact S3 version and checksum evidence.
 11. Runs success, replay, batch-conflict, object-tamper, injected-failure, recovery, temporal-overlap,
@@ -278,10 +310,10 @@ For transformation failures, inspect the Glue driver log, Step Functions history
 record, and immutable input identity. Correct data or code without changing the accepted batch
 identity. Do not manually change the active pointer.
 
-If Terraform apply partially succeeds and normal teardown cannot refresh state, use an
-incident-specific rescue authorization. The rescue path may only initialize the exact backend,
-create and validate a saved destroy-only plan, apply that plan, and independently verify absence.
-The previous environment's rescue workflow and authorizations are a non-executable forensic archive
+If Terraform apply partially succeeds and normal teardown cannot finish, use `AWS bounded lab
+recovery` with the exact failed run, attempt and source recorded by the authority. Never use a
+different run's artifact, edit the lease, rely on TTL expiry, or issue manual resource deletes. The
+previous environment's rescue workflow and authorizations are a non-executable forensic archive
 under `docs/incidents/legacy/`; they must never be dispatched against the current target.
 
 ## Teardown verification

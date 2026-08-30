@@ -31,6 +31,8 @@ jobs:
             "${RUNNER_TEMP}/part4-stage3-admission-controls.json"
           python scripts/validate_part4_stage4_controls.py \
             "${RUNNER_TEMP}/part4-stage4-evidence-readiness.json"
+          python scripts/validate_part4_stage5_controls.py \
+            "${RUNNER_TEMP}/part4-stage5-teardown-authority.json"
           cfn-lint infra/foundation/template.yml --regions ap-southeast-2
           python -m compileall -q src tests aws
           bash -n scripts/*.sh
@@ -67,6 +69,13 @@ jobs:
           diff -u \
             "${RUNNER_TEMP}/part4-stage3-admission-controls.json" \
             "${RUNNER_TEMP}/part4-stage3-admission-controls-second.json"
+      - name: Reproduce deterministic Stage 5 teardown-authority controls
+        run: |
+          python scripts/validate_part4_stage5_controls.py \
+            "${RUNNER_TEMP}/part4-stage5-teardown-authority-second.json"
+          diff -u \
+            "${RUNNER_TEMP}/part4-stage5-teardown-authority.json" \
+            "${RUNNER_TEMP}/part4-stage5-teardown-authority-second.json"
       - name: Upload Stage 2 source-provenance evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -89,6 +98,13 @@ jobs:
         with:
           name: part4-stage4-evidence-readiness-${{ github.run_id }}
           path: ${{ runner.temp }}/part4-stage4-evidence-readiness.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload Stage 5 immutable teardown-authority evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: part4-stage5-teardown-authority-${{ github.run_id }}
+          path: ${{ runner.temp }}/part4-stage5-teardown-authority.json
           if-no-files-found: error
           retention-days: 30
 

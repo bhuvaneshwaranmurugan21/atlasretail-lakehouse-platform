@@ -5,9 +5,8 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
 
-OWNED_LEASE_SUFFIX = (
-    '"${ACCOUNT_LEASE_TABLE}" \\\n            "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}"'
-)
+CONTROLLED_OWNER = '"${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}"'
+BOUNDED_OWNER = '"${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"'
 
 
 def normalized_calls(workflow_name: str) -> list[str]:
@@ -32,4 +31,5 @@ def test_post_acquisition_proofs_require_the_exact_run_owner() -> None:
 
     assert len(controlled_calls) == 1
     assert len(bounded_calls) == 1
-    assert all(OWNED_LEASE_SUFFIX in call for call in controlled_calls + bounded_calls)
+    assert CONTROLLED_OWNER in controlled_calls[0]
+    assert BOUNDED_OWNER in bounded_calls[0]

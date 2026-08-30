@@ -22,6 +22,7 @@ environment that produced it.
 | Part 4 deterministic source provenance | `LOCAL_VERIFIED` | Five contract-bound source families, deterministic compressed bytes, separate semantic/file identities, strict receipts, and independent CI reproduction |
 | Part 4 pre-AWS admission controls | `LOCAL_VERIFIED` | Exact operator, `main` source, run attempt, distinct confirmations, cost/workload bounds and source tree are revalidated before OIDC; lease release requires verified clean state |
 | Part 4 contract-complete evidence readiness | `LOCAL_VERIFIED` | Execution checkpoint cannot claim final verification; the sole finalizer requires all 20 domains, 17 provenance fields, clean teardown, post-teardown budget proof, and consistent-read lease absence |
+| Part 4 immutable teardown authority and deterministic recovery | `LOCAL_VERIFIED` | Exact run/attempt/source/plan authority, immutable artifact and lease binding, cleanup-only recovery, saved destroy-plan integrity, inventory proof and adversarial CI validation; Stage 5 performs no AWS operation |
 | GitHub OIDC identity | `AWS_VERIFIED` | Current-target short-lived credentials issued to the repository's `main` branch |
 | Organization-shared credit safety | `OWNER_ATTESTED` | Management-account credit balance and unrestricted organization sharing were reviewed; the attestation expires quickly and must be refreshed |
 | IAM and persistent foundation | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) verified exact live IAM parity, hardened persistent resources, budget alerts, lease contention and release, an empty backend, and zero AtlasRetail workload resources |
@@ -64,6 +65,13 @@ The Stage 4 evidence-readiness artifact is also repository-only evidence. It pro
 schemas, workflow ordering, compact target-region session intersections, single final claim
 authority, and positive/adversarial validation behavior. It contains `aws_execution: false` and
 `claim_level: LOCAL_VERIFIED`. It does not prove that a Part 4 managed run occurred.
+
+The Stage 5 teardown-authority artifact is repository-only evidence. It proves schema and workflow
+ordering, exact attempt/source/plan bindings, conditional lease transitions, a cleanup-only manual
+recovery route, saved destroy-plan integrity checks, and adversarial validator behavior. It contains
+`aws_execution: false` and `claim_level: LOCAL_VERIFIED`. A later successful recovery artifact may
+prove cleanup for its exact failed run, but it cannot promote workload, correctness, scale or cost
+claims.
 
 Sanitized summaries may be committed under `evidence/`. Detailed logs remain attached to their
 GitHub Actions runs and must not contain credentials or customer data.

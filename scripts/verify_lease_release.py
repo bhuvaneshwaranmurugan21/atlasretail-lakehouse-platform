@@ -15,10 +15,25 @@ def main() -> int:
     parser.add_argument("--table", required=True)
     parser.add_argument("--owner", required=True)
     parser.add_argument("--region", required=True)
+    parser.add_argument("--authority-sha256")
+    parser.add_argument("--run-attempt")
+    parser.add_argument("--source-commit")
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
     key = '{"lock_id":{"S":"portfolio-lab"}}'
-    values = json.dumps({":owner": {"S": arguments.owner}}, separators=(",", ":"))
+    expected = {":owner": {"S": arguments.owner}}
+    conditions = ["#owner = :owner"]
+    names = {"#owner": "owner"}
+    if arguments.authority_sha256:
+        expected[":authority"] = {"S": arguments.authority_sha256}
+        conditions.append("authority_sha256 = :authority")
+    if arguments.run_attempt:
+        expected[":attempt"] = {"S": arguments.run_attempt}
+        conditions.append("run_attempt = :attempt")
+    if arguments.source_commit:
+        expected[":source"] = {"S": arguments.source_commit}
+        conditions.append("source_commit = :source")
+    values = json.dumps(expected, separators=(",", ":"))
     deleted = subprocess.run(
         [
             "aws",
@@ -31,9 +46,9 @@ def main() -> int:
             "--key",
             key,
             "--condition-expression",
-            "#owner = :owner",
+            " AND ".join(conditions),
             "--expression-attribute-names",
-            '{"#owner":"owner"}',
+            json.dumps(names, separators=(",", ":")),
             "--expression-attribute-values",
             values,
             "--return-values",
@@ -52,6 +67,9 @@ def main() -> int:
         "lease_absent": False,
         "consistent_read": True,
         "delete_exit_code": deleted.returncode,
+        "authority_sha256": arguments.authority_sha256,
+        "run_attempt": arguments.run_attempt,
+        "source_commit": arguments.source_commit,
     }
     if deleted.returncode == 0:
         try:
@@ -59,7 +77,19 @@ def main() -> int:
         except json.JSONDecodeError:
             old = {}
         removed_owner = old.get("Attributes", {}).get("owner", {}).get("S")
-        if removed_owner == arguments.owner:
+        removed_authority = old.get("Attributes", {}).get("authority_sha256", {}).get("S")
+        removed_attempt = old.get("Attributes", {}).get("run_attempt", {}).get("S")
+        removed_source = old.get("Attributes", {}).get("source_commit", {}).get("S")
+        removed_matches = (
+            removed_owner == arguments.owner
+            and (
+                arguments.authority_sha256 is None
+                or removed_authority == arguments.authority_sha256
+            )
+            and (arguments.run_attempt is None or removed_attempt == arguments.run_attempt)
+            and (arguments.source_commit is None or removed_source == arguments.source_commit)
+        )
+        if removed_matches:
             observed = subprocess.run(
                 [
                     "aws",

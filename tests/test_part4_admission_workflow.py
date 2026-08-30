@@ -98,17 +98,23 @@ def test_teardown_routes_only_admitted_runs_and_releases_only_clean_lease() -> N
     release = next(step for step in steps if "Release only" in str(step.get("name", "")))
     assert "verify_teardown.py" in verify_destroy["run"]
     assert "verify_preflight.py" in verify_no_deployment["run"]
-    assert 'arguments+=("${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}")' in verify_no_deployment["run"]
+    assert (
+        'arguments+=("${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}")'
+        in verify_no_deployment["run"]
+    )
     assert "steps.verify_teardown.outcome == 'success'" in release["if"]
     assert "steps.verify_no_deployment.outcome == 'success'" in release["if"]
     assert "verify_lease_release.py" in release["run"]
     assert "lease-release-verification.json" in release["run"]
-    assert '--owner "${PORTFOLIO_LOCK_OWNER}"' in release["run"]
+    assert 'owner="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"' in release["run"]
+    assert '--authority-sha256 "${authority_sha}"' in release["run"]
+    assert '--run-attempt "${GITHUB_RUN_ATTEMPT}"' in release["run"]
+    assert '--source-commit "${GITHUB_SHA}"' in release["run"]
 
 
 def test_admission_receipt_is_copied_into_execution_and_teardown_evidence() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
-    assert workflow.count('"${EVIDENCE_DIR}/admission-receipt.json"') == 2
+    assert workflow.count('"${EVIDENCE_DIR}/admission-receipt.json"') >= 2
     assert "Persist the immutable admitted source handoff" in workflow
     assert "if-no-files-found: error" in workflow
 

@@ -264,27 +264,31 @@ jobs:
             "${BUDGET_CEILING_USD}"
       - name: Acquire the account-wide lease
         run: |
-          bash scripts/acquire_lock.sh
-          printf '%s' "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}" > .control/lease-owner.txt
-          python - "${EVIDENCE_DIR}/lease-acquisition.json" <<'PY'
-          import json, os, time, sys
-          from pathlib import Path
-          result = {
-              "result": "PASS",
-              "lock_id": "portfolio-lab",
-              "owner": f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['GITHUB_RUN_ID']}",
-              "acquired_at_epoch": int(time.time()),
-              "consistent_preflight_verified": True,
-          }
-          Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
-          PY
+          set -euo pipefail
+          mkdir -p .control/lease
+          owner="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
+          contract_sha="$(jq -er '.bindings.contract_sha256' \
+            "${EVIDENCE_DIR}/admission-receipt.json")"
+          target_sha="$(jq -er '.bindings.target_sha256' \
+            "${EVIDENCE_DIR}/admission-receipt.json")"
+          python scripts/manage_part4_lease.py acquire \
+            --table "${ACCOUNT_LEASE_TABLE}" \
+            --region "${AWS_REGION}" \
+            --owner "${owner}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --source-commit "${GITHUB_SHA}" \
+            --contract-sha256 "${contract_sha}" \
+            --target-sha256 "${target_sha}" \
+            --output "${EVIDENCE_DIR}/lease-acquisition.json"
+          printf '%s' "${owner}" > .control/lease/lease-owner.txt
+          cp "${EVIDENCE_DIR}/lease-acquisition.json" .control/lease/
       - name: Persist lease ownership
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: atlasretail-lease-${{ github.run_id }}
-          path: .control/lease-owner.txt
+          name: atlasretail-part4-lease-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .control/lease
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 30
       - name: Initialize backend and prove a clean preflight
         run: |
           set -euo pipefail
@@ -298,16 +302,7 @@ jobs:
           python scripts/verify_preflight.py \
             "${TF_DIR}" "${EVIDENCE_DIR}/preflight.json" \
             "${ACCOUNT_LEASE_TABLE}" \
-            "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}"
-          printf '%s' "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}" \
-            > .control/teardown-authorized.txt
-      - name: Persist teardown authority before deployment
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: atlasretail-teardown-authority-${{ github.run_id }}
-          path: .control/teardown-authorized.txt
-          if-no-files-found: error
-          retention-days: 1
+            "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
       - name: Create and validate the saved apply plan
         run: |
           set -euo pipefail
@@ -324,6 +319,7 @@ jobs:
             > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-apply-plan.txt"
           python scripts/validate_terraform_plan.py \
             --mode apply \
+            --exact-envelope \
             --plan "${EVIDENCE_DIR}/terraform-apply-plan.json" \
             --output "${EVIDENCE_DIR}/terraform-apply-plan-validation.json"
           python scripts/extract_state_machine_definition.py \
@@ -340,11 +336,119 @@ jobs:
           if result.get("result") != "OK":
               raise SystemExit(f"Step Functions validation failed: {result}")
           PY
+      - name: Build and independently validate immutable teardown authority
+        run: |
+          set -euo pipefail
+          authority_dir=".control/teardown"
+          mkdir -p "${authority_dir}"
+          owner="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
+          cp "${ADMISSION_DIR}/admission-receipt.json" "${authority_dir}/"
+          cp "${EVIDENCE_DIR}/terraform-apply-plan-validation.json" "${authority_dir}/"
+          common=(
+            --repository-root "${GITHUB_WORKSPACE}"
+            --admission-receipt "${authority_dir}/admission-receipt.json"
+            --apply-plan-validation "${authority_dir}/terraform-apply-plan-validation.json"
+            --repository "${GITHUB_REPOSITORY}"
+            --repository-owner "${GITHUB_REPOSITORY_OWNER}"
+            --workflow-name "${GITHUB_WORKFLOW}"
+            --event "${GITHUB_EVENT_NAME}"
+            --ref "${GITHUB_REF}"
+            --actor "${GITHUB_ACTOR}"
+            --source-commit "${GITHUB_SHA}"
+            --run-id "${GITHUB_RUN_ID}"
+            --run-attempt "${GITHUB_RUN_ATTEMPT}"
+            --order-count "${ORDER_COUNT}"
+            --budget-ceiling-usd "${BUDGET_CEILING_USD}"
+            --account-id "${AWS_ACCOUNT_ID}"
+            --region "${AWS_REGION}"
+            --oidc-role-arn "${OIDC_ROLE_ARN}"
+            --backend-bucket "${TERRAFORM_STATE_BUCKET}"
+            --backend-key "${TERRAFORM_STATE_KEY}"
+            --terraform-lock-table "${TERRAFORM_LOCK_TABLE}"
+            --lease-table "${ACCOUNT_LEASE_TABLE}"
+            --lease-owner "${owner}"
+            --terraform-version "1.11.4"
+          )
+          python scripts/build_part4_teardown_authority.py \
+            "${common[@]}" \
+            --apply-plan-json "${EVIDENCE_DIR}/terraform-apply-plan.json" \
+            --apply-plan-binary "${TF_DIR}/apply.tfplan" \
+            --output "${authority_dir}/teardown-authority.json" \
+            --digest-output "${authority_dir}/teardown-authority-digest.json"
+          python scripts/validate_part4_teardown_authority.py \
+            "${common[@]}" \
+            --authority "${authority_dir}/teardown-authority.json" \
+            --digest-receipt "${authority_dir}/teardown-authority-digest.json" \
+            --apply-plan-json "${EVIDENCE_DIR}/terraform-apply-plan.json" \
+            --apply-plan-binary "${TF_DIR}/apply.tfplan" \
+            --output "${authority_dir}/teardown-authority-verification.json"
+          cp "${authority_dir}/teardown-authority.json" "${EVIDENCE_DIR}/"
+          cp "${authority_dir}/teardown-authority-digest.json" "${EVIDENCE_DIR}/"
+          cp "${authority_dir}/teardown-authority-verification.json" "${EVIDENCE_DIR}/"
+      - name: Persist immutable attempt-bound teardown authority before apply
+        id: upload-authority
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-part4-teardown-authority-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .control/teardown
+          if-no-files-found: error
+          retention-days: 30
+      - name: Bind persisted authority to the exact account lease
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
+          contract_sha="$(jq -er '.bindings.contract_sha256' \
+            "${EVIDENCE_DIR}/admission-receipt.json")"
+          target_sha="$(jq -er '.bindings.target_sha256' \
+            "${EVIDENCE_DIR}/admission-receipt.json")"
+          authority_sha="$(jq -er '.authority_sha256' \
+            .control/teardown/teardown-authority-digest.json)"
+          python scripts/manage_part4_lease.py bind \
+            --table "${ACCOUNT_LEASE_TABLE}" \
+            --region "${AWS_REGION}" \
+            --owner "${owner}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --source-commit "${GITHUB_SHA}" \
+            --contract-sha256 "${contract_sha}" \
+            --target-sha256 "${target_sha}" \
+            --authority-sha256 "${authority_sha}" \
+            --artifact-id "${{ steps.upload-authority.outputs.artifact-id }}" \
+            --artifact-digest "${{ steps.upload-authority.outputs.artifact-digest }}" \
+            --output "${EVIDENCE_DIR}/lease-authority-binding.json"
       - name: Apply only the validated saved plan
         run: |
           set -euo pipefail
+          authority_sha="$(jq -er '.authority_sha256' \
+            .control/teardown/teardown-authority-digest.json)"
+          test "$(sha256sum .control/teardown/teardown-authority.json | cut -d' ' -f1)" \
+            = "${authority_sha}"
+          started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          set +e
           terraform -chdir="${TF_DIR}" apply -auto-approve apply.tfplan \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-apply.log"
+          apply_status="${PIPESTATUS[0]}"
+          set -e
+          finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          python - \
+            "${EVIDENCE_DIR}/apply-outcome.json" \
+            "${apply_status}" "${started_at}" "${finished_at}" \
+            "${authority_sha}" <<'PY'
+          import json, sys
+          from pathlib import Path
+          status = int(sys.argv[2])
+          result = {
+              "schema_version": "1.0",
+              "proof": "part4-saved-apply-outcome",
+              "result": "PASS" if status == 0 else "FAIL",
+              "exit_code": status,
+              "started_at": sys.argv[3],
+              "finished_at": sys.argv[4],
+              "authority_sha256": sys.argv[5],
+              "saved_plan_only": True,
+          }
+          Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+          PY
+          test "${apply_status}" -eq 0
           terraform -chdir="${TF_DIR}" output -json \
             > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
       - name: Verify the deployed control plane before any workload
@@ -719,10 +823,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: atlasretail-pre-teardown-${{ github.run_id }}
+          name: atlasretail-pre-teardown-${{ github.run_id }}-${{ github.run_attempt }}
           path: evidence/aws/${{ github.run_id }}
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 30
 
   teardown:
     needs: [admission, execute]
@@ -811,7 +915,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: atlasretail-pre-teardown-${{ github.run_id }}
+          name: atlasretail-pre-teardown-${{ github.run_id }}-${{ github.run_attempt }}
           path: evidence/aws/${{ github.run_id }}
       - name: Capture the target-bound teardown session
         run: |
@@ -840,37 +944,99 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: atlasretail-teardown-authority-${{ github.run_id }}
+          name: atlasretail-part4-teardown-authority-${{ github.run_id }}-${{ github.run_attempt }}
           path: .control/teardown
-      - name: Recover immutable lease ownership
-        continue-on-error: true
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: atlasretail-lease-${{ github.run_id }}
-          path: .control/lease
-      - name: Validate recovered lease ownership
-        id: lease
-        run: |
-          expected="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}"
-          lease=".control/lease/lease-owner.txt"
-          if [[ -s "${lease}" ]] && [[ "$(<"${lease}")" = "${expected}" ]]; then
-            echo "present=true" >> "${GITHUB_OUTPUT}"
-          else
-            echo "present=false" >> "${GITHUB_OUTPUT}"
-          fi
       - name: Validate teardown authority
         id: authority
         run: |
-          expected="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}"
-          authority=".control/teardown/teardown-authorized.txt"
-          if [[ -s "${authority}" ]] && [[ "$(<"${authority}")" = "${expected}" ]]; then
+          set -euo pipefail
+          authority_dir=".control/teardown"
+          owner="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
+          required=(
+            teardown-authority.json
+            teardown-authority-digest.json
+            admission-receipt.json
+            terraform-apply-plan-validation.json
+          )
+          present=true
+          for name in "${required[@]}"; do
+            if [[ ! -s "${authority_dir}/${name}" ]]; then
+              present=false
+            fi
+          done
+          if [[ "${present}" = "true" ]]; then
+            set +e
+            python scripts/validate_part4_teardown_authority.py \
+              --repository-root "${GITHUB_WORKSPACE}" \
+              --authority "${authority_dir}/teardown-authority.json" \
+              --digest-receipt "${authority_dir}/teardown-authority-digest.json" \
+              --admission-receipt "${authority_dir}/admission-receipt.json" \
+              --apply-plan-validation \
+                "${authority_dir}/terraform-apply-plan-validation.json" \
+              --allow-authority-bound-plan-digests \
+              --output "${EVIDENCE_DIR}/teardown-authority-recovery-verification.json" \
+              --repository "${GITHUB_REPOSITORY}" \
+              --repository-owner "${GITHUB_REPOSITORY_OWNER}" \
+              --workflow-name "${GITHUB_WORKFLOW}" \
+              --event "${GITHUB_EVENT_NAME}" \
+              --ref "${GITHUB_REF}" \
+              --actor "${GITHUB_ACTOR}" \
+              --source-commit "${GITHUB_SHA}" \
+              --run-id "${GITHUB_RUN_ID}" \
+              --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+              --order-count "${ORDER_COUNT}" \
+              --budget-ceiling-usd "${BUDGET_CEILING_USD}" \
+              --account-id "${AWS_ACCOUNT_ID}" \
+              --region "${AWS_REGION}" \
+              --oidc-role-arn "${OIDC_ROLE_ARN}" \
+              --backend-bucket "${TERRAFORM_STATE_BUCKET}" \
+              --backend-key "${TERRAFORM_STATE_KEY}" \
+              --terraform-lock-table "${TERRAFORM_LOCK_TABLE}" \
+              --lease-table "${ACCOUNT_LEASE_TABLE}" \
+              --lease-owner "${owner}" \
+              --terraform-version "1.11.4"
+            validation_status="$?"
+            set -e
+            if [[ "${validation_status}" -ne 0 ]]; then
+              present=false
+            fi
+          fi
+          if [[ "${present}" = "true" ]]; then
+            authority_sha="$(jq -er '.authority_sha256' \
+              "${authority_dir}/teardown-authority-digest.json")"
+            contract_sha="$(jq -er '.bindings.contract_sha256' \
+              "${authority_dir}/admission-receipt.json")"
+            target_sha="$(jq -er '.bindings.target_sha256' \
+              "${authority_dir}/admission-receipt.json")"
+            set +e
+            python scripts/manage_part4_lease.py verify \
+              --table "${ACCOUNT_LEASE_TABLE}" \
+              --region "${AWS_REGION}" \
+              --owner "${owner}" \
+              --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+              --source-commit "${GITHUB_SHA}" \
+              --contract-sha256 "${contract_sha}" \
+              --target-sha256 "${target_sha}" \
+              --authority-sha256 "${authority_sha}" \
+              --expected-state AUTHORITY_BOUND \
+              --output "${EVIDENCE_DIR}/teardown-lease-authority-verification.json"
+            lease_status="$?"
+            set -e
+            if [[ "${lease_status}" -ne 0 ]]; then
+              present=false
+            fi
+          fi
+          if [[ "${present}" = "true" ]]; then
+            cp "${authority_dir}/teardown-authority.json" "${EVIDENCE_DIR}/"
+            cp "${authority_dir}/teardown-authority-digest.json" "${EVIDENCE_DIR}/"
             echo "present=true" >> "${GITHUB_OUTPUT}"
           else
             echo "present=false" >> "${GITHUB_OUTPUT}"
-            printf '{"result":"SKIPPED","reason":"No valid teardown authority was persisted before apply."}\n' \
+            printf '{"result":"SKIPPED","reason":"Exact teardown authority was not proved before apply."}\n' \
               > "${EVIDENCE_DIR}/teardown.json"
           fi
       - name: Initialize backend for admitted cleanup
+        id: backend
         run: |
           set -euo pipefail
           terraform -chdir="${TF_DIR}" init \
@@ -888,9 +1054,17 @@ jobs:
                 || printf '{}\n' > "${outputs}"
             fi
           fi
+          state_list="$(terraform -chdir="${TF_DIR}" state list)"
+          if [[ -n "${state_list}" ]]; then
+            echo "state_has_resources=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "state_has_resources=false" >> "${GITHUB_OUTPUT}"
+          fi
       - name: Prove a clean no-deployment failure path
         id: verify_no_deployment
-        if: ${{ steps.authority.outputs.present != 'true' }}
+        if: >-
+          ${{ steps.authority.outputs.present != 'true' ||
+              steps.backend.outputs.state_has_resources != 'true' }}
         run: |
           set -euo pipefail
           arguments=(
@@ -898,9 +1072,7 @@ jobs:
             "${EVIDENCE_DIR}/no-deployment-cleanup.json"
             "${ACCOUNT_LEASE_TABLE}"
           )
-          if [[ "${{ steps.lease.outputs.present }}" = "true" ]]; then
-            arguments+=("${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}")
-          fi
+          arguments+=("${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}")
           python scripts/verify_preflight.py "${arguments[@]}"
           python - \
             "${EVIDENCE_DIR}/no-deployment-cleanup.json" \
@@ -922,7 +1094,9 @@ jobs:
           PY
           fi
       - name: Create and validate the saved destroy-only plan
-        if: steps.authority.outputs.present == 'true'
+        if: >-
+          ${{ steps.authority.outputs.present == 'true' &&
+              steps.backend.outputs.state_has_resources == 'true' }}
         run: |
           set -euo pipefail
           terraform -chdir="${TF_DIR}" plan -destroy \
@@ -936,19 +1110,30 @@ jobs:
             > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-destroy-plan.json"
           terraform -chdir="${TF_DIR}" show -no-color destroy.tfplan \
             > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-destroy-plan.txt"
+          envelope=(--allow-partial-destroy)
+          if jq -e '.result == "PASS"' \
+              "${EVIDENCE_DIR}/deployment-verification.json" >/dev/null 2>&1; then
+            envelope=(--exact-envelope)
+          fi
           python scripts/validate_terraform_plan.py \
             --mode destroy \
             --plan "${EVIDENCE_DIR}/terraform-destroy-plan.json" \
-            --output "${EVIDENCE_DIR}/terraform-destroy-plan-validation.json"
+            --output "${EVIDENCE_DIR}/terraform-destroy-plan-validation.json" \
+            "${envelope[@]}"
       - name: Apply only the validated saved destroy plan
-        if: steps.authority.outputs.present == 'true'
+        if: >-
+          ${{ steps.authority.outputs.present == 'true' &&
+              steps.backend.outputs.state_has_resources == 'true' }}
         run: |
           set -euo pipefail
           terraform -chdir="${TF_DIR}" apply -auto-approve destroy.tfplan \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-destroy.log"
       - name: Prove teardown across AWS and Terraform inventories
         id: verify_teardown
-        if: ${{ always() && steps.authority.outputs.present == 'true' }}
+        if: >-
+          ${{ always() &&
+              steps.authority.outputs.present == 'true' &&
+              steps.backend.outputs.state_has_resources == 'true' }}
         run: |
           python scripts/verify_teardown.py \
             "${EVIDENCE_DIR}/terraform-outputs.json" \
@@ -977,14 +1162,24 @@ jobs:
           ${{ always() &&
               (steps.verify_teardown.outcome == 'success' ||
                steps.verify_no_deployment.outcome == 'success') }}
-        env:
-          PORTFOLIO_LOCK_OWNER: ${{ github.repository }}/${{ github.run_id }}
         run: |
-          python scripts/verify_lease_release.py \
-            --table "${ACCOUNT_LEASE_TABLE}" \
-            --owner "${PORTFOLIO_LOCK_OWNER}" \
-            --region "${AWS_REGION}" \
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
+          arguments=(
+            --table "${ACCOUNT_LEASE_TABLE}"
+            --owner "${owner}"
+            --region "${AWS_REGION}"
+            --run-attempt "${GITHUB_RUN_ATTEMPT}"
+            --source-commit "${GITHUB_SHA}"
             --output "${EVIDENCE_DIR}/lease-release-verification.json"
+          )
+          if [[ "${{ steps.authority.outputs.present }}" = "true" ]]; then
+            authority_sha="$(jq -er '.authority_sha256' \
+              .control/teardown/teardown-authority-digest.json)"
+            arguments+=(--authority-sha256 "${authority_sha}")
+          fi
+          python scripts/verify_lease_release.py \
+            "${arguments[@]}"
       - name: Finalize only complete execution and teardown evidence
         if: always()
         run: |

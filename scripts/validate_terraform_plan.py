@@ -8,6 +8,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from atlasretail.terraform_envelope import EXPECTED_DATA_ADDRESSES, EXPECTED_MANAGED_ADDRESSES
+
 ALLOWED_MAXIMUMS = {
     "aws_athena_workgroup": 1,
     "aws_cloudwatch_log_group": 3,
@@ -43,50 +45,6 @@ REQUIRED_APPLY_TYPES = {
 }
 
 ALLOWED_READ_ONLY_DATA_TYPES = {"aws_iam_policy_document"}
-
-EXPECTED_MANAGED_ADDRESSES = {
-    "aws_athena_workgroup.verification",
-    "aws_cloudwatch_log_group.glue",
-    "aws_cloudwatch_log_group.lambda",
-    "aws_cloudwatch_log_group.states",
-    "aws_cloudwatch_metric_alarm.pipeline_failed",
-    "aws_dynamodb_table.control",
-    "aws_glue_catalog_database.retail",
-    "aws_glue_job.retail",
-    "aws_iam_role.glue",
-    "aws_iam_role.lambda",
-    "aws_iam_role.states",
-    "aws_iam_role_policy.glue",
-    "aws_iam_role_policy.lambda",
-    "aws_iam_role_policy.states",
-    "aws_kms_alias.lab",
-    "aws_kms_key.lab",
-    "aws_lambda_function.control",
-    "aws_s3_object.glue_script",
-    "aws_sfn_state_machine.retail",
-    *{
-        f"module.{module}.{resource}.this"
-        for module in ("landing_bucket", "warehouse_bucket", "evidence_bucket")
-        for resource in (
-            "aws_s3_bucket",
-            "aws_s3_bucket_lifecycle_configuration",
-            "aws_s3_bucket_ownership_controls",
-            "aws_s3_bucket_policy",
-            "aws_s3_bucket_public_access_block",
-            "aws_s3_bucket_server_side_encryption_configuration",
-            "aws_s3_bucket_versioning",
-        )
-    },
-}
-
-EXPECTED_DATA_ADDRESSES = {
-    "data.aws_iam_policy_document.glue",
-    "data.aws_iam_policy_document.lambda",
-    "data.aws_iam_policy_document.states",
-    "module.evidence_bucket.data.aws_iam_policy_document.tls",
-    "module.landing_bucket.data.aws_iam_policy_document.tls",
-    "module.warehouse_bucket.data.aws_iam_policy_document.tls",
-}
 
 
 def valid_empty_destroy_plan(plan: dict[str, Any]) -> bool:

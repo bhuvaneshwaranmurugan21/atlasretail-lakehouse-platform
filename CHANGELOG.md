@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added Part 4 immutable teardown authority and deterministic recovery: strict run-attempt/source/
+  target/backend/plan binding, immutable authority artifact identity, conditional lease states with
+  no expiry takeover, apply-outcome receipts, cleanup-only trusted-main recovery, hash-checked saved
+  destroy plans, strict recovery evidence, adversarial tests, and deterministic CI proof. Stage 5
+  remains repository-only `LOCAL_VERIFIED` readiness.
+
 - Added Part 4 contract-complete evidence finality: strict checkpoint and final schemas, exact
   Step Functions/Glue semantic correlation, generation-pinned Athena and run-bound CloudWatch
   validation, compact execution/teardown session intersections, saved-plan and inventory proof,
