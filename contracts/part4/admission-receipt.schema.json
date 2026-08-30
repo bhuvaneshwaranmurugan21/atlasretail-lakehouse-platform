@@ -1,0 +1,235 @@
+{
+  "$id": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/contracts/part4/admission-receipt.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authorization": {
+      "additionalProperties": false,
+      "properties": {
+        "destroy_confirmation": {
+          "const": "DESTROY"
+        },
+        "distinct_confirmations": {
+          "const": true
+        },
+        "execute_confirmation": {
+          "const": "EXECUTE_ATLASRETAIL_PART4"
+        },
+        "operator_is_repository_owner": {
+          "const": true
+        }
+      },
+      "required": [
+        "destroy_confirmation",
+        "distinct_confirmations",
+        "execute_confirmation",
+        "operator_is_repository_owner"
+      ],
+      "type": "object"
+    },
+    "bindings": {
+      "additionalProperties": false,
+      "properties": {
+        "admission_schema_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "aws_account_id": {
+          "pattern": "^[0-9]{12}$",
+          "type": "string"
+        },
+        "aws_region": {
+          "const": "ap-southeast-2"
+        },
+        "catalog_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "contract_id": {
+          "const": "atlasretail-part4-bounded-execution"
+        },
+        "contract_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "contract_version": {
+          "const": "1.0.0"
+        },
+        "managed_manifest_schema_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "oidc_role_arn": {
+          "const": "arn:aws:iam::857229544428:role/AtlasRetailGitHubOidcRole"
+        },
+        "provenance_schema_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_manifest_schema_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "target_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "admission_schema_sha256",
+        "aws_account_id",
+        "aws_region",
+        "catalog_sha256",
+        "contract_id",
+        "contract_sha256",
+        "contract_version",
+        "managed_manifest_schema_sha256",
+        "oidc_role_arn",
+        "provenance_schema_sha256",
+        "source_manifest_schema_sha256",
+        "target_sha256"
+      ],
+      "type": "object"
+    },
+    "bounds": {
+      "additionalProperties": false,
+      "properties": {
+        "budget_ceiling_usd": {
+          "maximum": 5,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "order_count": {
+          "maximum": 2000,
+          "minimum": 100,
+          "type": "integer"
+        },
+        "runtime_expansion_prohibited": {
+          "const": true
+        }
+      },
+      "required": [
+        "budget_ceiling_usd",
+        "order_count",
+        "runtime_expansion_prohibited"
+      ],
+      "type": "object"
+    },
+    "execution_class": {
+      "const": "BOUNDED_NON_PRODUCTION_LAB"
+    },
+    "project": {
+      "const": "AtlasRetail"
+    },
+    "receipt_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "result": {
+      "const": "PASS"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "sources": {
+      "additionalProperties": false,
+      "properties": {
+        "file_count": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "scenario_count": {
+          "const": 10
+        },
+        "source_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "source_family_count": {
+          "const": 5
+        },
+        "source_provenance_summary_file_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_provenance_summary_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_tree_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "file_count",
+        "scenario_count",
+        "source_bytes",
+        "source_family_count",
+        "source_provenance_summary_file_sha256",
+        "source_provenance_summary_sha256",
+        "source_tree_sha256"
+      ],
+      "type": "object"
+    },
+    "workflow": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "event": {
+          "const": "workflow_dispatch"
+        },
+        "ref": {
+          "const": "refs/heads/main"
+        },
+        "repository": {
+          "const": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform"
+        },
+        "repository_owner": {
+          "const": "bhuvaneshwaranmurugan21"
+        },
+        "run_attempt": {
+          "$ref": "#/$defs/positiveIntegerString"
+        },
+        "run_id": {
+          "$ref": "#/$defs/positiveIntegerString"
+        },
+        "source_commit": {
+          "pattern": "^[a-f0-9]{40}$",
+          "type": "string"
+        },
+        "workflow_name": {
+          "const": "AWS bounded lab"
+        }
+      },
+      "required": [
+        "actor",
+        "event",
+        "ref",
+        "repository",
+        "repository_owner",
+        "run_attempt",
+        "run_id",
+        "source_commit",
+        "workflow_name"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "authorization",
+    "bindings",
+    "bounds",
+    "execution_class",
+    "project",
+    "receipt_sha256",
+    "result",
+    "schema_version",
+    "sources",
+    "workflow"
+  ],
+  "title": "AtlasRetail Part 4 pre-AWS admission receipt",
+  "type": "object",
+  "$defs": {
+    "positiveIntegerString": {
+      "pattern": "^[1-9][0-9]*$",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    }
+  }
+}

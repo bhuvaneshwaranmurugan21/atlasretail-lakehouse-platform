@@ -142,10 +142,10 @@ Stage 1 freezes and locally validates this contract; it performs no AWS operatio
 new `AWS_VERIFIED` claim. Existing managed evidence remains attributed to its original source.
 Production readiness, sustained scale, SLA behaviour, and settled billing remain `UNCLAIMED`.
 
-Two implementation gaps are deliberately preserved rather than hidden: the current bounded-lab
-input text advertises a one-to-ten-dollar range although the authoritative target enforces a
-five-dollar maximum, and the workflow does not yet expose the distinct Part 4 execution
-confirmation. Do not dispatch Part 4 until later implementation conforms to both frozen bounds.
+Stage 3 closes the previously recorded dispatch gaps: the manual input now advertises the exact
+one-to-five-dollar range and exposes the distinct Part 4 execution confirmation. This does not by
+itself authorize a managed run. Do not dispatch Part 4 until the later execution and evidence
+stages are complete.
 
 ### Stage 2 deterministic source provenance
 
@@ -167,26 +167,60 @@ The identity separation and the pre-upload-to-managed boundary are recorded in
 Stage 2 performs no AWS operation and adds no `AWS_VERIFIED` claim. CI regenerates the complete
 100-order source set twice, validates each set independently, compares every byte, and retains only
 compact receipts as the `part4-stage2-source-provenance` artifact. The current Part 4 dispatch
-remains prohibited until the outstanding admission gaps above are resolved in their later stage.
+remains prohibited at the Stage 2 boundary because source provenance alone is not run admission.
+
+### Stage 3 pre-AWS admission and immutable source handoff
+
+Stage 3 adds a dedicated admission job with no OIDC permission and no AWS or Terraform command.
+It requires the repository owner to dispatch the exact `main` source, binds the run ID and attempt,
+enforces canonical 100--2,000 order and one-to-five-dollar inputs, and requires separate exact
+`EXECUTE_ATLASRETAIL_PART4` and `DESTROY` confirmations. It materializes and independently
+validates all five source families before any AWS credential can be requested.
+
+`contracts/part4/admission-receipt.schema.json` defines the strict handoff. The receipt binds the
+frozen contract, target, catalogue and schema digests; GitHub source and operator identity; the
+semantic provenance-summary digest; the physical summary-file digest; and a canonical tree digest
+over every relative path, size and source-file SHA-256. Artifact names include both run ID and run
+attempt. Execute and teardown independently rebuild the complete receipt from downloaded bytes
+before OIDC. Derived managed manifests are written outside the admitted tree.
+
+Rejected admission cannot reach AWS. Admitted execution failure still reaches teardown. The lease
+is released only after either full teardown verification or a lease-only failure path proves empty
+Terraform state and clean AWS inventory. Validate the repository control structure with
+`python scripts/validate_part4_admission_controls.py`.
+
+Stage 3 performs no AWS operation and adds no `AWS_VERIFIED` claim. CI retains a compact
+`part4-stage3-admission-controls` artifact with `LOCAL_VERIFIED` scope. The identity and cleanup
+design is recorded in `docs/adr/0004-pre-aws-admission.md`. Part 4 dispatch remains prohibited
+until its later managed-execution stages are complete.
+
+Because admission artifacts bind `github.run_attempt`, do not use **Re-run failed jobs** for a
+future Part 4 run. Re-run all jobs or create a fresh dispatch so the admission job produces the
+artifact for the new attempt. A downstream job cannot consume an earlier attempt's artifact.
 
 ## Deploy and execute
 
-Run `AWS bounded lab` manually with `order_count=500` and `confirm_destroy=DESTROY`. The workflow:
+When the later Part 4 stages authorize execution, run `AWS bounded lab` manually with
+`order_count=500`, `budget_ceiling_usd=5`,
+`confirm_execute=EXECUTE_ATLASRETAIL_PART4`, and `confirm_destroy=DESTROY`. The workflow:
 
-1. Validates the account, region, inputs, and source authorization.
-2. Acquires the account-wide DynamoDB lease.
-3. Initializes the locked remote Terraform state.
-4. Proves that state and tagged inventory are clean.
-5. Persists teardown authority before infrastructure creation.
-6. Creates and machine-validates a saved create-only plan and validates the planned ASL definition
+1. Admits the exact operator, source, attempt, bounds, confirmations and deterministic source bytes
+   without AWS credentials.
+2. Revalidates the immutable admission artifact before requesting OIDC credentials.
+3. Validates the account and region, then acquires the account-wide DynamoDB lease.
+4. Initializes the locked remote Terraform state.
+5. Proves that state and tagged inventory are clean.
+6. Persists teardown authority before infrastructure creation.
+7. Creates and machine-validates a saved create-only plan and validates the planned ASL definition
    through the Step Functions API.
-7. Applies only that saved plan.
-8. Uploads deterministic inputs with exact S3 version and checksum evidence.
-9. Runs success, replay, batch-conflict, object-tamper, injected-failure, recovery, temporal-overlap,
+8. Applies only that saved plan.
+9. Uploads only the admitted inputs with exact S3 version and checksum evidence.
+10. Runs success, replay, batch-conflict, object-tamper, injected-failure, recovery, temporal-overlap,
    financial-mismatch, and stale-publisher scenarios.
-10. Resolves one published generation and executes bounded Athena validation across all six tables.
-11. Captures service histories, logs, metrics, plans, outputs, runtime, and immediate cost estimates.
-12. Invokes the independent teardown job regardless of execution outcome.
+11. Resolves one published generation and executes bounded Athena validation across all six tables.
+12. Captures service histories, logs, metrics, plans, outputs, runtime, and immediate cost estimates.
+13. Invokes independent teardown for every admitted execution outcome and releases the lease only
+    after verified clean state.
 
 ## Expected signals
 

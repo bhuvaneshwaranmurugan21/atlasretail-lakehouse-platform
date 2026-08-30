@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from atlasretail.cli import _generate
+from atlasretail.manifest import ObjectProof
 
 SCRIPT = Path(__file__).parents[1] / "scripts" / "upload_immutable_batch.py"
 SPEC = importlib.util.spec_from_file_location("atlasretail_immutable_upload", SCRIPT)
@@ -64,3 +65,47 @@ class ImmutableUploadTests(unittest.TestCase):
             ):
                 UPLOAD.main()
             upload.assert_not_called()
+
+    def test_managed_manifest_can_be_written_outside_the_admitted_source_tree(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="atlas-upload-") as directory:
+            root = Path(directory)
+            source = root / "source"
+            managed = root / "derived" / "managed-manifest.json"
+            output = root / "uploaded.json"
+            _generate(source, orders=3, seed=21, batch_id="proof-1", fault="none")
+
+            def fake_upload(path: Path, *, bucket: str, key: str, kms_key: str) -> ObjectProof:
+                del kms_key
+                return ObjectProof(
+                    bucket=bucket,
+                    key=key,
+                    version_id="version-1",
+                    size_bytes=path.stat().st_size,
+                    sha256="a" * 64,
+                    etag="etag",
+                )
+
+            arguments = [
+                str(SCRIPT),
+                "--directory",
+                str(source),
+                "--bucket",
+                "landing",
+                "--prefix",
+                "runs/proof-1",
+                "--kms-key",
+                "key",
+                "--managed-manifest-output",
+                str(managed),
+                "--output",
+                str(output),
+            ]
+            with (
+                patch.object(sys, "argv", arguments),
+                patch.object(UPLOAD, "upload", side_effect=fake_upload),
+            ):
+                UPLOAD.main()
+
+            self.assertTrue(managed.is_file())
+            self.assertTrue(output.is_file())
+            self.assertFalse((source / "managed-manifest.json").exists())

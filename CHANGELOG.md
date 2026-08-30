@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added fail-closed Part 4 pre-AWS admission with exact owner/main/run-attempt binding, distinct
+  execution and teardown confirmations, immutable deterministic source handoff, independent
+  pre-OIDC receipt reconstruction, and verified-clean-only lease release.
+
 - Added contract-bound Part 4 source provenance with a single scenario catalogue, deterministic
   gzip bytes, separate source and managed manifest schemas, independent receipts, declared tamper
   mutation evidence, adversarial validation, and CI byte-for-byte reproduction.

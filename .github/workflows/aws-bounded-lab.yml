@@ -7,17 +7,18 @@ on:
         description: Synthetic orders per managed scenario (100-2000)
         required: true
         default: "500"
+      confirm_execute:
+        description: Type EXECUTE_ATLASRETAIL_PART4 to authorize this exact bounded run
+        required: true
       confirm_destroy:
         description: Type DESTROY to confirm automatic teardown
         required: true
-        default: "DESTROY"
       budget_ceiling_usd:
-        description: Maximum planned gross cost for this bounded run (1-10 USD)
+        description: Maximum planned gross cost for this bounded run (1-5 USD)
         required: true
         default: "5"
 
 permissions:
-  id-token: write
   contents: read
 
 concurrency:
@@ -25,7 +26,92 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  admission:
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      ADMISSION_DIR: .control/admission
+      SOURCE_DIR: .control/admission/sources
+      ORDER_COUNT: ${{ inputs.order_count }}
+      CONFIRM_EXECUTE: ${{ inputs.confirm_execute }}
+      CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
+      BUDGET_CEILING_USD: ${{ inputs.budget_ceiling_usd }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install the exact local admission implementation
+        run: python -m pip install --disable-pip-version-check .
+      - name: Materialize the exact pre-AWS source tree
+        run: |
+          set -euo pipefail
+          mkdir -p "${ADMISSION_DIR}"
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          atlasretail generate-sources \
+            --output "${SOURCE_DIR}" \
+            --orders "${ORDER_COUNT}" \
+            --source-commit "${GITHUB_SHA}" \
+            --run-id "${GITHUB_RUN_ID}"
+      - name: Admit the exact bounded run intent
+        id: admit
+        run: |
+          set -euo pipefail
+          python scripts/admit_part4_run.py \
+            --source-directory "${SOURCE_DIR}" \
+            --output "${ADMISSION_DIR}/admission-receipt.json" \
+            --github-output "${GITHUB_OUTPUT}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --workflow-name "${GITHUB_WORKFLOW}" \
+            --event "${GITHUB_EVENT_NAME}" \
+            --ref "${GITHUB_REF}" \
+            --actor "${GITHUB_ACTOR}" \
+            --repository-owner "${GITHUB_REPOSITORY_OWNER}" \
+            --source-commit "${GITHUB_SHA}" \
+            --checked-out-commit "$(git rev-parse HEAD)" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --order-count "${ORDER_COUNT}" \
+            --budget-ceiling-usd "${BUDGET_CEILING_USD}" \
+            --confirm-execute "${CONFIRM_EXECUTE}" \
+            --confirm-destroy "${CONFIRM_DESTROY}"
+      - name: Independently revalidate the produced admission
+        run: |
+          python scripts/validate_part4_admission.py \
+            --source-directory "${SOURCE_DIR}" \
+            --receipt "${ADMISSION_DIR}/admission-receipt.json" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --workflow-name "${GITHUB_WORKFLOW}" \
+            --event "${GITHUB_EVENT_NAME}" \
+            --ref "${GITHUB_REF}" \
+            --actor "${GITHUB_ACTOR}" \
+            --repository-owner "${GITHUB_REPOSITORY_OWNER}" \
+            --source-commit "${GITHUB_SHA}" \
+            --checked-out-commit "$(git rev-parse HEAD)" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --order-count "${ORDER_COUNT}" \
+            --budget-ceiling-usd "${BUDGET_CEILING_USD}" \
+            --confirm-execute "${CONFIRM_EXECUTE}" \
+            --confirm-destroy "${CONFIRM_DESTROY}"
+      - name: Persist the immutable admitted source handoff
+        id: upload-admission
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-part4-admission-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .control/admission
+          if-no-files-found: error
+          retention-days: 1
+
   execute:
+    needs: admission
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     runs-on: ubuntu-24.04
     timeout-minutes: 100
     env:
@@ -35,8 +121,10 @@ jobs:
       TF_DIR: infra/atlas
       EVIDENCE_DIR: evidence/aws/${{ github.run_id }}
       ORDER_COUNT: ${{ inputs.order_count }}
+      CONFIRM_EXECUTE: ${{ inputs.confirm_execute }}
       CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
       BUDGET_CEILING_USD: ${{ inputs.budget_ceiling_usd }}
+      ADMISSION_DIR: .control/admission
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Load and verify the checked-in AWS target
@@ -54,6 +142,34 @@ jobs:
           python-version: "3.12"
       - name: Install the local generator
         run: python -m pip install --disable-pip-version-check .
+      - name: Recover the exact admitted source handoff
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-part4-admission-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .control/admission
+      - name: Revalidate admission before requesting AWS credentials
+        run: |
+          set -euo pipefail
+          python scripts/validate_part4_admission.py \
+            --source-directory "${ADMISSION_DIR}/sources" \
+            --receipt "${ADMISSION_DIR}/admission-receipt.json" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --workflow-name "${GITHUB_WORKFLOW}" \
+            --event "${GITHUB_EVENT_NAME}" \
+            --ref "${GITHUB_REF}" \
+            --actor "${GITHUB_ACTOR}" \
+            --repository-owner "${GITHUB_REPOSITORY_OWNER}" \
+            --source-commit "${GITHUB_SHA}" \
+            --checked-out-commit "$(git rev-parse HEAD)" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --order-count "${ORDER_COUNT}" \
+            --budget-ceiling-usd "${BUDGET_CEILING_USD}" \
+            --confirm-execute "${CONFIRM_EXECUTE}" \
+            --confirm-destroy "${CONFIRM_DESTROY}"
+          mkdir -p "${EVIDENCE_DIR}"
+          cp "${ADMISSION_DIR}/admission-receipt.json" \
+            "${EVIDENCE_DIR}/admission-receipt.json"
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
         with:
           terraform_version: 1.11.4
@@ -63,9 +179,11 @@ jobs:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-${{ github.run_id }}
-      - name: Validate hard safety bounds
+      - name: Validate admitted bounds and live AWS identity
         run: |
           set -euo pipefail
+          test "${GITHUB_ACTOR}" = "${GITHUB_REPOSITORY_OWNER}"
+          test "${CONFIRM_EXECUTE}" = "EXECUTE_ATLASRETAIL_PART4"
           test "${CONFIRM_DESTROY}" = "DESTROY"
           [[ "${ORDER_COUNT}" =~ ^[0-9]+$ ]]
           test "${ORDER_COUNT}" -ge 100
@@ -165,37 +283,52 @@ jobs:
             2>&1 | tee "${EVIDENCE_DIR}/terraform-apply.log"
           terraform -chdir="${TF_DIR}" output -json \
             > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
-      - name: Generate and upload immutable inputs
+      - name: Upload only the admitted immutable inputs
         run: |
           set -euo pipefail
           landing="$(terraform -chdir="${TF_DIR}" output -raw landing_bucket)"
           kms_key="$(terraform -chdir="${TF_DIR}" output -raw kms_key_arn)"
-          atlasretail generate-sources \
-            --output .artifacts/aws \
-            --orders "${ORDER_COUNT}" \
-            --source-commit "${GITHUB_SHA}" \
-            --run-id "${RUN_ID}"
-          python scripts/validate_part4_sources.py --directory .artifacts/aws \
+          source_root="${ADMISSION_DIR}/sources"
+          python scripts/validate_part4_sources.py --directory "${source_root}" \
             > "${EVIDENCE_DIR}/source-provenance-validation.json"
-          cp .artifacts/aws/source-provenance-summary.json \
+          cp "${source_root}/source-provenance-summary.json" \
             "${EVIDENCE_DIR}/source-provenance-summary.json"
           for scenario in success failure tamper temporal financial; do
             batch="${scenario}-${RUN_ID}"
             python scripts/upload_immutable_batch.py \
-              --directory ".artifacts/aws/${scenario}" \
+              --directory "${source_root}/${scenario}" \
               --bucket "${landing}" \
               --prefix "runs/${batch}" \
               --kms-key "${kms_key}" \
+              --managed-manifest-output \
+                "${EVIDENCE_DIR}/${scenario}-managed-manifest.json" \
               --output "${EVIDENCE_DIR}/${scenario}-registration.json"
-            cp ".artifacts/aws/${scenario}/managed-manifest.json" \
-              "${EVIDENCE_DIR}/${scenario}-managed-manifest.json"
-            cp ".artifacts/aws/${scenario}/expected-results.json" \
+            cp "${source_root}/${scenario}/expected-results.json" \
               "${EVIDENCE_DIR}/${scenario}-expected-results.json"
-            cp ".artifacts/aws/${scenario}/source-provenance.json" \
+            cp "${source_root}/${scenario}/source-provenance.json" \
               "${EVIDENCE_DIR}/${scenario}-source-provenance.json"
           done
-          cp .artifacts/aws/tamper/tamper-mutation.json \
+          cp "${source_root}/tamper/tamper-mutation.json" \
             "${EVIDENCE_DIR}/tamper-mutation.json"
+      - name: Prove the admitted source tree remained unchanged after upload
+        run: |
+          python scripts/validate_part4_admission.py \
+            --source-directory "${ADMISSION_DIR}/sources" \
+            --receipt "${ADMISSION_DIR}/admission-receipt.json" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --workflow-name "${GITHUB_WORKFLOW}" \
+            --event "${GITHUB_EVENT_NAME}" \
+            --ref "${GITHUB_REF}" \
+            --actor "${GITHUB_ACTOR}" \
+            --repository-owner "${GITHUB_REPOSITORY_OWNER}" \
+            --source-commit "${GITHUB_SHA}" \
+            --checked-out-commit "$(git rev-parse HEAD)" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --order-count "${ORDER_COUNT}" \
+            --budget-ceiling-usd "${BUDGET_CEILING_USD}" \
+            --confirm-execute "${CONFIRM_EXECUTE}" \
+            --confirm-destroy "${CONFIRM_DESTROY}"
       - name: Execute success and replay proofs
         run: |
           set -euo pipefail
@@ -292,27 +425,27 @@ jobs:
           aws s3api put-object \
             --bucket "${landing}" \
             --key "${object_key}" \
-            --body .artifacts/aws/tamper/tamper-replacement.bin \
+            --body "${ADMISSION_DIR}/sources/tamper/tamper-replacement.bin" \
             --server-side-encryption aws:kms \
             --ssekms-key-id "${kms_key}" \
             --checksum-algorithm SHA256 \
             > "${EVIDENCE_DIR}/tampered-object-put.json"
           tampered_version="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["VersionId"])' "${EVIDENCE_DIR}/tampered-object-put.json")"
           python scripts/create_tampered_manifest.py \
-            --input ".artifacts/aws/tamper/managed-manifest.json" \
+            --input "${EVIDENCE_DIR}/tamper-managed-manifest.json" \
             --table orders \
             --version-id "${tampered_version}" \
-            --output ".artifacts/aws/tamper/tampered-manifest.json"
+            --output "${EVIDENCE_DIR}/tampered-manifest.json"
           aws s3api put-object \
             --bucket "${landing}" \
             --key "runs/${batch}/tampered-manifest.json" \
-            --body ".artifacts/aws/tamper/tampered-manifest.json" \
+            --body "${EVIDENCE_DIR}/tampered-manifest.json" \
             --server-side-encryption aws:kms \
             --ssekms-key-id "${kms_key}" \
             --checksum-algorithm SHA256 \
             > "${EVIDENCE_DIR}/tampered-manifest-put.json"
           python - \
-            ".artifacts/aws/tamper/tampered-manifest.json" \
+            "${EVIDENCE_DIR}/tampered-manifest.json" \
             "${EVIDENCE_DIR}/tampered-manifest-put.json" \
             "s3://${landing}/runs/${batch}/tampered-manifest.json" \
             "${EVIDENCE_DIR}/tamper-execution-registration.json" <<'PY'
@@ -463,8 +596,12 @@ jobs:
           retention-days: 1
 
   teardown:
-    needs: execute
-    if: ${{ always() }}
+    needs: [admission, execute]
+    if: ${{ always() && needs.admission.result == 'success' }}
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -473,6 +610,11 @@ jobs:
       RUN_ID: ${{ github.run_id }}
       TF_DIR: infra/atlas
       EVIDENCE_DIR: evidence/aws/${{ github.run_id }}
+      ADMISSION_DIR: .control/admission
+      ORDER_COUNT: ${{ inputs.order_count }}
+      CONFIRM_EXECUTE: ${{ inputs.confirm_execute }}
+      CONFIRM_DESTROY: ${{ inputs.confirm_destroy }}
+      BUDGET_CEILING_USD: ${{ inputs.budget_ceiling_usd }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Load and verify the checked-in AWS target
@@ -488,6 +630,37 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
+      - name: Install the exact local admission implementation
+        run: python -m pip install --disable-pip-version-check .
+      - name: Prepare teardown workspace
+        run: mkdir -p "${EVIDENCE_DIR}" .control/teardown .control/lease
+      - name: Recover the exact admitted source handoff for teardown
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-part4-admission-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .control/admission
+      - name: Revalidate teardown admission before requesting AWS credentials
+        run: |
+          set -euo pipefail
+          python scripts/validate_part4_admission.py \
+            --source-directory "${ADMISSION_DIR}/sources" \
+            --receipt "${ADMISSION_DIR}/admission-receipt.json" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --workflow-name "${GITHUB_WORKFLOW}" \
+            --event "${GITHUB_EVENT_NAME}" \
+            --ref "${GITHUB_REF}" \
+            --actor "${GITHUB_ACTOR}" \
+            --repository-owner "${GITHUB_REPOSITORY_OWNER}" \
+            --source-commit "${GITHUB_SHA}" \
+            --checked-out-commit "$(git rev-parse HEAD)" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --order-count "${ORDER_COUNT}" \
+            --budget-ceiling-usd "${BUDGET_CEILING_USD}" \
+            --confirm-execute "${CONFIRM_EXECUTE}" \
+            --confirm-destroy "${CONFIRM_DESTROY}"
+          cp "${ADMISSION_DIR}/admission-receipt.json" \
+            "${EVIDENCE_DIR}/admission-receipt.json"
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
         with:
           terraform_version: 1.11.4
@@ -497,8 +670,6 @@ jobs:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-teardown-${{ github.run_id }}
-      - name: Prepare teardown workspace
-        run: mkdir -p "${EVIDENCE_DIR}" .control/teardown
       - name: Recover pre-teardown evidence
         continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
@@ -511,6 +682,22 @@ jobs:
         with:
           name: atlasretail-teardown-authority-${{ github.run_id }}
           path: .control/teardown
+      - name: Recover immutable lease ownership
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-lease-${{ github.run_id }}
+          path: .control/lease
+      - name: Validate recovered lease ownership
+        id: lease
+        run: |
+          expected="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}"
+          lease=".control/lease/lease-owner.txt"
+          if [[ -s "${lease}" ]] && [[ "$(<"${lease}")" = "${expected}" ]]; then
+            echo "present=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "present=false" >> "${GITHUB_OUTPUT}"
+          fi
       - name: Validate teardown authority
         id: authority
         run: |
@@ -523,8 +710,7 @@ jobs:
             printf '{"result":"SKIPPED","reason":"No valid teardown authority was persisted before apply."}\n' \
               > "${EVIDENCE_DIR}/teardown.json"
           fi
-      - name: Initialize backend and capture final outputs
-        if: steps.authority.outputs.present == 'true'
+      - name: Initialize backend for admitted cleanup
         run: |
           set -euo pipefail
           terraform -chdir="${TF_DIR}" init \
@@ -534,11 +720,46 @@ jobs:
             -backend-config="dynamodb_table=${TERRAFORM_LOCK_TABLE}" \
             -backend-config="encrypt=true" \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-teardown-init.log"
-          outputs="${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
-          if [[ ! -s "${outputs}" ]]; then
-            terraform -chdir="${TF_DIR}" output -json > "${outputs}" \
-              2> "${EVIDENCE_DIR}/terraform-output-recovery.log" \
-              || printf '{}\n' > "${outputs}"
+          if [[ "${{ steps.authority.outputs.present }}" = "true" ]]; then
+            outputs="${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
+            if [[ ! -s "${outputs}" ]]; then
+              terraform -chdir="${TF_DIR}" output -json > "${outputs}" \
+                2> "${EVIDENCE_DIR}/terraform-output-recovery.log" \
+                || printf '{}\n' > "${outputs}"
+            fi
+          fi
+      - name: Prove a clean no-deployment failure path
+        id: verify_no_deployment
+        if: ${{ steps.authority.outputs.present != 'true' }}
+        run: |
+          set -euo pipefail
+          arguments=(
+            "${TF_DIR}"
+            "${EVIDENCE_DIR}/no-deployment-cleanup.json"
+            "${ACCOUNT_LEASE_TABLE}"
+          )
+          if [[ "${{ steps.lease.outputs.present }}" = "true" ]]; then
+            arguments+=("${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}")
+          fi
+          python scripts/verify_preflight.py "${arguments[@]}"
+          python - \
+            "${EVIDENCE_DIR}/no-deployment-cleanup.json" \
+            "${EVIDENCE_DIR}/teardown.json" <<'PY'
+          import json, sys
+          from pathlib import Path
+
+          proof = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          if proof.get("result") != "PASS":
+              raise SystemExit("no-deployment cleanup was not proved clean")
+          result = {
+              "mode": "NO_DEPLOYMENT_REQUIRED",
+              "result": "PASS",
+              "verified_preflight": Path(sys.argv[1]).name,
+          }
+          Path(sys.argv[2]).write_text(
+              json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PY
           fi
       - name: Create and validate the saved destroy-only plan
         if: steps.authority.outputs.present == 'true'
@@ -566,6 +787,7 @@ jobs:
           terraform -chdir="${TF_DIR}" apply -auto-approve destroy.tfplan \
             2>&1 | tee "${EVIDENCE_DIR}/terraform-destroy.log"
       - name: Prove teardown across AWS and Terraform inventories
+        id: verify_teardown
         if: ${{ always() && steps.authority.outputs.present == 'true' }}
         run: |
           python scripts/verify_teardown.py \
@@ -573,8 +795,11 @@ jobs:
             "${TF_DIR}" \
             "${RUN_ID}" \
             "${EVIDENCE_DIR}/teardown.json"
-      - name: Release only this run's account-wide lease
-        if: always()
+      - name: Release only a verified clean run's account-wide lease
+        if: >-
+          ${{ always() &&
+              (steps.verify_teardown.outcome == 'success' ||
+               steps.verify_no_deployment.outcome == 'success') }}
         env:
           PORTFOLIO_LOCK_OWNER: ${{ github.repository }}/${{ github.run_id }}
         run: bash scripts/release_lock.sh

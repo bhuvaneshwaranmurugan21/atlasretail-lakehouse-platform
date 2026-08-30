@@ -73,6 +73,7 @@ def main() -> None:
     parser.add_argument("--bucket", required=True)
     parser.add_argument("--prefix", required=True)
     parser.add_argument("--kms-key", required=True)
+    parser.add_argument("--managed-manifest-output", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
 
@@ -103,7 +104,10 @@ def main() -> None:
         )
 
     managed = bind_objects(local_manifest, object_map)
-    managed_path = arguments.directory / "managed-manifest.json"
+    managed_path = (
+        arguments.managed_manifest_output or arguments.directory / "managed-manifest.json"
+    )
+    managed_path.parent.mkdir(parents=True, exist_ok=True)
     managed_path.write_text(
         json.dumps(managed.to_dict(), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",

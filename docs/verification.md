@@ -19,6 +19,8 @@ environment that produced it.
 | Immutable object manifest | `LOCAL_VERIFIED` | Canonical digest and exact S3 identity contract tests |
 | Glue 5 Spark and Iceberg runtime compatibility | `LOCAL_VERIFIED` | Pinned Glue 5-compatible runtime executes Spark validation, real local Iceberg snapshots, replay, and failure recovery |
 | Managed lifecycle and serving resolver | `LOCAL_VERIFIED` | Conditional-transition, publication, recovery, and query-boundary tests |
+| Part 4 deterministic source provenance | `LOCAL_VERIFIED` | Five contract-bound source families, deterministic compressed bytes, separate semantic/file identities, strict receipts, and independent CI reproduction |
+| Part 4 pre-AWS admission controls | `LOCAL_VERIFIED` | Exact operator, `main` source, run attempt, distinct confirmations, cost/workload bounds and source tree are revalidated before OIDC; lease release requires verified clean state |
 | GitHub OIDC identity | `AWS_VERIFIED` | Current-target short-lived credentials issued to the repository's `main` branch |
 | Organization-shared credit safety | `OWNER_ATTESTED` | Management-account credit balance and unrestricted organization sharing were reviewed; the attestation expires quickly and must be refreshed |
 | IAM and persistent foundation | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) verified exact live IAM parity, hardened persistent resources, budget alerts, lease contention and release, an empty backend, and zero AtlasRetail workload resources |
@@ -50,6 +52,12 @@ Managed evidence must include the source commit, repository run identifier, AWS 
 input identity, execution status, result validation, and teardown status. Estimates and local
 simulations are not promoted to managed measurements. A successful data path with failed cleanup
 is a failed validation run.
+
+The Stage 3 admission-control artifact is repository-only evidence. It proves workflow permission
+ordering, exact input bounds, attempt-bound immutable source handoff, independent receipt
+revalidation, and clean-only lease-release routing. It contains `aws_execution: false` and cannot
+promote any infrastructure, workload, runtime, cost, CloudWatch, Athena, or teardown claim to
+`AWS_VERIFIED`.
 
 Sanitized summaries may be committed under `evidence/`. Detailed logs remain attached to their
 GitHub Actions runs and must not contain credentials or customer data.

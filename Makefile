@@ -8,6 +8,7 @@ quality:
 	python -m mypy src
 	python scripts/validate_part4_contract.py
 	python scripts/validate_part4_sources.py
+	python scripts/validate_part4_admission_controls.py
 	python -m pytest
 
 evidence:
