@@ -230,8 +230,69 @@ def complete_evidence(root: Path) -> EvidenceContext:
             "session_policy_sha256": execution_policy_sha,
         },
     )
-    owner = f"{EXPECTED_REPOSITORY}/{RUN_ID}"
+    owner = f"{EXPECTED_REPOSITORY}/{RUN_ID}/1"
     write(root, "lease-acquisition.json", {"result": "PASS", "owner": owner})
+    write(
+        root,
+        "teardown-authority.json",
+        {
+            "authority_version": "1.0",
+            "workflow": {
+                "repository": EXPECTED_REPOSITORY,
+                "run_id": RUN_ID,
+                "run_attempt": "1",
+                "source_commit": SOURCE_COMMIT,
+            },
+            "lease": {"owner": owner},
+        },
+    )
+    authority_sha = hashlib.sha256((root / "teardown-authority.json").read_bytes()).hexdigest()
+    write(
+        root,
+        "teardown-authority-digest.json",
+        {"result": "PASS", "authority_sha256": authority_sha},
+    )
+    write(
+        root,
+        "teardown-authority-verification.json",
+        {
+            "result": "PASS",
+            "run_id": RUN_ID,
+            "run_attempt": "1",
+            "source_commit": SOURCE_COMMIT,
+            "lease_owner": owner,
+            "authority_file_sha256": authority_sha,
+            "managed_address_count": 40,
+            "read_only_data_address_count": 6,
+            "plan_files_revalidated": True,
+            "authority_bound_recovery_mode": False,
+        },
+    )
+    write(
+        root,
+        "lease-authority-binding.json",
+        {
+            "result": "PASS",
+            "owner": owner,
+            "run_attempt": "1",
+            "source_commit": SOURCE_COMMIT,
+            "state": "AUTHORITY_BOUND",
+            "consistent_read": True,
+            "authority_sha256": authority_sha,
+        },
+    )
+    write(
+        root,
+        "apply-outcome.json",
+        {
+            "result": "PASS",
+            "exit_code": 0,
+            "saved_plan_only": True,
+            "authority_sha256": authority_sha,
+            "started_at": "2026-08-30T00:00:00+00:00",
+            "finished_at": "2026-08-30T00:01:00+00:00",
+        },
+    )
     write(
         root,
         "budget-verification.json",
@@ -419,6 +480,37 @@ def complete_final_evidence(root: Path) -> EvidenceContext:
     write(root, "terraform-destroy-plan-validation.json", {"result": "PASS", "mode": "destroy"})
     write(root, "teardown.json", {"result": "PASS", "checks": [{"deleted": True}]})
     write(root, "teardown-session-policy.json", POLICY.build_policy("teardown"))
+    owner = f"{EXPECTED_REPOSITORY}/{RUN_ID}/1"
+    authority_sha = hashlib.sha256((root / "teardown-authority.json").read_bytes()).hexdigest()
+    write(
+        root,
+        "teardown-authority-recovery-verification.json",
+        {
+            "result": "PASS",
+            "run_id": RUN_ID,
+            "run_attempt": "1",
+            "source_commit": SOURCE_COMMIT,
+            "lease_owner": owner,
+            "authority_file_sha256": authority_sha,
+            "managed_address_count": 40,
+            "read_only_data_address_count": 6,
+            "plan_files_revalidated": False,
+            "authority_bound_recovery_mode": True,
+        },
+    )
+    write(
+        root,
+        "teardown-lease-authority-verification.json",
+        {
+            "result": "PASS",
+            "owner": owner,
+            "run_attempt": "1",
+            "source_commit": SOURCE_COMMIT,
+            "state": "AUTHORITY_BOUND",
+            "consistent_read": True,
+            "authority_sha256": authority_sha,
+        },
+    )
     teardown_policy_sha = hashlib.sha256(
         (root / "teardown-session-policy.json").read_bytes()
     ).hexdigest()
@@ -437,7 +529,10 @@ def complete_final_evidence(root: Path) -> EvidenceContext:
         "lease-release-verification.json",
         {
             "result": "PASS",
-            "owner": f"{EXPECTED_REPOSITORY}/{RUN_ID}",
+            "owner": owner,
+            "run_attempt": "1",
+            "source_commit": SOURCE_COMMIT,
+            "authority_sha256": authority_sha,
             "lease_absent": True,
             "consistent_read": True,
         },
@@ -536,6 +631,21 @@ def test_finalizer_requires_all_twenty_domains(tmp_path: Path) -> None:
             change_athena_actual,
             "differs from runtime expected results",
         ),
+        (
+            "apply-outcome.json",
+            lambda value: value.update({"authority_sha256": "b" * 64}),
+            "saved apply outcome",
+        ),
+        (
+            "lease-authority-binding.json",
+            lambda value: value.update({"source_commit": "b" * 40}),
+            "lease was not bound",
+        ),
+        (
+            "teardown-authority-verification.json",
+            lambda value: value.update({"plan_files_revalidated": False}),
+            "teardown authority was not independently validated",
+        ),
     ],
 )
 def test_execution_mutations_fail_closed(
@@ -585,8 +695,18 @@ def test_metered_estimate_above_admitted_ceiling_fails_closed(tmp_path: Path) ->
         ("teardown.json", lambda value: value["checks"][0].update({"deleted": False}), "residue"),
         (
             "lease-release-verification.json",
+            lambda value: value.update({"authority_sha256": "b" * 64}),
+            "exact immutable authority",
+        ),
+        (
+            "lease-release-verification.json",
             lambda value: value.update({"lease_absent": False}),
             "absence",
+        ),
+        (
+            "teardown-authority-recovery-verification.json",
+            lambda value: value.update({"run_attempt": "2"}),
+            "recover exact immutable authority",
         ),
         (
             "post-teardown-budget-verification.json",

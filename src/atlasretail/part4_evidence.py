@@ -727,8 +727,57 @@ def validate_execution(context: EvidenceContext) -> dict[str, Any]:
     source = _pass(context.root / "source-provenance-validation.json")
     session = _validate_session(context, "execution")
     lease = _pass(context.root / "lease-acquisition.json")
+    authority = _pass(context.root / "teardown-authority-verification.json")
+    authority_digest = _pass(context.root / "teardown-authority-digest.json")
+    authority_binding = _pass(context.root / "lease-authority-binding.json")
+    apply_outcome = _pass(context.root / "apply-outcome.json")
+    expected_owner = f"{EXPECTED_REPOSITORY}/{context.run_id}/{context.run_attempt}"
     _require(
-        lease.get("owner") == f"{EXPECTED_REPOSITORY}/{context.run_id}", "lease owner is wrong"
+        lease.get("owner") == expected_owner,
+        "lease owner is wrong or not attempt-bound",
+    )
+    _require(
+        authority.get("run_id") == context.run_id
+        and authority.get("run_attempt") == context.run_attempt
+        and authority.get("source_commit") == context.source_commit
+        and authority.get("lease_owner") == expected_owner
+        and authority.get("plan_files_revalidated") is True
+        and authority.get("authority_bound_recovery_mode") is False,
+        "teardown authority was not independently validated before apply",
+    )
+    _require(
+        authority_digest.get("authority_sha256")
+        == _sha256(context.root / "teardown-authority.json"),
+        "teardown authority digest differs from exact retained bytes",
+    )
+    _require(
+        authority.get("authority_file_sha256") == authority_digest.get("authority_sha256")
+        and authority.get("managed_address_count") == 40
+        and authority.get("read_only_data_address_count") == 6,
+        "teardown authority verification differs from exact envelope bytes",
+    )
+    _require(
+        authority_binding.get("owner") == expected_owner
+        and authority_binding.get("run_attempt") == context.run_attempt
+        and authority_binding.get("source_commit") == context.source_commit
+        and authority_binding.get("state") == "AUTHORITY_BOUND"
+        and authority_binding.get("consistent_read") is True
+        and authority_binding.get("authority_sha256") == authority_digest.get("authority_sha256"),
+        "account lease was not bound to exact teardown authority",
+    )
+    try:
+        apply_started = datetime.fromisoformat(str(apply_outcome.get("started_at")))
+        apply_finished = datetime.fromisoformat(str(apply_outcome.get("finished_at")))
+    except ValueError as error:
+        raise EvidenceError("saved apply outcome timestamps are invalid") from error
+    _require(
+        apply_outcome.get("exit_code") == 0
+        and apply_outcome.get("saved_plan_only") is True
+        and apply_outcome.get("authority_sha256") == authority_digest.get("authority_sha256")
+        and apply_started.utcoffset() is not None
+        and apply_finished.utcoffset() is not None
+        and apply_finished >= apply_started,
+        "saved apply outcome is not exact, successful, and chronologically valid",
     )
     budget = _pass(context.root / "budget-verification.json")
     _require(
@@ -746,11 +795,21 @@ def validate_execution(context: EvidenceContext) -> dict[str, Any]:
         "admission": _domain(context.root / "admission-receipt.json"),
         "source_provenance": {"result": "PASS", "detail": source},
         "iam_session": {"result": "PASS", "detail": session},
-        "account_lease": {"result": "PASS", "detail": lease},
+        "account_lease": {
+            "result": "PASS",
+            "acquisition": lease,
+            "authority_binding": authority_binding,
+        },
         "terraform_preflight": _domain(context.root / "preflight.json"),
-        "saved_apply_plan": _domain(
-            context.root / "terraform-apply-plan-validation.json", mode="apply"
-        ),
+        "saved_apply_plan": {
+            "result": "PASS",
+            "validation": _domain(
+                context.root / "terraform-apply-plan-validation.json", mode="apply"
+            ),
+            "teardown_authority": authority,
+            "authority_sha256": authority_digest["authority_sha256"],
+            "apply_outcome": apply_outcome,
+        },
         "deployed_inventory": _domain(context.root / "deployment-verification.json"),
         "scenario_inputs": scenario_inputs,
         "step_functions_histories": executions,
@@ -833,6 +892,38 @@ def finalize_evidence(context: EvidenceContext) -> dict[str, Any]:
     domains["saved_destroy_plan"] = _domain(
         context.root / "terraform-destroy-plan-validation.json", mode="destroy"
     )
+    recovered_authority = _pass(context.root / "teardown-authority-recovery-verification.json")
+    teardown_lease = _pass(context.root / "teardown-lease-authority-verification.json")
+    authority_digest = _pass(context.root / "teardown-authority-digest.json")
+    expected_owner = f"{EXPECTED_REPOSITORY}/{context.run_id}/{context.run_attempt}"
+    _require(
+        recovered_authority.get("run_id") == context.run_id
+        and recovered_authority.get("run_attempt") == context.run_attempt
+        and recovered_authority.get("source_commit") == context.source_commit
+        and recovered_authority.get("lease_owner") == expected_owner
+        and recovered_authority.get("authority_bound_recovery_mode") is True,
+        "teardown did not independently recover exact immutable authority",
+    )
+    _require(
+        recovered_authority.get("authority_file_sha256") == authority_digest.get("authority_sha256")
+        and recovered_authority.get("managed_address_count") == 40
+        and recovered_authority.get("read_only_data_address_count") == 6,
+        "recovered teardown authority differs from exact envelope bytes",
+    )
+    _require(
+        teardown_lease.get("owner") == expected_owner
+        and teardown_lease.get("run_attempt") == context.run_attempt
+        and teardown_lease.get("source_commit") == context.source_commit
+        and teardown_lease.get("state") == "AUTHORITY_BOUND"
+        and teardown_lease.get("consistent_read") is True
+        and teardown_lease.get("authority_sha256") == authority_digest.get("authority_sha256"),
+        "teardown lease does not match immutable authority",
+    )
+    domains["saved_destroy_plan"] = {
+        **domains["saved_destroy_plan"],
+        "teardown_authority": recovered_authority,
+        "lease_authority": teardown_lease,
+    }
     teardown = _pass(context.root / "teardown.json")
     checks = teardown.get("checks")
     if (
@@ -844,12 +935,18 @@ def finalize_evidence(context: EvidenceContext) -> dict[str, Any]:
     domains["post_teardown_inventories"] = {"result": "PASS", "detail": teardown}
     lease = _pass(context.root / "lease-release-verification.json")
     _require(
-        lease.get("owner") == f"{EXPECTED_REPOSITORY}/{context.run_id}",
+        lease.get("owner") == expected_owner,
         "released lease owner is wrong",
     )
     _require(
         lease.get("lease_absent") is True and lease.get("consistent_read") is True,
         "account lease absence was not consistently verified",
+    )
+    _require(
+        lease.get("authority_sha256") == authority_digest.get("authority_sha256")
+        and lease.get("run_attempt") == context.run_attempt
+        and lease.get("source_commit") == context.source_commit,
+        "lease release was not conditioned on exact immutable authority",
     )
     domains["lease_release"] = {"result": "PASS", "detail": lease}
     post_budget = _pass(context.root / "post-teardown-budget-verification.json")

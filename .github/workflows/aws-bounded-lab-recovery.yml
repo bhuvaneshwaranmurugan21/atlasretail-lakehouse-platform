@@ -1,0 +1,379 @@
+name: AWS bounded lab recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      failed_run_id:
+        description: Failed AWS bounded lab run ID whose exact authority permits cleanup
+        required: true
+      failed_run_attempt:
+        description: Failed AWS bounded lab run attempt bound into the authority
+        required: true
+        default: "1"
+      failed_source_commit:
+        description: Exact 40-character source commit bound into the failed run authority
+        required: true
+      confirm_recovery:
+        description: Type RECOVER_ATLASRETAIL_PART4 to authorize cleanup only
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portfolio-aws-account
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      FAILED_RUN_ID: ${{ inputs.failed_run_id }}
+      FAILED_RUN_ATTEMPT: ${{ inputs.failed_run_attempt }}
+      FAILED_SOURCE_COMMIT: ${{ inputs.failed_source_commit }}
+      CONFIRM_RECOVERY: ${{ inputs.confirm_recovery }}
+      FAILED_ROOT: ${{ github.workspace }}/.control/failed-source
+      AUTHORITY_DIR: .control/recovery-authority
+      UPSTREAM_DIR: .control/upstream-evidence
+      EVIDENCE_DIR: evidence/aws-recovery/${{ github.run_id }}
+    steps:
+      - name: Check out trusted recovery controls from main
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: refs/heads/main
+          path: trusted
+      - name: Check out the exact failed deployment source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.failed_source_commit }}
+          path: .control/failed-source
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+        with:
+          terraform_version: 1.11.4
+          terraform_wrapper: false
+      - name: Prepare the trusted recovery workspace
+        working-directory: trusted
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          [[ "${FAILED_RUN_ID}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${FAILED_RUN_ATTEMPT}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${FAILED_SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
+          test "${CONFIRM_RECOVERY}" = "RECOVER_ATLASRETAIL_PART4"
+          test "$(git -C "${FAILED_ROOT}" rev-parse HEAD)" = "${FAILED_SOURCE_COMMIT}"
+          mkdir -p "${GITHUB_WORKSPACE}/${AUTHORITY_DIR}" \
+            "${GITHUB_WORKSPACE}/${UPSTREAM_DIR}" \
+            "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}"
+          python -m pip install --disable-pip-version-check .
+      - name: Load and verify the trusted checked-in AWS target
+        id: target
+        working-directory: trusted
+        run: |
+          python scripts/load_aws_target.py \
+            --github-output "${GITHUB_OUTPUT}" \
+            --github-env "${GITHUB_ENV}" \
+            --expect-role-arn "${{ vars.AWS_ROLE_ARN }}" \
+            --expect-region "${{ vars.AWS_REGION }}" \
+            --expect-repository "${GITHUB_REPOSITORY}" \
+            --expect-ref "${GITHUB_REF}"
+      - name: Recover only the exact failed attempt authority
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-part4-teardown-authority-${{ inputs.failed_run_id }}-${{ inputs.failed_run_attempt }}
+          path: .control/recovery-authority
+          run-id: ${{ inputs.failed_run_id }}
+          github-token: ${{ github.token }}
+      - name: Recover upstream identifiers when available
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: atlasretail-pre-teardown-${{ inputs.failed_run_id }}-${{ inputs.failed_run_attempt }}
+          path: .control/upstream-evidence
+          run-id: ${{ inputs.failed_run_id }}
+          github-token: ${{ github.token }}
+      - name: Independently validate immutable recovery authority before AWS access
+        working-directory: trusted
+        run: |
+          set -euo pipefail
+          authority="${GITHUB_WORKSPACE}/${AUTHORITY_DIR}/teardown-authority.json"
+          digest="${GITHUB_WORKSPACE}/${AUTHORITY_DIR}/teardown-authority-digest.json"
+          admission="${GITHUB_WORKSPACE}/${AUTHORITY_DIR}/admission-receipt.json"
+          plan_validation="${GITHUB_WORKSPACE}/${AUTHORITY_DIR}/terraform-apply-plan-validation.json"
+          test -s "${authority}"
+          test -s "${digest}"
+          test -s "${admission}"
+          test -s "${plan_validation}"
+          test "$(jq -er '.workflow.run_id' "${authority}")" = "${FAILED_RUN_ID}"
+          test "$(jq -er '.workflow.run_attempt' "${authority}")" = "${FAILED_RUN_ATTEMPT}"
+          test "$(jq -er '.workflow.source_commit' "${authority}")" = "${FAILED_SOURCE_COMMIT}"
+          actor="$(jq -er '.workflow.actor' "${authority}")"
+          order_count="$(jq -er '.bounds.order_count' "${authority}")"
+          budget_ceiling="$(jq -er '.bounds.budget_ceiling_usd' "${authority}")"
+          failed_owner="${GITHUB_REPOSITORY}/${FAILED_RUN_ID}/${FAILED_RUN_ATTEMPT}"
+          python scripts/validate_part4_teardown_authority.py \
+            --repository-root "${FAILED_ROOT}" \
+            --authority "${authority}" \
+            --digest-receipt "${digest}" \
+            --admission-receipt "${admission}" \
+            --apply-plan-validation "${plan_validation}" \
+            --allow-authority-bound-plan-digests \
+            --output "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/recovery-authority-verification.json" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --repository-owner "${GITHUB_REPOSITORY_OWNER}" \
+            --workflow-name "AWS bounded lab" \
+            --event workflow_dispatch \
+            --ref refs/heads/main \
+            --actor "${actor}" \
+            --source-commit "${FAILED_SOURCE_COMMIT}" \
+            --run-id "${FAILED_RUN_ID}" \
+            --run-attempt "${FAILED_RUN_ATTEMPT}" \
+            --order-count "${order_count}" \
+            --budget-ceiling-usd "${budget_ceiling}" \
+            --account-id "${AWS_ACCOUNT_ID}" \
+            --region "${AWS_REGION}" \
+            --oidc-role-arn "${OIDC_ROLE_ARN}" \
+            --backend-bucket "${TERRAFORM_STATE_BUCKET}" \
+            --backend-key "${TERRAFORM_STATE_KEY}" \
+            --terraform-lock-table "${TERRAFORM_LOCK_TABLE}" \
+            --lease-table "${ACCOUNT_LEASE_TABLE}" \
+            --lease-owner "${failed_owner}" \
+            --terraform-version 1.11.4
+          cp "${authority}" "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/teardown-authority.json"
+          cp "${digest}" "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/teardown-authority-digest.json"
+          cp "${admission}" "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/admission-receipt.json"
+      - name: Build the cleanup-only recovery session policy
+        id: recovery-session-policy
+        working-directory: trusted
+        run: |
+          python scripts/build_part4_session_policy.py \
+            --mode teardown \
+            --output "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/recovery-session-policy.json" \
+            --github-output "${GITHUB_OUTPUT}"
+      - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
+        with:
+          role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
+          aws-region: ${{ steps.target.outputs.aws_region }}
+          role-session-name: atlasretail-part4-recovery-${{ github.run_id }}
+          inline-session-policy: ${{ steps.recovery-session-policy.outputs.policy }}
+      - name: Prove live identity and bind recovery to the exact failed lease
+        working-directory: trusted
+        run: |
+          set -euo pipefail
+          identity="${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/recovery-caller-identity.json"
+          aws sts get-caller-identity > "${identity}"
+          test "$(jq -er '.Account' "${identity}")" = "${AWS_ACCOUNT_ID}"
+          python - \
+            "${identity}" \
+            "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/recovery-session-policy.json" \
+            "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/recovery-session-receipt.json" <<'PY'
+          import hashlib, json, os, sys
+          from pathlib import Path
+
+          identity = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          result = {
+              "result": "PASS",
+              "aws_account_id": identity["Account"],
+              "aws_region": os.environ["AWS_REGION"],
+              "role_arn": os.environ["OIDC_ROLE_ARN"],
+              "session_policy_sha256": hashlib.sha256(
+                  Path(sys.argv[2]).read_bytes()
+              ).hexdigest(),
+              "cleanup_only": True,
+              "workload_execution": False,
+          }
+          Path(sys.argv[3]).write_text(
+              json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PY
+          authority_sha="$(jq -er '.authority_sha256' \
+            "${GITHUB_WORKSPACE}/${AUTHORITY_DIR}/teardown-authority-digest.json")"
+          contract_sha="$(jq -er '.bindings.contract_sha256' \
+            "${GITHUB_WORKSPACE}/${AUTHORITY_DIR}/admission-receipt.json")"
+          target_sha="$(jq -er '.bindings.target_sha256' \
+            "${GITHUB_WORKSPACE}/${AUTHORITY_DIR}/admission-receipt.json")"
+          failed_owner="${GITHUB_REPOSITORY}/${FAILED_RUN_ID}/${FAILED_RUN_ATTEMPT}"
+          recovery_owner="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
+          python scripts/manage_part4_lease.py recover \
+            --table "${ACCOUNT_LEASE_TABLE}" \
+            --region "${AWS_REGION}" \
+            --owner "${failed_owner}" \
+            --recovery-owner "${recovery_owner}" \
+            --run-attempt "${FAILED_RUN_ATTEMPT}" \
+            --source-commit "${FAILED_SOURCE_COMMIT}" \
+            --contract-sha256 "${contract_sha}" \
+            --target-sha256 "${target_sha}" \
+            --authority-sha256 "${authority_sha}" \
+            --output "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/recovery-lease-binding.json"
+      - name: Initialize only the failed source backend and recover identifiers
+        id: backend
+        working-directory: .control/failed-source
+        run: |
+          set -euo pipefail
+          terraform -chdir=infra/atlas init \
+            -backend-config="bucket=${TERRAFORM_STATE_BUCKET}" \
+            -backend-config="key=${TERRAFORM_STATE_KEY}" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=${TERRAFORM_LOCK_TABLE}" \
+            -backend-config="encrypt=true" \
+            2>&1 | tee "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-recovery-init.log"
+          terraform -chdir=infra/atlas output -json \
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json" \
+            2> "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-output-recovery.log" \
+            || printf '{}\n' > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
+          state_list="$(terraform -chdir=infra/atlas state list)"
+          if [[ -n "${state_list}" ]]; then
+            echo "state_has_resources=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "state_has_resources=false" >> "${GITHUB_OUTPUT}"
+          fi
+      - name: Prove an already-clean recovery inventory
+        id: verify_no_deployment
+        if: steps.backend.outputs.state_has_resources != 'true'
+        working-directory: trusted
+        run: |
+          set -euo pipefail
+          recovery_owner="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
+          python scripts/verify_preflight.py \
+            "${FAILED_ROOT}/infra/atlas" \
+            "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/recovery-clean-no-deployment.json" \
+            "${ACCOUNT_LEASE_TABLE}" \
+            "${recovery_owner}"
+      - name: Create and validate the saved recovery destroy-only plan
+        if: steps.backend.outputs.state_has_resources == 'true'
+        working-directory: .control/failed-source
+        run: |
+          set -euo pipefail
+          terraform -chdir=infra/atlas plan -destroy \
+            -lock-timeout=60s \
+            -out=recovery-destroy.tfplan \
+            -var="aws_region=${AWS_REGION}" \
+            -var="run_id=${FAILED_RUN_ID}" \
+            -var="source_commit=${FAILED_SOURCE_COMMIT}" \
+            2>&1 | tee "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-recovery-destroy-plan.log"
+          terraform -chdir=infra/atlas show -json recovery-destroy.tfplan \
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-recovery-destroy-plan.json"
+          terraform -chdir=infra/atlas show -no-color recovery-destroy.tfplan \
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-recovery-destroy-plan.txt"
+          python "${GITHUB_WORKSPACE}/trusted/scripts/validate_terraform_plan.py" \
+            --mode destroy \
+            --allow-partial-destroy \
+            --plan "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-recovery-destroy-plan.json" \
+            --output "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-recovery-destroy-plan-validation.json"
+          sha256sum infra/atlas/recovery-destroy.tfplan \
+            | awk '{print $1}' \
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-recovery-destroy-plan.sha256"
+      - name: Apply only the independently validated saved recovery plan
+        if: steps.backend.outputs.state_has_resources == 'true'
+        working-directory: .control/failed-source
+        run: |
+          set -euo pipefail
+          expected="$(<"${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-recovery-destroy-plan.sha256")"
+          actual="$(sha256sum infra/atlas/recovery-destroy.tfplan | awk '{print $1}')"
+          test "${actual}" = "${expected}"
+          terraform -chdir=infra/atlas apply -auto-approve recovery-destroy.tfplan \
+            2>&1 | tee "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-recovery-destroy.log"
+      - name: Prove recovery teardown across AWS and Terraform inventories
+        id: verify_teardown
+        if: steps.backend.outputs.state_has_resources == 'true'
+        working-directory: trusted
+        run: |
+          set -euo pipefail
+          immutable_outputs="${GITHUB_WORKSPACE}/${UPSTREAM_DIR}/terraform-outputs.json"
+          arguments=(
+            "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
+            "${FAILED_ROOT}/infra/atlas"
+            "${FAILED_RUN_ID}"
+            "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/recovery-teardown.json"
+          )
+          if [[ -s "${immutable_outputs}" ]]; then
+            upstream_admission="${GITHUB_WORKSPACE}/${UPSTREAM_DIR}/admission-receipt.json"
+            upstream_digest="${GITHUB_WORKSPACE}/${UPSTREAM_DIR}/teardown-authority-digest.json"
+            test -s "${upstream_admission}"
+            test -s "${upstream_digest}"
+            test "$(jq -er '.workflow.run_id' "${upstream_admission}")" = "${FAILED_RUN_ID}"
+            test "$(jq -er '.workflow.run_attempt' "${upstream_admission}")" \
+              = "${FAILED_RUN_ATTEMPT}"
+            test "$(jq -er '.workflow.source_commit' "${upstream_admission}")" \
+              = "${FAILED_SOURCE_COMMIT}"
+            expected_authority="$(jq -er '.authority_sha256' \
+              "${GITHUB_WORKSPACE}/${AUTHORITY_DIR}/teardown-authority-digest.json")"
+            test "$(jq -er '.authority_sha256' "${upstream_digest}")" \
+              = "${expected_authority}"
+            arguments+=("${immutable_outputs}")
+          fi
+          python scripts/verify_teardown.py "${arguments[@]}"
+      - name: Capture post-recovery budget evidence
+        if: always()
+        working-directory: trusted
+        run: |
+          set -euo pipefail
+          budget_ceiling="$(jq -er '.bounds.budget_ceiling_usd' \
+            "${GITHUB_WORKSPACE}/${AUTHORITY_DIR}/teardown-authority.json")"
+          aws budgets describe-budget \
+            --account-id "${AWS_ACCOUNT_ID}" \
+            --budget-name "${BUDGET_NAME}" \
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/account-budget-after-recovery.json"
+          aws budgets describe-notifications-for-budget \
+            --account-id "${AWS_ACCOUNT_ID}" \
+            --budget-name "${BUDGET_NAME}" \
+            > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/budget-notifications-after-recovery.json"
+          python scripts/verify_budget.py \
+            "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/account-budget-after-recovery.json" \
+            "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/budget-notifications-after-recovery.json" \
+            "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/post-recovery-budget-verification.json" \
+            "${budget_ceiling}"
+      - name: Release only the exact verified recovery lease
+        id: release_lease
+        if: >-
+          ${{ always() &&
+              (steps.verify_teardown.outcome == 'success' ||
+               steps.verify_no_deployment.outcome == 'success') }}
+        working-directory: trusted
+        run: |
+          set -euo pipefail
+          authority_sha="$(jq -er '.authority_sha256' \
+            "${GITHUB_WORKSPACE}/${AUTHORITY_DIR}/teardown-authority-digest.json")"
+          recovery_owner="${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
+          python scripts/verify_lease_release.py \
+            --table "${ACCOUNT_LEASE_TABLE}" \
+            --region "${AWS_REGION}" \
+            --owner "${recovery_owner}" \
+            --run-attempt "${FAILED_RUN_ATTEMPT}" \
+            --source-commit "${FAILED_SOURCE_COMMIT}" \
+            --authority-sha256 "${authority_sha}" \
+            --output "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/recovery-lease-release.json"
+      - name: Remove ephemeral recovery outputs
+        if: always()
+        run: rm -f "${EVIDENCE_DIR}/terraform-outputs.json"
+      - name: Build the strict cleanup-only recovery evidence summary
+        if: always()
+        working-directory: trusted
+        run: |
+          python scripts/summarize_part4_recovery.py \
+            --evidence-directory "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}" \
+            --failed-run-id "${FAILED_RUN_ID}" \
+            --failed-run-attempt "${FAILED_RUN_ATTEMPT}" \
+            --failed-source-commit "${FAILED_SOURCE_COMMIT}" \
+            --recovery-run-id "${GITHUB_RUN_ID}" \
+            --recovery-run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --output "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/recovery-summary.json"
+      - name: Upload final bounded-lab recovery evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: atlasretail-part4-recovery-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/aws-recovery/${{ github.run_id }}
+          if-no-files-found: error
+          retention-days: 30

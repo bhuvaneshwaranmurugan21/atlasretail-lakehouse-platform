@@ -1,0 +1,219 @@
+{
+  "$id": "https://atlasretail.example/contracts/part4/teardown-authority.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "aws": {
+      "additionalProperties": false,
+      "properties": {
+        "account_id": {"const": "857229544428"},
+        "oidc_role_arn": {
+          "const": "arn:aws:iam::857229544428:role/AtlasRetailGitHubOidcRole"
+        },
+        "region": {"const": "ap-southeast-2"}
+      },
+      "required": ["account_id", "oidc_role_arn", "region"],
+      "type": "object"
+    },
+    "bindings": {
+      "additionalProperties": false,
+      "properties": {
+        "admission_receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "authority_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "contract_id": {"const": "atlasretail-part4-bounded-execution"},
+        "contract_sha256": {"$ref": "#/$defs/sha256"},
+        "contract_version": {"const": "1.0.0"},
+        "source_provenance_summary_sha256": {"$ref": "#/$defs/sha256"},
+        "source_tree_sha256": {"$ref": "#/$defs/sha256"},
+        "target_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "required": [
+        "admission_receipt_sha256",
+        "authority_schema_sha256",
+        "contract_id",
+        "contract_sha256",
+        "contract_version",
+        "source_provenance_summary_sha256",
+        "source_tree_sha256",
+        "target_sha256"
+      ],
+      "type": "object"
+    },
+    "bounds": {
+      "additionalProperties": false,
+      "properties": {
+        "budget_ceiling_usd": {"maximum": 5, "minimum": 1, "type": "integer"},
+        "order_count": {"maximum": 2000, "minimum": 100, "type": "integer"},
+        "runtime_expansion_prohibited": {"const": true}
+      },
+      "required": ["budget_ceiling_usd", "order_count", "runtime_expansion_prohibited"],
+      "type": "object"
+    },
+    "created_at": {"format": "date-time", "type": "string"},
+    "execution_class": {"const": "BOUNDED_NON_PRODUCTION_LAB"},
+    "lease": {
+      "additionalProperties": false,
+      "properties": {
+        "lock_id": {"const": "portfolio-lab"},
+        "owner": {"minLength": 1, "type": "string"},
+        "table": {"const": "portfolio-lab-account-lease"}
+      },
+      "required": ["lock_id", "owner", "table"],
+      "type": "object"
+    },
+    "operation": {"const": "bounded-lab-teardown"},
+    "project": {"const": "AtlasRetail"},
+    "proof": {"const": "part4-teardown-authority"},
+    "result": {"const": "PASS"},
+    "schema_version": {"const": "1.0"},
+    "terraform": {
+      "additionalProperties": false,
+      "properties": {
+        "apply_plan_binary_sha256": {"$ref": "#/$defs/sha256"},
+        "apply_plan_json_sha256": {"$ref": "#/$defs/sha256"},
+        "apply_plan_validation_sha256": {"$ref": "#/$defs/sha256"},
+        "backend_bucket": {"minLength": 1, "type": "string"},
+        "backend_key": {"const": "atlasretail/main.tfstate"},
+        "backend_region": {"const": "ap-southeast-2"},
+        "infrastructure_digest": {"pattern": "^sha256:[a-f0-9]{64}$", "type": "string"},
+        "infrastructure_digest_scheme": {"const": "git-tracked-v2"},
+        "lock_table": {"const": "portfolio-lab-terraform-locks"},
+        "managed_addresses": {
+          "items": {
+            "enum": [
+              "aws_athena_workgroup.verification",
+              "aws_cloudwatch_log_group.glue",
+              "aws_cloudwatch_log_group.lambda",
+              "aws_cloudwatch_log_group.states",
+              "aws_cloudwatch_metric_alarm.pipeline_failed",
+              "aws_dynamodb_table.control",
+              "aws_glue_catalog_database.retail",
+              "aws_glue_job.retail",
+              "aws_iam_role.glue",
+              "aws_iam_role.lambda",
+              "aws_iam_role.states",
+              "aws_iam_role_policy.glue",
+              "aws_iam_role_policy.lambda",
+              "aws_iam_role_policy.states",
+              "aws_kms_alias.lab",
+              "aws_kms_key.lab",
+              "aws_lambda_function.control",
+              "aws_s3_object.glue_script",
+              "aws_sfn_state_machine.retail",
+              "module.evidence_bucket.aws_s3_bucket.this",
+              "module.evidence_bucket.aws_s3_bucket_lifecycle_configuration.this",
+              "module.evidence_bucket.aws_s3_bucket_ownership_controls.this",
+              "module.evidence_bucket.aws_s3_bucket_policy.this",
+              "module.evidence_bucket.aws_s3_bucket_public_access_block.this",
+              "module.evidence_bucket.aws_s3_bucket_server_side_encryption_configuration.this",
+              "module.evidence_bucket.aws_s3_bucket_versioning.this",
+              "module.landing_bucket.aws_s3_bucket.this",
+              "module.landing_bucket.aws_s3_bucket_lifecycle_configuration.this",
+              "module.landing_bucket.aws_s3_bucket_ownership_controls.this",
+              "module.landing_bucket.aws_s3_bucket_policy.this",
+              "module.landing_bucket.aws_s3_bucket_public_access_block.this",
+              "module.landing_bucket.aws_s3_bucket_server_side_encryption_configuration.this",
+              "module.landing_bucket.aws_s3_bucket_versioning.this",
+              "module.warehouse_bucket.aws_s3_bucket.this",
+              "module.warehouse_bucket.aws_s3_bucket_lifecycle_configuration.this",
+              "module.warehouse_bucket.aws_s3_bucket_ownership_controls.this",
+              "module.warehouse_bucket.aws_s3_bucket_policy.this",
+              "module.warehouse_bucket.aws_s3_bucket_public_access_block.this",
+              "module.warehouse_bucket.aws_s3_bucket_server_side_encryption_configuration.this",
+              "module.warehouse_bucket.aws_s3_bucket_versioning.this"
+            ],
+            "type": "string"
+          },
+          "maxItems": 40,
+          "minItems": 40,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "provider_lock_sha256": {"$ref": "#/$defs/sha256"},
+        "read_only_data_addresses": {
+          "items": {
+            "enum": [
+              "data.aws_iam_policy_document.glue",
+              "data.aws_iam_policy_document.lambda",
+              "data.aws_iam_policy_document.states",
+              "module.evidence_bucket.data.aws_iam_policy_document.tls",
+              "module.landing_bucket.data.aws_iam_policy_document.tls",
+              "module.warehouse_bucket.data.aws_iam_policy_document.tls"
+            ],
+            "type": "string"
+          },
+          "maxItems": 6,
+          "minItems": 6,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "version": {"const": "1.11.4"}
+      },
+      "required": [
+        "apply_plan_binary_sha256",
+        "apply_plan_json_sha256",
+        "apply_plan_validation_sha256",
+        "backend_bucket",
+        "backend_key",
+        "backend_region",
+        "infrastructure_digest",
+        "infrastructure_digest_scheme",
+        "lock_table",
+        "managed_addresses",
+        "provider_lock_sha256",
+        "read_only_data_addresses",
+        "version"
+      ],
+      "type": "object"
+    },
+    "workflow": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {"minLength": 1, "type": "string"},
+        "event": {"const": "workflow_dispatch"},
+        "ref": {"const": "refs/heads/main"},
+        "repository": {
+          "const": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform"
+        },
+        "repository_owner": {"const": "bhuvaneshwaranmurugan21"},
+        "run_attempt": {"$ref": "#/$defs/positiveIntegerString"},
+        "run_id": {"$ref": "#/$defs/positiveIntegerString"},
+        "source_commit": {"pattern": "^[a-f0-9]{40}$", "type": "string"},
+        "workflow_name": {"const": "AWS bounded lab"}
+      },
+      "required": [
+        "actor",
+        "event",
+        "ref",
+        "repository",
+        "repository_owner",
+        "run_attempt",
+        "run_id",
+        "source_commit",
+        "workflow_name"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "aws",
+    "bindings",
+    "bounds",
+    "created_at",
+    "execution_class",
+    "lease",
+    "operation",
+    "project",
+    "proof",
+    "result",
+    "schema_version",
+    "terraform",
+    "workflow"
+  ],
+  "title": "AtlasRetail Part 4 immutable teardown authority",
+  "type": "object",
+  "$defs": {
+    "positiveIntegerString": {"pattern": "^[1-9][0-9]*$", "type": "string"},
+    "sha256": {"pattern": "^[a-f0-9]{64}$", "type": "string"}
+  }
+}

@@ -53,7 +53,10 @@ transaction across six business tables. See the [architecture](docs/architecture
 [generation-publication ADR](docs/adr/0001-generation-publication.md), and
 [manifest-identity ADR](docs/adr/0002-manifest-identity.md). Part 4 source and dispatch boundaries
 are recorded in the [source-provenance ADR](docs/adr/0003-source-provenance.md) and
-[pre-AWS admission ADR](docs/adr/0004-pre-aws-admission.md).
+[pre-AWS admission ADR](docs/adr/0004-pre-aws-admission.md). The
+[contract-complete evidence ADR](docs/adr/0005-contract-complete-evidence-finality.md) and
+[immutable teardown-authority ADR](docs/adr/0006-immutable-teardown-authority.md) define final
+evidence and recovery.
 
 ## Components
 
@@ -84,6 +87,8 @@ atlasretail generate-sources --output /tmp/atlasretail-part4-sources --orders 50
   --source-commit "$(git rev-parse HEAD)" --run-id local-proof
 python scripts/validate_part4_sources.py --directory /tmp/atlasretail-part4-sources
 python scripts/validate_part4_admission_controls.py
+python scripts/validate_part4_stage4_controls.py
+python scripts/validate_part4_stage5_controls.py
 ```
 
 CI regenerates [the deterministic local evidence](evidence/local/failure-lab.json) and rejects an
@@ -105,6 +110,7 @@ execution.
 | Part 4 deterministic source provenance | `LOCAL_VERIFIED` | Contract-bound five-family source materialization, strict receipts, byte-for-byte CI reproduction, and tamper evidence |
 | Part 4 pre-AWS admission controls | `LOCAL_VERIFIED` | Exact operator, ref, run-attempt, confirmation, bound and source-tree admission; independent pre-OIDC revalidation; clean-only lease release |
 | Part 4 contract-complete evidence readiness | `LOCAL_VERIFIED` | Two-phase semantic checkpoint/finalizer, all 20 contract domains and 17 provenance fields, session isolation, adversarial mutation tests, teardown and consistent-read lease finality |
+| Part 4 immutable teardown authority and deterministic recovery | `LOCAL_VERIFIED` | Attempt/source/plan-bound authority, immutable artifact identity, conditional lease state machine, cleanup-only manual recovery, saved destroy-plan integrity, and adversarial CI proof; no Stage 5 AWS run |
 | Glue 5-compatible Spark transformation and real local Iceberg snapshots | `LOCAL_VERIFIED` | Pinned Glue 5-compatible integration job with isolated Hadoop catalog |
 | GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` in the current target |
 | Current-target IAM and foundation safety baseline | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) proved exact live IAM parity, the hardened persistent foundation, lease safety, budget alerts, an empty backend, and zero workload resources |
