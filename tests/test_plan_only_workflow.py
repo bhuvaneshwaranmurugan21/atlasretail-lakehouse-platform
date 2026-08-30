@@ -38,3 +38,12 @@ def test_workflow_checks_identity_budget_iam_and_managed_definition() -> None:
     )
     assert all(command in workflow for command in required)
     assert "atlasretail.tfplan" not in workflow.split("Upload sanitized plan evidence")[1]
+
+
+def test_workflow_installs_package_before_package_backed_plan_validation() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+
+    install = "python -m pip install --disable-pip-version-check ."
+    validator = "python scripts/validate_terraform_plan.py"
+    assert install in workflow
+    assert workflow.index(install) < workflow.index(validator)
