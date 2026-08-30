@@ -273,6 +273,22 @@ def test_missing_expected_account_lease_fails(monkeypatch: object) -> None:
     assert "Expected account-wide lease is absent" in result["errors"]
 
 
+def test_recovery_can_explicitly_accept_expected_lease_absence(monkeypatch: object) -> None:
+    monkeypatch.setattr(MODULE, "command", clean_runner)
+
+    result = MODULE.verify(
+        "infra/atlas",
+        LEASE_TABLE,
+        "expected/repository/123",
+        allow_expected_lease_absent=True,
+    )
+
+    assert result["result"] == "PASS"
+    assert result["account_lease_absent"] is True
+    assert result["account_lease_absence_allowed"] is True
+    assert result["account_lease_ownership_verified"] is False
+
+
 def test_unreadable_account_lease_fails(monkeypatch: object) -> None:
     def unreadable_lease_runner(*arguments: str) -> tuple[int, str]:
         if "dynamodb get-item" in " ".join(arguments):

@@ -21,6 +21,7 @@ def main() -> int:
     parser.add_argument("--contract-sha256")
     parser.add_argument("--target-sha256")
     parser.add_argument("--expected-state")
+    parser.add_argument("--allow-absent", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
     key = '{"lock_id":{"S":"portfolio-lab"}}'
@@ -47,6 +48,83 @@ def main() -> int:
         conditions.append("#state = :state")
         names["#state"] = "state"
     values = json.dumps(expected, separators=(",", ":"))
+    common_result: dict[str, object] = {
+        "owner": arguments.owner,
+        "consistent_read": True,
+        "authority_sha256": arguments.authority_sha256,
+        "run_attempt": arguments.run_attempt,
+        "source_commit": arguments.source_commit,
+        "contract_sha256": arguments.contract_sha256,
+        "target_sha256": arguments.target_sha256,
+        "expected_state": arguments.expected_state,
+        "allow_absent": arguments.allow_absent,
+    }
+    initial_item: object | None = None
+    initial_read_exit_code: int | None = None
+    if arguments.allow_absent:
+        initial = subprocess.run(
+            [
+                "aws",
+                "dynamodb",
+                "get-item",
+                "--region",
+                arguments.region,
+                "--table-name",
+                arguments.table,
+                "--key",
+                key,
+                "--consistent-read",
+                "--output",
+                "json",
+                "--no-cli-pager",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        initial_read_exit_code = initial.returncode
+        initial_item = "UNREADABLE"
+        if initial.returncode == 0:
+            try:
+                initial_payload = json.loads(initial.stdout or "{}")
+            except json.JSONDecodeError:
+                initial_payload = {"Item": "UNREADABLE"}
+            initial_item = initial_payload.get("Item")
+        if initial.returncode == 0 and initial_item is None:
+            result = {
+                **common_result,
+                "result": "PASS",
+                "lease_absent": True,
+                "already_absent": True,
+                "delete_attempted": False,
+                "delete_exit_code": None,
+                "initial_read_exit_code": initial.returncode,
+                "initial_item": None,
+                "post_delete_item": None,
+            }
+            arguments.output.parent.mkdir(parents=True, exist_ok=True)
+            arguments.output.write_text(
+                json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            return 0
+        if initial.returncode != 0 or not isinstance(initial_item, dict) or not initial_item:
+            result = {
+                **common_result,
+                "result": "FAIL",
+                "lease_absent": False,
+                "already_absent": False,
+                "delete_attempted": False,
+                "delete_exit_code": None,
+                "initial_read_exit_code": initial.returncode,
+                "initial_item": initial_item,
+                "post_delete_item": None,
+            }
+            arguments.output.parent.mkdir(parents=True, exist_ok=True)
+            arguments.output.write_text(
+                json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            print("Lease state was not readable before guarded release", file=sys.stderr)
+            return 1
     deleted = subprocess.run(
         [
             "aws",
@@ -75,17 +153,15 @@ def main() -> int:
         text=True,
     )
     result: dict[str, object] = {
+        **common_result,
         "result": "FAIL",
-        "owner": arguments.owner,
         "lease_absent": False,
-        "consistent_read": True,
+        "already_absent": False,
+        "delete_attempted": True,
         "delete_exit_code": deleted.returncode,
-        "authority_sha256": arguments.authority_sha256,
-        "run_attempt": arguments.run_attempt,
-        "source_commit": arguments.source_commit,
-        "contract_sha256": arguments.contract_sha256,
-        "target_sha256": arguments.target_sha256,
-        "expected_state": arguments.expected_state,
+        "initial_read_exit_code": initial_read_exit_code,
+        "initial_item": initial_item,
+        "post_delete_item": None,
     }
     if deleted.returncode == 0:
         try:
@@ -137,6 +213,7 @@ def main() -> int:
                     payload = json.loads(observed.stdout)
                 except json.JSONDecodeError:
                     payload = {"Item": "UNREADABLE"}
+                result["post_delete_item"] = payload.get("Item")
                 result["lease_absent"] = not bool(payload.get("Item"))
                 result["result"] = "PASS" if result["lease_absent"] else "FAIL"
                 result["read_exit_code"] = observed.returncode

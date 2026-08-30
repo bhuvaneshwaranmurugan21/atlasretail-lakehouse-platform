@@ -134,6 +134,32 @@ def test_pre_authority_verification_rejects_any_authority(
         LEASE.verify_acquired(args())
 
 
+def test_recovery_verification_accepts_strongly_consistent_absence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(LEASE, "consistent_optional_item", lambda _table, _region: None)
+
+    proof = LEASE.verify_acquired_or_absent(args())
+
+    assert proof["result"] == "PASS"
+    assert proof["state"] == "ABSENT"
+    assert proof["lease_absent"] is True
+    assert proof["consistent_read"] is True
+
+
+def test_recovery_verification_rejects_a_different_live_lease(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    acquired = item(owner="other/repository/999", state="ACQUIRED")
+    acquired.pop("authority_sha256")
+    acquired.pop("authority_artifact_id")
+    acquired.pop("authority_artifact_digest")
+    monkeypatch.setattr(LEASE, "consistent_optional_item", lambda _table, _region: acquired)
+
+    with pytest.raises(LEASE.LeaseError, match="wrong owner"):
+        LEASE.verify_acquired_or_absent(args())
+
+
 def test_recovery_transitions_only_the_exact_failed_owner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

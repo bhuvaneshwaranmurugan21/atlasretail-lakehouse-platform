@@ -53,6 +53,8 @@ def verify(
     terraform_directory: str,
     account_lease_table: str,
     expected_lease_owner: str | None = None,
+    *,
+    allow_expected_lease_absent: bool = False,
 ) -> dict[str, Any]:
     errors: list[str] = []
     state_code, state_detail = command(
@@ -121,7 +123,7 @@ def verify(
     else:
         errors.append("Account-wide lease response is malformed")
 
-    if expected_lease_owner is not None and lease_absent:
+    if expected_lease_owner is not None and lease_absent and not allow_expected_lease_absent:
         errors.append("Expected account-wide lease is absent")
 
     tag_code, tag_detail = command(
@@ -203,6 +205,7 @@ def verify(
         "account_lease_owner": lease_owner,
         "account_lease_expires_at": lease_expires_at,
         "account_lease_ownership_verified": lease_ownership_verified,
+        "account_lease_absence_allowed": allow_expected_lease_absent,
         "allowed_pending_deletion_kms_keys": allowed_pending_kms,
         "pending_deletion_kms_aliases": pending_kms_aliases,
         "kms_inspection_errors": kms_inspection_errors,
@@ -212,15 +215,27 @@ def verify(
 
 
 def main(arguments: list[str]) -> int:
-    if len(arguments) not in {4, 5}:
+    if len(arguments) not in {4, 5, 6}:
         print(
             "usage: verify_preflight.py TF_DIR OUTPUT_JSON ACCOUNT_LEASE_TABLE "
-            "[EXPECTED_LEASE_OWNER]",
+            "[EXPECTED_LEASE_OWNER [ALLOW_ABSENT]]",
             file=sys.stderr,
         )
         return 2
     expected_owner = arguments[4] if len(arguments) == 5 else None
-    result = verify(arguments[1], arguments[3], expected_owner)
+    allow_absent = False
+    if len(arguments) == 6:
+        expected_owner = arguments[4]
+        if arguments[5] != "ALLOW_ABSENT":
+            print("sixth argument must be ALLOW_ABSENT", file=sys.stderr)
+            return 2
+        allow_absent = True
+    result = verify(
+        arguments[1],
+        arguments[3],
+        expected_owner,
+        allow_expected_lease_absent=allow_absent,
+    )
     output = Path(arguments[2])
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
