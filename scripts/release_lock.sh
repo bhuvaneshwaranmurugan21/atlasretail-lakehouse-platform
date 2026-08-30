@@ -18,7 +18,7 @@ detail="$(aws dynamodb delete-item \
 status="$?"
 set -e
 
-if [[ "${status}" -eq 0 || "${detail}" == *"ConditionalCheckFailedException"* ]]; then
+if [[ "${status}" -eq 0 ]]; then
   exit 0
 fi
 printf '%s\n' "${detail}" >&2

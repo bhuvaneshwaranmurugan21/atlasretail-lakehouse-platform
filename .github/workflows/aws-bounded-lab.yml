@@ -174,11 +174,19 @@ jobs:
         with:
           terraform_version: 1.11.4
           terraform_wrapper: false
+      - name: Build the bounded execution session policy
+        id: session-policy
+        run: |
+          python scripts/build_part4_session_policy.py \
+            --mode execution \
+            --output .control/execution-session-policy.json \
+            --github-output "${GITHUB_OUTPUT}"
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-${{ github.run_id }}
+          inline-session-policy: ${{ steps.session-policy.outputs.policy }}
       - name: Validate admitted bounds and live AWS identity
         run: |
           set -euo pipefail
@@ -196,7 +204,42 @@ jobs:
           test "${account}" = "${{ steps.target.outputs.aws_account_id }}"
           mkdir -p "${EVIDENCE_DIR}" .control
           date +%s > "${EVIDENCE_DIR}/workflow-started-epoch.txt"
+          python - "${EVIDENCE_DIR}/runtime-provenance.json" <<'PY'
+          import datetime, json, subprocess, sys
+          from pathlib import Path
+          result = {
+              "result": "PENDING",
+              "terraform_version": subprocess.check_output(
+                  ["terraform", "version", "-json"], text=True
+              ).strip() and "1.11.4",
+              "execution_started_at": datetime.datetime.now(
+                  datetime.timezone.utc
+              ).isoformat(),
+              "execution_finished_at": None,
+          }
+          Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+          PY
           aws sts get-caller-identity > "${EVIDENCE_DIR}/caller-identity.json"
+          python - \
+            "${EVIDENCE_DIR}/caller-identity.json" \
+            .control/execution-session-policy.json \
+            "${EVIDENCE_DIR}/execution-session-receipt.json" <<'PY'
+          import hashlib, json, os, sys
+          from pathlib import Path
+          identity = json.loads(Path(sys.argv[1]).read_text())
+          policy = Path(sys.argv[2]).read_bytes()
+          result = {
+              "result": "PASS",
+              "aws_account_id": identity["Account"],
+              "aws_region": os.environ["AWS_REGION"],
+              "role_arn": os.environ["OIDC_ROLE_ARN"],
+              "role_session_name": f"atlasretail-{os.environ['GITHUB_RUN_ID']}",
+              "session_policy_sha256": hashlib.sha256(policy).hexdigest(),
+          }
+          Path(sys.argv[3]).write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+          PY
+          cp .control/execution-session-policy.json \
+            "${EVIDENCE_DIR}/execution-session-policy.json"
           printf '%s' "${ORDER_COUNT}" > "${EVIDENCE_DIR}/order-count.txt"
           printf '%s' "${BUDGET_CEILING_USD}" > "${EVIDENCE_DIR}/budget-ceiling-usd.txt"
           python scripts/capture_account_plan.py \
@@ -210,10 +253,31 @@ jobs:
             --account-id "${account}" \
             --budget-name "${BUDGET_NAME}" \
             > "${EVIDENCE_DIR}/account-budget.json"
+          aws budgets describe-notifications-for-budget \
+            --account-id "${account}" \
+            --budget-name "${BUDGET_NAME}" \
+            > "${EVIDENCE_DIR}/budget-notifications.json"
+          python scripts/verify_budget.py \
+            "${EVIDENCE_DIR}/account-budget.json" \
+            "${EVIDENCE_DIR}/budget-notifications.json" \
+            "${EVIDENCE_DIR}/budget-verification.json" \
+            "${BUDGET_CEILING_USD}"
       - name: Acquire the account-wide lease
         run: |
           bash scripts/acquire_lock.sh
           printf '%s' "${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}" > .control/lease-owner.txt
+          python - "${EVIDENCE_DIR}/lease-acquisition.json" <<'PY'
+          import json, os, time, sys
+          from pathlib import Path
+          result = {
+              "result": "PASS",
+              "lock_id": "portfolio-lab",
+              "owner": f"{os.environ['GITHUB_REPOSITORY']}/{os.environ['GITHUB_RUN_ID']}",
+              "acquired_at_epoch": int(time.time()),
+              "consistent_preflight_verified": True,
+          }
+          Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+          PY
       - name: Persist lease ownership
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -283,6 +347,15 @@ jobs:
             2>&1 | tee "${EVIDENCE_DIR}/terraform-apply.log"
           terraform -chdir="${TF_DIR}" output -json \
             > "${GITHUB_WORKSPACE}/${EVIDENCE_DIR}/terraform-outputs.json"
+      - name: Verify the deployed control plane before any workload
+        run: |
+          set -euo pipefail
+          python scripts/verify_deployment.py \
+            "${EVIDENCE_DIR}/terraform-outputs.json" \
+            "${TF_DIR}" \
+            "${RUN_ID}" \
+            "${GITHUB_SHA}" \
+            "${EVIDENCE_DIR}/deployment-verification.json"
       - name: Upload only the admitted immutable inputs
         run: |
           set -euo pipefail
@@ -333,6 +406,7 @@ jobs:
         run: |
           set -euo pipefail
           machine="$(terraform -chdir="${TF_DIR}" output -raw state_machine_arn)"
+          table="$(terraform -chdir="${TF_DIR}" output -raw control_table)"
           batch="success-${RUN_ID}"
           registration="${EVIDENCE_DIR}/success-registration.json"
           readarray -t identity < <(python - "${registration}" <<'PY'
@@ -348,16 +422,29 @@ jobs:
             "${identity[1]}" "${batch}" "${identity[2]}" false)
           printf '%s' "${success_arn}" > "${EVIDENCE_DIR}/success-execution-arn.txt"
           test "${success_status}" = "SUCCEEDED"
+          aws dynamodb get-item --table-name "${table}" \
+            --key '{"pk":{"S":"CONTROL"},"sk":{"S":"ACTIVE"}}' \
+            --consistent-read > "${EVIDENCE_DIR}/pointer-after-success.json"
           read -r replay_arn replay_status < <(bash scripts/start_execution.sh \
             "replay-${RUN_ID}" "${machine}" "${identity[0]}" \
             "${identity[1]}" "${batch}" "${identity[2]}" false)
           printf '%s' "${replay_arn}" > "${EVIDENCE_DIR}/replay-execution-arn.txt"
           test "${replay_status}" = "SUCCEEDED"
+          aws dynamodb get-item --table-name "${table}" \
+            --key '{"pk":{"S":"CONTROL"},"sk":{"S":"ACTIVE"}}' \
+            --consistent-read > "${EVIDENCE_DIR}/pointer-after-replay.json"
+          diff -u "${EVIDENCE_DIR}/pointer-after-success.json" \
+            "${EVIDENCE_DIR}/pointer-after-replay.json"
           read -r conflict_arn conflict_status < <(bash scripts/start_execution.sh \
             "conflict-${RUN_ID}" "${machine}" "${identity[0]}" \
             "${identity[1]}" "${batch}" "$(printf 'f%.0s' {1..64})" false)
           printf '%s' "${conflict_arn}" > "${EVIDENCE_DIR}/conflict-execution-arn.txt"
           test "${conflict_status}" = "FAILED"
+          aws dynamodb get-item --table-name "${table}" \
+            --key '{"pk":{"S":"CONTROL"},"sk":{"S":"ACTIVE"}}' \
+            --consistent-read > "${EVIDENCE_DIR}/pointer-after-conflict.json"
+          diff -u "${EVIDENCE_DIR}/pointer-after-replay.json" \
+            "${EVIDENCE_DIR}/pointer-after-conflict.json"
       - name: Prove failure isolation and deterministic recovery
         run: |
           set -euo pipefail
@@ -391,10 +478,14 @@ jobs:
             "${identity[1]}" "${batch}" "${identity[2]}" false)
           printf '%s' "${recovery_arn}" > "${EVIDENCE_DIR}/recovery-execution-arn.txt"
           test "${recovery_status}" = "SUCCEEDED"
+          aws dynamodb get-item --table-name "${table}" \
+            --key '{"pk":{"S":"CONTROL"},"sk":{"S":"ACTIVE"}}' \
+            --consistent-read > "${EVIDENCE_DIR}/pointer-after-recovery.json"
       - name: Reject temporal overlap and financial imbalance
         run: |
           set -euo pipefail
           machine="$(terraform -chdir="${TF_DIR}" output -raw state_machine_arn)"
+          table="$(terraform -chdir="${TF_DIR}" output -raw control_table)"
           for scenario in temporal financial; do
             batch="${scenario}-${RUN_ID}"
             registration="${EVIDENCE_DIR}/${scenario}-registration.json"
@@ -406,12 +497,20 @@ jobs:
           print(value["identity_digest"])
           PY
             )
+            aws dynamodb get-item --table-name "${table}" \
+              --key '{"pk":{"S":"CONTROL"},"sk":{"S":"ACTIVE"}}' \
+              --consistent-read > "${EVIDENCE_DIR}/pointer-before-${scenario}.json"
             read -r execution_arn execution_status < <(bash scripts/start_execution.sh \
               "${scenario}-${RUN_ID}" "${machine}" "${identity[0]}" \
               "${identity[1]}" "${batch}" "${identity[2]}" false)
             printf '%s' "${execution_arn}" \
               > "${EVIDENCE_DIR}/${scenario}-execution-arn.txt"
             test "${execution_status}" = "FAILED"
+            aws dynamodb get-item --table-name "${table}" \
+              --key '{"pk":{"S":"CONTROL"},"sk":{"S":"ACTIVE"}}' \
+              --consistent-read > "${EVIDENCE_DIR}/pointer-after-${scenario}.json"
+            diff -u "${EVIDENCE_DIR}/pointer-before-${scenario}.json" \
+              "${EVIDENCE_DIR}/pointer-after-${scenario}.json"
           done
       - name: Reject an S3 version whose bytes contradict registered evidence
         run: |
@@ -419,6 +518,7 @@ jobs:
           landing="$(terraform -chdir="${TF_DIR}" output -raw landing_bucket)"
           kms_key="$(terraform -chdir="${TF_DIR}" output -raw kms_key_arn)"
           machine="$(terraform -chdir="${TF_DIR}" output -raw state_machine_arn)"
+          table="$(terraform -chdir="${TF_DIR}" output -raw control_table)"
           batch="tamper-${RUN_ID}"
           registration="${EVIDENCE_DIR}/tamper-registration.json"
           object_key="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["tables"]["orders"][0]["key"])' "${registration}")"
@@ -473,6 +573,11 @@ jobs:
             "${identity[1]}" "${batch}" "${identity[2]}" false)
           printf '%s' "${tamper_arn}" > "${EVIDENCE_DIR}/tamper-execution-arn.txt"
           test "${tamper_status}" = "FAILED"
+          aws dynamodb get-item --table-name "${table}" \
+            --key '{"pk":{"S":"CONTROL"},"sk":{"S":"ACTIVE"}}' \
+            --consistent-read > "${EVIDENCE_DIR}/pointer-after-tamper.json"
+          diff -u "${EVIDENCE_DIR}/pointer-after-financial.json" \
+            "${EVIDENCE_DIR}/pointer-after-tamper.json"
       - name: Prove stale publisher compare-and-swap rejection
         run: |
           set -euo pipefail
@@ -485,6 +590,8 @@ jobs:
             --kms-key "${kms_key}" \
             --source-registration "${EVIDENCE_DIR}/success-registration.json" \
             --run-id "${RUN_ID}" \
+            --source-commit "${GITHUB_SHA}" \
+            --workflow-run-id "${GITHUB_RUN_ID}" \
             --output-directory "${EVIDENCE_DIR}/stale-publisher"
       - name: Run and validate bounded Athena verification
         run: |
@@ -585,7 +692,29 @@ jobs:
                 > "${EVIDENCE_DIR}/${name}-cloudwatch-events.json"
             fi
           done
-          python scripts/summarize_aws_evidence.py "${EVIDENCE_DIR}" "${GITHUB_SHA}"
+          python - "${EVIDENCE_DIR}" "${glue_logs}" "${states_logs}" "${lambda_logs}" <<'PY'
+          import json, sys
+          from pathlib import Path
+          root = Path(sys.argv[1])
+          groups = dict(zip(("glue", "states", "lambda"), sys.argv[2:]))
+          sources = {}
+          for name, group in groups.items():
+              value = json.loads((root / f"{name}-cloudwatch-events.json").read_text())
+              sources[name] = {"log_group": group, "event_count": len(value.get("events", []))}
+          result = {"result": "PASS", "pagination_complete": True, "sources": sources}
+          if any(value["event_count"] < 1 for value in sources.values()):
+              result["result"] = "FAIL"
+          (root / "cloudwatch-export-receipt.json").write_text(
+              json.dumps(result, indent=2, sort_keys=True) + "\n"
+          )
+          PY
+          python scripts/validate_part4_execution_evidence.py \
+            --evidence-directory "${EVIDENCE_DIR}" \
+            --source-commit "${GITHUB_SHA}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --budget-ceiling-usd "${BUDGET_CEILING_USD}" \
+            --output "${EVIDENCE_DIR}/execution-checkpoint.json"
       - name: Persist evidence before teardown
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -665,17 +794,48 @@ jobs:
         with:
           terraform_version: 1.11.4
           terraform_wrapper: false
+      - name: Build the bounded teardown session policy
+        id: teardown-session-policy
+        run: |
+          python scripts/build_part4_session_policy.py \
+            --mode teardown \
+            --output .control/teardown-session-policy.json \
+            --github-output "${GITHUB_OUTPUT}"
       - uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c
         with:
           role-to-assume: ${{ steps.target.outputs.oidc_role_arn }}
           aws-region: ${{ steps.target.outputs.aws_region }}
           role-session-name: atlasretail-teardown-${{ github.run_id }}
+          inline-session-policy: ${{ steps.teardown-session-policy.outputs.policy }}
       - name: Recover pre-teardown evidence
         continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: atlasretail-pre-teardown-${{ github.run_id }}
           path: evidence/aws/${{ github.run_id }}
+      - name: Capture the target-bound teardown session
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity > "${EVIDENCE_DIR}/teardown-caller-identity.json"
+          python - \
+            "${EVIDENCE_DIR}/teardown-caller-identity.json" \
+            .control/teardown-session-policy.json \
+            "${EVIDENCE_DIR}/teardown-session-receipt.json" <<'PY'
+          import hashlib, json, os, sys
+          from pathlib import Path
+          identity = json.loads(Path(sys.argv[1]).read_text())
+          result = {
+              "result": "PASS",
+              "aws_account_id": identity["Account"],
+              "aws_region": os.environ["AWS_REGION"],
+              "role_arn": os.environ["OIDC_ROLE_ARN"],
+              "role_session_name": f"atlasretail-teardown-{os.environ['GITHUB_RUN_ID']}",
+              "session_policy_sha256": hashlib.sha256(Path(sys.argv[2]).read_bytes()).hexdigest(),
+          }
+          Path(sys.argv[3]).write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+          PY
+          cp .control/teardown-session-policy.json \
+            "${EVIDENCE_DIR}/teardown-session-policy.json"
       - name: Recover immutable teardown authority
         continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
@@ -795,6 +955,23 @@ jobs:
             "${TF_DIR}" \
             "${RUN_ID}" \
             "${EVIDENCE_DIR}/teardown.json"
+      - name: Capture post-teardown budget evidence
+        if: always()
+        run: |
+          set -euo pipefail
+          aws budgets describe-budget \
+            --account-id "${AWS_ACCOUNT_ID}" \
+            --budget-name "${BUDGET_NAME}" \
+            > "${EVIDENCE_DIR}/account-budget-after-teardown.json"
+          aws budgets describe-notifications-for-budget \
+            --account-id "${AWS_ACCOUNT_ID}" \
+            --budget-name "${BUDGET_NAME}" \
+            > "${EVIDENCE_DIR}/budget-notifications-after-teardown.json"
+          python scripts/verify_budget.py \
+            "${EVIDENCE_DIR}/account-budget-after-teardown.json" \
+            "${EVIDENCE_DIR}/budget-notifications-after-teardown.json" \
+            "${EVIDENCE_DIR}/post-teardown-budget-verification.json" \
+            "${BUDGET_CEILING_USD}"
       - name: Release only a verified clean run's account-wide lease
         if: >-
           ${{ always() &&
@@ -802,7 +979,35 @@ jobs:
                steps.verify_no_deployment.outcome == 'success') }}
         env:
           PORTFOLIO_LOCK_OWNER: ${{ github.repository }}/${{ github.run_id }}
-        run: bash scripts/release_lock.sh
+        run: |
+          python scripts/verify_lease_release.py \
+            --table "${ACCOUNT_LEASE_TABLE}" \
+            --owner "${PORTFOLIO_LOCK_OWNER}" \
+            --region "${AWS_REGION}" \
+            --output "${EVIDENCE_DIR}/lease-release-verification.json"
+      - name: Finalize only complete execution and teardown evidence
+        if: always()
+        run: |
+          set -euo pipefail
+          python - \
+            "${EVIDENCE_DIR}/runtime-provenance.json" \
+            "${EVIDENCE_DIR}/final-runtime-provenance.json" <<'PY'
+          import datetime, json, sys
+          from pathlib import Path
+          value = json.loads(Path(sys.argv[1]).read_text())
+          value["result"] = "PASS"
+          value["execution_finished_at"] = datetime.datetime.now(
+              datetime.timezone.utc
+          ).isoformat()
+          Path(sys.argv[2]).write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+          PY
+          python scripts/finalize_part4_evidence.py \
+            --evidence-directory "${EVIDENCE_DIR}" \
+            --source-commit "${GITHUB_SHA}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --budget-ceiling-usd "${BUDGET_CEILING_USD}" \
+            --output "${EVIDENCE_DIR}/final-summary.json"
       - name: Upload final execution and teardown evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

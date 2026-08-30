@@ -96,15 +96,15 @@ def run_summary(path: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_complete_evidence_passes(tmp_path: Path) -> None:
+def test_legacy_summary_cannot_pass_before_teardown(tmp_path: Path) -> None:
     complete_evidence(tmp_path)
 
     completed = run_summary(tmp_path)
     summary = json.loads((tmp_path / "summary.json").read_text(encoding="utf-8"))
 
-    assert completed.returncode == 0
-    assert summary["result"] == "PASS"
-    assert summary["metered_usage"]["workflow_to_evidence_seconds"] == 123
+    assert completed.returncode == 1
+    assert summary["result"] == "FAIL"
+    assert summary["claim_level"] == "UNCLAIMED"
 
 
 def test_missing_cloudwatch_export_fails(tmp_path: Path) -> None:
@@ -116,10 +116,7 @@ def test_missing_cloudwatch_export_fails(tmp_path: Path) -> None:
 
     assert completed.returncode == 1
     assert summary["result"] == "FAIL"
-    assert summary["checks"]["cloudwatch_exports"]["glue-cloudwatch-events.json"] == {
-        "event_count": 0,
-        "passed": False,
-    }
+    assert summary["claim_level"] == "UNCLAIMED"
 
 
 def test_empty_cloudwatch_export_fails(tmp_path: Path) -> None:
@@ -131,7 +128,4 @@ def test_empty_cloudwatch_export_fails(tmp_path: Path) -> None:
 
     assert completed.returncode == 1
     assert summary["result"] == "FAIL"
-    assert summary["checks"]["cloudwatch_exports"]["glue-cloudwatch-events.json"] == {
-        "event_count": 0,
-        "passed": False,
-    }
+    assert summary["claim_level"] == "UNCLAIMED"

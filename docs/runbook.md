@@ -198,6 +198,28 @@ Because admission artifacts bind `github.run_attempt`, do not use **Re-run faile
 future Part 4 run. Re-run all jobs or create a fresh dispatch so the admission job produces the
 artifact for the new attempt. A downstream job cannot consume an earlier attempt's artifact.
 
+### Stage 4 contract-complete evidence readiness
+
+Stage 4 replaces the permissive pre-teardown summary boundary with two semantic authorities.
+`scripts/validate_part4_execution_evidence.py` validates the run-bound execution evidence, records
+`AWS_EXECUTION_VALIDATED_PENDING_TEARDOWN`, and keeps the contract claim level `UNCLAIMED`.
+`scripts/finalize_part4_evidence.py` is the sole code
+path allowed to emit `AWS_VERIFIED`, and only after the saved destroy plan, clean AWS and Terraform
+inventories, target-bound teardown session, post-teardown budget, exact-owner lease deletion, and
+consistent-read lease absence all pass.
+
+The validators require the contract's exact eight Step Functions executions and six Glue runs,
+semantic failure signals, replay without a second Glue run, failure/recovery identity continuity,
+pointer invariants, stale-publisher winner stability, two generation-pinned Athena queries,
+non-empty run-bound Glue/States/Lambda log exports, runtime/metered usage, and complete provenance.
+Validate repository readiness with `python scripts/validate_part4_stage4_controls.py`. CI runs the
+validator twice, diffs its deterministic receipts, and retains
+`part4-stage4-evidence-readiness-<run-id>`.
+
+Stage 4 performs no AWS operation. Its maximum claim is `LOCAL_VERIFIED` with
+`aws_execution: false`. Do not dispatch the Part 4 bounded workflow solely on Stage 4 readiness;
+the later managed-execution authorization stages must still be completed.
+
 ## Deploy and execute
 
 When the later Part 4 stages authorize execution, run `AWS bounded lab` manually with
@@ -214,13 +236,15 @@ When the later Part 4 stages authorize execution, run `AWS bounded lab` manually
 7. Creates and machine-validates a saved create-only plan and validates the planned ASL definition
    through the Step Functions API.
 8. Applies only that saved plan.
-9. Uploads only the admitted inputs with exact S3 version and checksum evidence.
-10. Runs success, replay, batch-conflict, object-tamper, injected-failure, recovery, temporal-overlap,
+9. Verifies the exact deployed control plane before uploading or executing any workload.
+10. Uploads only the admitted inputs with exact S3 version and checksum evidence.
+11. Runs success, replay, batch-conflict, object-tamper, injected-failure, recovery, temporal-overlap,
    financial-mismatch, and stale-publisher scenarios.
-11. Resolves one published generation and executes bounded Athena validation across all six tables.
-12. Captures service histories, logs, metrics, plans, outputs, runtime, and immediate cost estimates.
-13. Invokes independent teardown for every admitted execution outcome and releases the lease only
-    after verified clean state.
+12. Resolves one published generation and executes bounded Athena validation across all six tables.
+13. Builds a non-final execution checkpoint from histories, logs, results, runtime, and budget.
+14. Invokes independent teardown for every admitted execution outcome, verifies clean inventories,
+    and releases the exact lease only after a consistent-read absence proof.
+15. Finalizes the evidence only after all 20 contract domains pass.
 
 ## Expected signals
 

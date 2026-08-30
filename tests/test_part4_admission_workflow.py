@@ -101,7 +101,9 @@ def test_teardown_routes_only_admitted_runs_and_releases_only_clean_lease() -> N
     assert 'arguments+=("${GITHUB_REPOSITORY}/${GITHUB_RUN_ID}")' in verify_no_deployment["run"]
     assert "steps.verify_teardown.outcome == 'success'" in release["if"]
     assert "steps.verify_no_deployment.outcome == 'success'" in release["if"]
-    assert release["run"] == "bash scripts/release_lock.sh"
+    assert "verify_lease_release.py" in release["run"]
+    assert "lease-release-verification.json" in release["run"]
+    assert '--owner "${PORTFOLIO_LOCK_OWNER}"' in release["run"]
 
 
 def test_admission_receipt_is_copied_into_execution_and_teardown_evidence() -> None:

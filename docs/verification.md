@@ -21,6 +21,7 @@ environment that produced it.
 | Managed lifecycle and serving resolver | `LOCAL_VERIFIED` | Conditional-transition, publication, recovery, and query-boundary tests |
 | Part 4 deterministic source provenance | `LOCAL_VERIFIED` | Five contract-bound source families, deterministic compressed bytes, separate semantic/file identities, strict receipts, and independent CI reproduction |
 | Part 4 pre-AWS admission controls | `LOCAL_VERIFIED` | Exact operator, `main` source, run attempt, distinct confirmations, cost/workload bounds and source tree are revalidated before OIDC; lease release requires verified clean state |
+| Part 4 contract-complete evidence readiness | `LOCAL_VERIFIED` | Execution checkpoint cannot claim final verification; the sole finalizer requires all 20 domains, 17 provenance fields, clean teardown, post-teardown budget proof, and consistent-read lease absence |
 | GitHub OIDC identity | `AWS_VERIFIED` | Current-target short-lived credentials issued to the repository's `main` branch |
 | Organization-shared credit safety | `OWNER_ATTESTED` | Management-account credit balance and unrestricted organization sharing were reviewed; the attestation expires quickly and must be refreshed |
 | IAM and persistent foundation | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) verified exact live IAM parity, hardened persistent resources, budget alerts, lease contention and release, an empty backend, and zero AtlasRetail workload resources |
@@ -58,6 +59,11 @@ ordering, exact input bounds, attempt-bound immutable source handoff, independen
 revalidation, and clean-only lease-release routing. It contains `aws_execution: false` and cannot
 promote any infrastructure, workload, runtime, cost, CloudWatch, Athena, or teardown claim to
 `AWS_VERIFIED`.
+
+The Stage 4 evidence-readiness artifact is also repository-only evidence. It proves the strict
+schemas, workflow ordering, compact target-region session intersections, single final claim
+authority, and positive/adversarial validation behavior. It contains `aws_execution: false` and
+`claim_level: LOCAL_VERIFIED`. It does not prove that a Part 4 managed run occurred.
 
 Sanitized summaries may be committed under `evidence/`. Detailed logs remain attached to their
 GitHub Actions runs and must not contain credentials or customer data.
