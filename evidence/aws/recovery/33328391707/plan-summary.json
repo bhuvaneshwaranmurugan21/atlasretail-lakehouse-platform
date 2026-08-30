@@ -1,0 +1,8 @@
+{
+  "errors": [],
+  "exact_envelope": false,
+  "mode": "destroy",
+  "partial_destroy_recovery": true,
+  "resource_count": 40,
+  "result": "PASS"
+}

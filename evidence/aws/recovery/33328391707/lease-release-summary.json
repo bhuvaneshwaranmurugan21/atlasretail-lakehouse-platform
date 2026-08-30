@@ -1,0 +1,10 @@
+{
+  "allow_absent": false,
+  "already_absent": false,
+  "conditional_delete_attempted": true,
+  "conditional_delete_exit_code": 0,
+  "consistent_read": true,
+  "expected_state": "RECOVERY_BOUND",
+  "lease_absent": true,
+  "result": "PASS"
+}

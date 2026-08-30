@@ -1,0 +1,12 @@
+{
+  "all_checks_deleted": true,
+  "check_count": 20,
+  "kms_key_disposition": {
+    "alias_absent": true,
+    "deletion_date_verified": true,
+    "status": "PENDING_DELETION"
+  },
+  "result": "PASS",
+  "terraform_state_empty": true,
+  "unexpected_run_tagged_resources": []
+}

@@ -1,0 +1,34 @@
+{
+  "artifact": {
+    "created_at": "2026-08-30T19:35:21Z",
+    "id": 9737707861,
+    "name": "atlasretail-read-only-preflight-33331233341",
+    "sha256": "82e3bfca64ae841d9aefda0467301eaf6b4420547fb5795051d248c22e4bd904",
+    "size_bytes": 2668
+  },
+  "aws_account_id": "857229544428",
+  "aws_region": "ap-southeast-2",
+  "committed_summaries": {
+    "summary.json": "87af05b729332ad057f52291f013246bc5f5bc8c294d04d1b5a4e227cc3e9099"
+  },
+  "evidence_type": "independent-post-stage6-clean-inventory",
+  "production_claim": false,
+  "project": "AtlasRetail",
+  "repository": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
+  "result": "PASS",
+  "run_attempt": 1,
+  "run_id": 33331233341,
+  "run_number": 29,
+  "run_url": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33331233341",
+  "sanitization": {
+    "caller_identity": "EXCLUDED",
+    "pending_deletion_kms_identifiers": "REPLACED_WITH_COUNTS"
+  },
+  "schema_version": "1.0",
+  "source_commit": "08559b0f48708080335282c6d59faa3826635d67",
+  "source_evidence_sha256": {
+    "preflight.json": "98e7b472100cd6ff6b3c8bb7456dfaa91e51bcb3b0ab152ae71a4d94b16aabb9",
+    "source-identity.json": "6d933ca940fd220a5d6b411eb34ccf22162207b46aa28010767d03dbdbde02b1"
+  },
+  "workflow": "AWS read-only preflight"
+}

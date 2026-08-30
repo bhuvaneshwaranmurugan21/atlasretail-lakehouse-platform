@@ -1,0 +1,119 @@
+{
+  "actual_billed_cost_claim": "UNCLAIMED",
+  "aws_execution": true,
+  "bounds": {
+    "budget_ceiling_usd": 5,
+    "order_count": 500
+  },
+  "business_result": {
+    "actual": {
+      "gross_cents": 4595276,
+      "orders": 500
+    },
+    "expected": {
+      "gross_cents": 4595276,
+      "orders": 500
+    },
+    "result": "PASS"
+  },
+  "checks": {
+    "all_contract_domains_passed": true,
+    "athena_result_matches_expected": true,
+    "cloudwatch_exports": {
+      "glue-cloudwatch-events.json": {
+        "event_count": 29538,
+        "passed": true
+      },
+      "lambda-cloudwatch-events.json": {
+        "event_count": 90,
+        "passed": true
+      },
+      "states-cloudwatch-events.json": {
+        "event_count": 184,
+        "passed": true
+      }
+    },
+    "contract_domain_count": 20,
+    "executions": {
+      "conflict": {
+        "actual": "FAILED",
+        "expected": "FAILED",
+        "passed": true
+      },
+      "failure": {
+        "actual": "FAILED",
+        "expected": "FAILED",
+        "passed": true
+      },
+      "financial": {
+        "actual": "FAILED",
+        "expected": "FAILED",
+        "passed": true
+      },
+      "recovery": {
+        "actual": "SUCCEEDED",
+        "expected": "SUCCEEDED",
+        "passed": true
+      },
+      "replay": {
+        "actual": "SUCCEEDED",
+        "expected": "SUCCEEDED",
+        "passed": true
+      },
+      "success": {
+        "actual": "SUCCEEDED",
+        "expected": "SUCCEEDED",
+        "passed": true
+      },
+      "tamper": {
+        "actual": "FAILED",
+        "expected": "FAILED",
+        "passed": true
+      },
+      "temporal": {
+        "actual": "FAILED",
+        "expected": "FAILED",
+        "passed": true
+      }
+    },
+    "failure_did_not_move_pointer": true,
+    "finalized_after_lease_release": true,
+    "serving_generation_resolved_once": true,
+    "six_table_serving_query_completed": true,
+    "stale_publisher_rejected": true
+  },
+  "claim_level": "AWS_VERIFIED",
+  "evidence_type": "part4-stage6-bounded-managed-execution",
+  "immediate_cost_estimate_usd": {
+    "partial_total": 0.161805,
+    "scope": "Glue compute and minimum-billed Athena queries only; billing data and minor service charges settle later."
+  },
+  "metered_usage": {
+    "athena_bytes_scanned": 2192,
+    "athena_queries": 2,
+    "execution_to_finality_seconds": 1646.816,
+    "glue_dpu_seconds": 1323.0,
+    "glue_job_runs": 6
+  },
+  "prerequisites": {
+    "glue_capability_probe": 33329607444,
+    "plan_only_proof": 33329689861,
+    "read_only_preflight": 33328532420
+  },
+  "production_claim": false,
+  "project": "AtlasRetail",
+  "provenance_digests": {
+    "apply_plan_sha256": "6b36433a28e91d4dd72fbd1a621bc88ff4fdd5d8a5edb95a085e803896a000b1",
+    "checkpoint_sha256": "c860d03a5b908349bf28f55d9ac602d530c616aba0e8e8aca402f1aff3d5b5c7",
+    "contract_sha256": "a6e453ea66043f2758357df854da02fea1704c6ae4ab191bc09745bdd2afe523",
+    "destroy_plan_sha256": "db3f62836ad8982069f5455d14d745f7d834000077549d1092d80ab2cc43e424",
+    "evidence_manifest_sha256": "d40325ef0488db3bcd9c529d044d13929b8a6e3c4b80133d3b40873a7f7aa529",
+    "provider_lock_sha256": "5a3a52231b6fca99389cb80b9cc31cbad3f584b94606fbd6acd2211932277aed",
+    "target_sha256": "2b2122ea1907eb5ce5707cc619a8888d94634b422c6470f48ab9a2e7c2e8d9c5"
+  },
+  "result": "PASS",
+  "run_attempt": 1,
+  "run_id": 33329861907,
+  "schema_version": "1.0",
+  "source_commit": "08559b0f48708080335282c6d59faa3826635d67"
+}

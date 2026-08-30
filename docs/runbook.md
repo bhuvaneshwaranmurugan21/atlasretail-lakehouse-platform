@@ -251,10 +251,10 @@ the validator twice, diffs the receipts, and retains
 `part4-stage5-teardown-authority-<run-id>`. Stage 5 itself performs no AWS operation and its maximum
 claim is `LOCAL_VERIFIED` with `aws_execution: false`.
 
-## Deploy and execute
+### Stage 6 managed execution and finality
 
-When the later Part 4 stages authorize execution, first complete a read-only preflight, Glue
-create/delete capability probe, and exact plan-only proof for the exact merged source commit. Run
+Stage 6 authorizes execution only after a read-only preflight, Glue create/delete capability probe,
+and exact plan-only proof pass for the exact merged source commit. Run
 `AWS bounded lab` manually with those three successful run IDs, `order_count=500`,
 `budget_ceiling_usd=5`, `confirm_execute=EXECUTE_ATLASRETAIL_PART4`, and
 `confirm_destroy=DESTROY`. The workflow:
@@ -280,6 +280,29 @@ create/delete capability probe, and exact plan-only proof for the exact merged s
 14. Invokes independent teardown for every admitted execution outcome, verifies clean inventories,
     and releases the exact lease only after a consistent-read absence proof.
 15. Finalizes the evidence only after all 20 contract domains pass.
+
+Stage 6 is complete for source `08559b0f48708080335282c6d59faa3826635d67`. The exact proof
+chain is:
+
+- read-only preflight `33328532420`;
+- definition-only Glue capability probe `33329607444`;
+- exact 40-resource create-only plan proof `33329689861`;
+- bounded managed execution, exact-state teardown, lease release, and sole finalization
+  `33329861907`; and
+- independent post-teardown clean-inventory preflight `33331233341`.
+
+The bounded run passed all 20 contract domains and emitted `AWS_VERIFIED` only after the exact
+40-resource destroy plan, clean Terraform and AWS inventories, post-teardown budget verification,
+conditional lease deletion, and consistent-read lease absence passed. It establishes the bounded
+500-order managed path and finality contract, not production readiness, sustained operation, or a
+settled billing amount. Actual billed cost remains `UNCLAIMED`.
+
+Failed run `33326519783` completed workload validation but could not finalize because automatic
+teardown reproduced the Terraform provider lock file incorrectly. It therefore remains failed and
+`UNCLAIMED`. The corrected recovery control applied the exact 40-resource cleanup-only destroy plan
+in run `33328391707`, passed all 20 cleanup checks, and released the recovery-bound lease without
+making a workload claim. See
+[`part4-stage6-provider-lock-recovery.md`](incidents/part4-stage6-provider-lock-recovery.md).
 
 ## Expected signals
 

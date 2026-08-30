@@ -1,0 +1,50 @@
+{
+  "artifact": {
+    "created_at": "2026-08-30T18:35:08Z",
+    "id": 9736932961,
+    "name": "atlasretail-part4-recovery-33328391707-1",
+    "sha256": "a7d2fd35e0494d0b1f44399cc67528802b7abe64e7a8b8f9accae17d8d012d91",
+    "size_bytes": 51779
+  },
+  "aws_account_id": "857229544428",
+  "aws_region": "ap-southeast-2",
+  "committed_summaries": {
+    "lease-release-summary.json": "01e1bf4743f4081e2244d4490dfae4f867b663d087c374c381ca86b29c6627b7",
+    "plan-summary.json": "d1b62f2cc4f85cc352d3613015ce831010adb4c2b89fc06ad8ba5fde60780435",
+    "summary.json": "9699b94a1c55542118fa968254088a590edc48e6fdd01064033ece4f28547328",
+    "teardown-summary.json": "381e975f4a9abb911884c32bb3a4e9be01d22805e4086ba3be44428164835069"
+  },
+  "evidence_type": "part4-stage6-deterministic-recovery",
+  "failed_run_artifact": {
+    "id": 9736723483,
+    "name": "atlasretail-aws-evidence-33326519783",
+    "sha256": "d03a28dd210aa46cf57526c56162832f1a6fd9d4c67f4cc5a34f9162cec28175",
+    "size_bytes": 1644424
+  },
+  "failed_run_id": 33326519783,
+  "failed_source_commit": "d074175c0e1b7937400e488dd2e8265d900b8841",
+  "production_claim": false,
+  "project": "AtlasRetail",
+  "recovery_control_commit": "08559b0f48708080335282c6d59faa3826635d67",
+  "repository": "bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform",
+  "result": "PASS",
+  "run_attempt": 1,
+  "run_id": 33328391707,
+  "run_number": 2,
+  "run_url": "https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33328391707",
+  "sanitization": {
+    "caller_identity": "EXCLUDED",
+    "live_resource_identifiers": "EXCLUDED",
+    "session_policy": "EXCLUDED",
+    "terraform_plan_payloads": "EXCLUDED"
+  },
+  "schema_version": "1.0",
+  "source_evidence_sha256": {
+    "recovery-lease-release.json": "8ffd96e630a93a571fe12f5536dbedd027a71e960bf0dac3fbf378a40365df50",
+    "recovery-summary.json": "1e3bf945e3a92ab900f468764f1dd7473bf7a269c9c06e4187a384c567a8c694",
+    "recovery-teardown.json": "17dcb1e1c8fd33361ebbb0e49d9b05087c9c8a8719bc709ad76e93c4867f8dec",
+    "terraform-recovery-destroy-plan-validation.json": "8afb29fc9c5791a8a607f503bbfc144407ac4e002bb5df8bb610bfcc16ed0fed"
+  },
+  "workflow": "AWS bounded lab recovery",
+  "workload_execution": false
+}

@@ -1,0 +1,16 @@
+{
+  "account_lease_absent": true,
+  "aws_account_id": "857229544428",
+  "aws_region": "ap-southeast-2",
+  "claim_level": "AWS_VERIFIED",
+  "evidence_type": "independent-post-stage6-clean-inventory",
+  "kms_inspection_error_count": 0,
+  "pending_deletion_kms_alias_count": 0,
+  "pending_deletion_kms_key_count": 13,
+  "production_claim": false,
+  "result": "PASS",
+  "run_id": 33331233341,
+  "source_commit": "08559b0f48708080335282c6d59faa3826635d67",
+  "terraform_state_resources": [],
+  "unexpected_resources": []
+}
