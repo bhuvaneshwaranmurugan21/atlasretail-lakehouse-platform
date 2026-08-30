@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlasretail.example/contracts/part4/final-evidence.schema.json",
+  "title": "AtlasRetail Part 4 final evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "proof",
+    "result",
+    "claim_level",
+    "aws_execution",
+    "production_claim",
+    "provenance",
+    "domains",
+    "checkpoint_sha256",
+    "evidence_manifest_sha256",
+    "actual_billed_cost_claim",
+    "errors"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "proof": {"const": "part4-final-evidence"},
+    "result": {"enum": ["PASS", "FAIL"]},
+    "claim_level": {"enum": ["AWS_VERIFIED", "UNCLAIMED"]},
+    "aws_execution": {"type": "boolean"},
+    "production_claim": {"const": false},
+    "provenance": {"type": "object"},
+    "domains": {"type": "object"},
+    "checkpoint_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "evidence_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "actual_billed_cost_claim": {"const": "UNCLAIMED"},
+    "errors": {"type": "array", "items": {"type": "string"}}
+  }
+}

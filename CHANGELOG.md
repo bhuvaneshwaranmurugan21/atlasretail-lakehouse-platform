@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added Part 4 contract-complete evidence finality: strict checkpoint and final schemas, exact
+  Step Functions/Glue semantic correlation, generation-pinned Athena and run-bound CloudWatch
+  validation, compact execution/teardown session intersections, saved-plan and inventory proof,
+  exact-owner consistent-read lease release, one post-teardown `AWS_VERIFIED` authority, and a
+  broad adversarial mutation suite. Stage 4 remains repository-only `LOCAL_VERIFIED` readiness.
+
 - Added fail-closed Part 4 pre-AWS admission with exact owner/main/run-attempt binding, distinct
   execution and teardown confirmations, immutable deterministic source handoff, independent
   pre-OIDC receipt reconstruction, and verified-clean-only lease release.

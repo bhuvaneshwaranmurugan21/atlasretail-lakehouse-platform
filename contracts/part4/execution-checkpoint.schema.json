@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlasretail.example/contracts/part4/execution-checkpoint.schema.json",
+  "title": "AtlasRetail Part 4 execution checkpoint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "proof",
+    "result",
+    "claim_level",
+    "execution_state",
+    "aws_execution",
+    "teardown_complete",
+    "provenance",
+    "domains",
+    "metered_usage",
+    "evidence_manifest_sha256",
+    "actual_billed_cost_claim",
+    "errors"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "proof": {"const": "part4-execution-checkpoint"},
+    "result": {"enum": ["PASS", "FAIL"]},
+    "claim_level": {"const": "UNCLAIMED"},
+    "execution_state": {"const": "AWS_EXECUTION_VALIDATED_PENDING_TEARDOWN"},
+    "aws_execution": {"const": true},
+    "teardown_complete": {"const": false},
+    "provenance": {"type": "object"},
+    "domains": {"type": "object"},
+    "metered_usage": {"type": "object"},
+    "evidence_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "actual_billed_cost_claim": {"const": "UNCLAIMED"},
+    "errors": {"type": "array", "items": {"type": "string"}}
+  }
+}

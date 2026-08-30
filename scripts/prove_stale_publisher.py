@@ -50,6 +50,8 @@ def main() -> None:
     parser.add_argument("--kms-key", required=True)
     parser.add_argument("--source-registration", type=Path, required=True)
     parser.add_argument("--run-id", required=True)
+    parser.add_argument("--source-commit", required=True)
+    parser.add_argument("--workflow-run-id", required=True)
     parser.add_argument("--output-directory", type=Path, required=True)
     arguments = parser.parse_args()
     arguments.output_directory.mkdir(parents=True, exist_ok=True)
@@ -65,6 +67,8 @@ def main() -> None:
             "manifest_digest": manifest_digest,
             "manifest_uri": source["manifest_uri"],
             "manifest_version_id": source["manifest_version_id"],
+            "source_commit": arguments.source_commit,
+            "workflow_run_id": arguments.workflow_run_id,
         },
         arguments.output_directory / "register-response.json",
     )
@@ -118,6 +122,11 @@ def main() -> None:
         },
         arguments.output_directory / "validate-response.json",
     )
+    winner_before = invoke(
+        arguments.function,
+        {"action": "resolve"},
+        arguments.output_directory / "winner-before.json",
+    )["response"]
     stale = invoke(
         arguments.function,
         {"action": "publish", "generation_id": generation_id, "expected_pointer_version": 0},
@@ -126,12 +135,23 @@ def main() -> None:
     error = str(stale["response"].get("errorMessage", ""))
     if stale["metadata"].get("FunctionError") != "Unhandled" or "STALE_PUBLISHER" not in error:
         raise RuntimeError("managed stale publisher was not rejected")
+    winner_after = invoke(
+        arguments.function,
+        {"action": "resolve"},
+        arguments.output_directory / "winner-after.json",
+    )["response"]
+    if winner_before != winner_after:
+        raise RuntimeError("stale publisher changed the active winner")
     summary = {
         "result": "PASS",
         "scope": "CONTROL_PLANE_CAS_ONLY",
         "generation_id": generation_id,
         "expected_pointer_version": 0,
         "error": error,
+        "source_commit": arguments.source_commit,
+        "workflow_run_id": arguments.workflow_run_id,
+        "winner_before": winner_before,
+        "winner_after": winner_after,
     }
     (arguments.output_directory / "summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
