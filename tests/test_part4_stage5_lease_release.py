@@ -31,6 +31,10 @@ def completed(stdout: object, code: int = 0) -> subprocess.CompletedProcess[str]
     )
 
 
+def completed_raw(stdout: str, code: int = 0) -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess(args=["aws"], returncode=code, stdout=stdout, stderr="")
+
+
 def arguments(output: Path) -> list[str]:
     return [
         "verify_lease_release.py",
@@ -181,6 +185,21 @@ def test_pre_authority_release_conditions_contract_target_and_state(
     assert "target_sha256 = :target" in condition
     assert "#state = :state" in condition
     assert json.loads(output.read_text(encoding="utf-8"))["result"] == "PASS"
+
+
+def test_release_accepts_empty_cli_output_as_strongly_consistent_absence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    responses = iter((completed(lease_only_deleted_item()), completed_raw("")))
+    output = tmp_path / "lease-only-release.json"
+    monkeypatch.setattr(MODULE.subprocess, "run", lambda *_args, **_kwargs: next(responses))
+    monkeypatch.setattr(sys, "argv", lease_only_arguments(output))
+
+    assert MODULE.main() == 0
+    proof = json.loads(output.read_text(encoding="utf-8"))
+    assert proof["result"] == "PASS"
+    assert proof["lease_absent"] is True
+    assert proof["post_delete_item"] is None
 
 
 def test_pre_authority_release_rejects_bound_state(

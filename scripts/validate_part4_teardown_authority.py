@@ -13,6 +13,7 @@ from terraform_source_digest import source_digest
 from atlasretail.part4_contract import (
     CONTRACT_RELATIVE_PATH,
     TARGET_RELATIVE_PATH,
+    load_json_object,
     validate_part4_contract_file,
 )
 from atlasretail.part4_teardown_authority import (
@@ -63,7 +64,9 @@ def main() -> int:
     args = arguments()
     try:
         root = args.repository_root.resolve()
-        contract = validate_part4_contract_file(root / CONTRACT_RELATIVE_PATH, repo_root=root)
+        contract_path = root / CONTRACT_RELATIVE_PATH
+        contract_validation = validate_part4_contract_file(contract_path, repo_root=root)
+        contract = load_json_object(contract_path)
         authority = load_object(args.authority)
         digest = load_object(args.digest_receipt)
         admission = load_object(args.admission_receipt)
@@ -109,9 +112,9 @@ def main() -> int:
             else str(terraform_values.get("apply_plan_binary_sha256", ""))
         )
         inputs = AuthorityInputs(
-            contract_id=contract.contract_id,
-            contract_version=contract.version,
-            contract_sha256=contract.contract_sha256,
+            contract_id=contract["contract_id"],
+            contract_version=contract["version"],
+            contract_sha256=contract_validation.contract_sha256,
             target_sha256=sha256_path(root / TARGET_RELATIVE_PATH),
             authority_schema_sha256=sha256_path(
                 root / "contracts/part4/teardown-authority.schema.json"
