@@ -253,10 +253,19 @@ def publish_preflight_evidence(
         preflight.get("kms_inspection_errors") == [], "KMS inventory contains inspection errors"
     )
     aliases = preflight.get("pending_deletion_kms_aliases")
-    keys = preflight.get("pending_deletion_kms_keys")
-    _require(isinstance(aliases, list) and not aliases, "pending-deletion KMS aliases remain")
-    if not isinstance(keys, list):
-        raise ClosureError("pending-deletion KMS key inventory is absent")
+    keys = preflight.get("allowed_pending_deletion_kms_keys")
+    if not (
+        isinstance(keys, list)
+        and len(keys) == len(set(keys))
+        and all(isinstance(key, str) and key for key in keys)
+    ):
+        raise ClosureError("allowed pending-deletion KMS key inventory is invalid")
+    if not isinstance(aliases, dict) or set(aliases) != set(keys):
+        raise ClosureError("pending-deletion KMS alias inventory differs from allowed keys")
+    _require(
+        all(isinstance(values, list) and not values for values in aliases.values()),
+        "pending-deletion KMS aliases remain",
+    )
     _require(account_plan.get("result") == "PASS", "account-plan verification did not pass")
     _require(
         account_plan.get("credit_source") == "organization-shared",

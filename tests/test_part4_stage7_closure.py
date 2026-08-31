@@ -85,10 +85,8 @@ def fixture_repository(tmp_path: Path) -> tuple[Path, list[str], Path]:
             "account_lease_absent": True,
             "errors": [],
             "kms_inspection_errors": [],
-            "pending_deletion_kms_aliases": [],
-            "pending_deletion_kms_keys": [
-                {"KeyId": "sensitive-live-key-id", "Arn": "sensitive-live-key-arn"}
-            ],
+            "allowed_pending_deletion_kms_keys": ["sensitive-live-key-arn"],
+            "pending_deletion_kms_aliases": {"sensitive-live-key-arn": []},
             "result": "PASS",
             "terraform_state_resources": [],
             "unexpected_resources": [],
@@ -244,6 +242,47 @@ def test_dirty_raw_preflight_cannot_be_published(tmp_path: Path) -> None:
     preflight["unexpected_resources"] = ["unexpected-live-resource"]
     write(raw / "preflight.json", preflight)
     with pytest.raises(ClosureError, match="unexpected active resources"):
+        publish_preflight_evidence(
+            raw_directory=raw,
+            output_directory=tmp_path / "rejected",
+            artifact={
+                "created_at": "2026-08-31T06:00:00Z",
+                "id": 1,
+                "name": "artifact",
+                "sha256": "b" * 64,
+                "size_bytes": 1,
+            },
+        )
+
+
+def test_pending_deletion_alias_cannot_be_published(tmp_path: Path) -> None:
+    _, _, _ = fixture_repository(tmp_path)
+    raw = tmp_path / "raw-preflight"
+    preflight = json.loads((raw / "preflight.json").read_text(encoding="utf-8"))
+    key = preflight["allowed_pending_deletion_kms_keys"][0]
+    preflight["pending_deletion_kms_aliases"][key] = ["alias/atlasretail-old"]
+    write(raw / "preflight.json", preflight)
+    with pytest.raises(ClosureError, match="pending-deletion KMS aliases remain"):
+        publish_preflight_evidence(
+            raw_directory=raw,
+            output_directory=tmp_path / "rejected",
+            artifact={
+                "created_at": "2026-08-31T06:00:00Z",
+                "id": 1,
+                "name": "artifact",
+                "sha256": "b" * 64,
+                "size_bytes": 1,
+            },
+        )
+
+
+def test_pending_deletion_alias_inventory_must_cover_allowed_keys(tmp_path: Path) -> None:
+    _, _, _ = fixture_repository(tmp_path)
+    raw = tmp_path / "raw-preflight"
+    preflight = json.loads((raw / "preflight.json").read_text(encoding="utf-8"))
+    preflight["pending_deletion_kms_aliases"] = {}
+    write(raw / "preflight.json", preflight)
+    with pytest.raises(ClosureError, match="alias inventory differs from allowed keys"):
         publish_preflight_evidence(
             raw_directory=raw,
             output_directory=tmp_path / "rejected",
