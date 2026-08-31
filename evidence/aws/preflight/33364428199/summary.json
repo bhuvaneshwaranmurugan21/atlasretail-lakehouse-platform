@@ -1,0 +1,18 @@
+{
+  "account_lease_absent": true,
+  "aws_account_id": "857229544428",
+  "aws_mutation": false,
+  "aws_region": "ap-southeast-2",
+  "claim_level": "AWS_VERIFIED",
+  "evidence_type": "part4-stage7-final-read-only-preflight",
+  "kms_inspection_error_count": 0,
+  "pending_deletion_kms_alias_count": 0,
+  "pending_deletion_kms_key_count": 13,
+  "production_claim": false,
+  "result": "PASS",
+  "run_id": 33364428199,
+  "source_commit": "46361b7e4be3bb600ff3fad369601c5161572e44",
+  "terraform_state_resources": [],
+  "unexpected_resources": [],
+  "workload_execution": false
+}

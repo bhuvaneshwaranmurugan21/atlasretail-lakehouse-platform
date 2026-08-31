@@ -2,10 +2,12 @@
 
 ## Unreleased
 
-- Added Part 4 Stage 7 closure controls: a strict self-digesting completion receipt, a frozen
+- Completed Part 4 Stage 7 closure: a strict self-digesting completion receipt, a frozen
   107-file Stage 6 runtime surface, an exact closure-only allowlist, sanitized final-preflight
   publication, deterministic reconstruction, adversarial drift checks, refreshed owner-attested
-  organization credit evidence, and a fail-closed two-change-set completion state. Stage 7 remains
+  organization credit evidence, and a fail-closed publication state. Final read-only clean-inventory
+  run `33364428199` is bound to corrected controls commit `46361b7`; the publisher requires exact
+  allowed-key and alias-map coverage and rejects non-empty alias entries. Stage 7 remains
   repository-only `LOCAL_VERIFIED`; Stage 6 retains the managed `AWS_VERIFIED` authority.
 
 - Completed Part 4 Stage 6 managed execution and finality for source `08559b0`: exact-source
