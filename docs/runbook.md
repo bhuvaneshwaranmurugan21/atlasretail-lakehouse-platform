@@ -328,6 +328,28 @@ claim remains false, actual billed cost remains `UNCLAIMED`, and sustained opera
 established. Do not dispatch the bounded lab, Glue probe, plan-only proof, controlled deployment,
 or recovery workflows for Stage 7 closure.
 
+### Part 4 Stage 8 release integrity and handoff
+
+Stage 8 publishes version `v0.1.0` without another AWS operation. The sequence is:
+
+1. Branch from the exact Stage 7 closure merge and verify its self-digesting receipt.
+2. Add release controls only under `release/part4/stage8`, tests, CI, and documentation.
+3. Prove the managed surface remains exactly 107 files with its frozen digest.
+4. Validate the strict release schema and the four-authority evidence-retention catalog.
+5. Reconstruct Stage 8 controls twice and compare exact bytes.
+6. Merge the controls change only after correctness, Glue-runtime integration, and Terraform CI pass.
+7. Build the release-readiness receipt using that known controls merge; never reference the future
+   commit that will contain the receipt.
+8. Merge the evidence-only change after CI independently reconstructs the same receipt.
+9. Build the fixed-header gzip source archive twice from the exact evidence merge and compare bytes.
+10. Create the annotated `v0.1.0` tag with exact commit, receipt, archive, and signature-boundary
+    annotation lines. Never create a lightweight tag or move a published tag.
+11. Verify the tag object, tagged receipt, and reproduced archive before publishing the release.
+
+The release receipt state is `READY_FOR_ANNOTATED_TAG`; tag existence is proved only after the final
+evidence merge. A correction after publication requires a new version. Stage 8 is
+`LOCAL_VERIFIED`, the production claim remains false, and actual billed cost remains `UNCLAIMED`.
+
 ## Expected signals
 
 - Successful transformation and publication end `SUCCEEDED`.

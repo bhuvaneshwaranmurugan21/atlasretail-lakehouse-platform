@@ -25,6 +25,7 @@ environment that produced it.
 | Part 4 immutable teardown authority and deterministic recovery | `LOCAL_VERIFIED` | Exact run/attempt/source/plan authority, immutable artifact and lease binding, cleanup-only recovery, saved destroy-plan integrity, inventory proof and adversarial CI validation; Stage 5 performs no AWS operation |
 | Part 4 Stage 6 managed execution and finality | `AWS_VERIFIED` | [Run 33329861907](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33329861907) admitted the exact current-source prerequisite chain, passed all 20 contract domains, finalized after exact teardown and lease release, and was independently followed by clean-inventory run 33331233341 |
 | Part 4 Stage 7 durable closure | `LOCAL_VERIFIED` | Deterministic, schema-bound authentication of the committed Stage 6 workload, recovery, runtime-equivalence, and final read-only clean-inventory authorities; Stage 7 performs no managed workload |
+| Part 4 Stage 8 release integrity | `LOCAL_VERIFIED` | Strict release-readiness receipt, four-authority retention catalog, deterministic source archive, annotated `v0.1.0` tag binding, and continued proof of the unchanged Stage 7 107-file runtime |
 | GitHub OIDC identity | `AWS_VERIFIED` | Current-target short-lived credentials issued to the repository's `main` branch |
 | Organization-shared credit safety | `OWNER_ATTESTED` | Management-account credit balance and unrestricted organization sharing were reviewed; the attestation expires quickly and must be refreshed |
 | IAM and persistent foundation | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) verified exact live IAM parity, hardened persistent resources, budget alerts, lease contention and release, an empty backend, and zero AtlasRetail workload resources |
@@ -54,6 +55,18 @@ Run `33364428199` supplied that final clean-inventory authority from corrected c
 The deterministic Stage 7 receipt is `LOCAL_VERIFIED` with `aws_execution: false`. Referenced AWS
 runs retain their independently attributed `AWS_VERIFIED` levels. The production claim remains
 false, actual billed cost remains `UNCLAIMED`, and sustained operation remains not established.
+
+## Part 4 Stage 8 release boundary
+
+Stage 8 preserves the Stage 7 closure through version `v0.1.0` without changing the frozen managed
+surface. Release controls live outside the runtime roots and CI recomputes the exact 107-file digest.
+The committed release receipt is `READY_FOR_ANNOTATED_TAG` and binds the merged controls commit,
+Stage 7 receipt, runtime manifest, strict release schema, and four-authority retention catalog.
+
+The final annotated tag must bind the exact evidence merge, committed receipt file digest, and
+deterministic archive digest. Because no signing key is configured, cryptographic signature identity
+is not claimed. Stage 8 remains `LOCAL_VERIFIED` with `aws_execution: false`; the production claim
+remains false and actual billed cost remains `UNCLAIMED`.
 
 The runtime-integration job pins the AWS Glue 5 runtime versions: Python 3.11, Spark 3.5.4, and
 the SHA-512-verified Iceberg 1.7.1 runtime. It remains the deterministic local compatibility gate.
@@ -101,6 +114,11 @@ current-source final managed proof: the sole finalizer emitted `AWS_VERIFIED` on
 domains, the saved destroy plan, clean AWS and Terraform inventories, post-teardown budget proof,
 and exact consistent-read lease release passed. Run `33331233341` then independently reread the
 account and backend and found no active residue.
+
+The Stage 8 retention catalog explicitly separates committed sanitized authorities from expiring
+workflow artifacts. No durable claim requires the raw artifacts, and credentials, live identifiers,
+raw logs, and expanded plans remain excluded from Git. Artifact expiration therefore cannot promote,
+erase, or silently weaken the committed claim boundary.
 
 Sanitized summaries may be committed under `evidence/`. Detailed logs remain attached to their
 GitHub Actions runs and must not contain credentials or customer data.

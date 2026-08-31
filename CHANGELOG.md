@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added Part 4 Stage 8 release integrity for version `v0.1.0`: an isolated strict release contract,
+  deterministic receipt and fixed-header archive tooling, a durable evidence-retention catalog,
+  annotated-tag checksum binding, adversarial validation, and CI proof that the Stage 7 107-file
+  runtime remains unchanged. Stage 8 is repository-only `LOCAL_VERIFIED`; the production claim
+  remains false and actual billed cost remains `UNCLAIMED`.
+
 - Completed Part 4 Stage 7 closure: a strict self-digesting completion receipt, a frozen
   107-file Stage 6 runtime surface, an exact closure-only allowlist, sanitized final-preflight
   publication, deterministic reconstruction, adversarial drift checks, refreshed owner-attested

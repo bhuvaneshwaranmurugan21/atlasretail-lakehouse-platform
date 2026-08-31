@@ -86,6 +86,11 @@ establish data-processing correctness.
   read-only clean-inventory run `33364428199`, and the runtime-equivalent 107-file surface.
   The receipt is `LOCAL_VERIFIED` with no Stage 7 workload: the production claim remains false and
   actual billed cost remains `UNCLAIMED`.
+- `part4/stage8/` contains the deterministic Stage 8 release-readiness receipt after the controls
+  merge. It binds version `v0.1.0`, the Stage 7 closure, the unchanged 107-file runtime, the strict
+  release schema, and the four-authority retention catalog. Its state is
+  `READY_FOR_ANNOTATED_TAG`; the production claim remains false and actual billed cost remains
+  `UNCLAIMED`.
 - `incidents/31791499897/terraform-outputs.json` preserves the exact resource identifiers required
   for recovery after partial Terraform state removal.
 - `../docs/incidents/legacy/` preserves the former rescue workflow and its exact authorization
@@ -120,3 +125,7 @@ establish data-processing correctness.
 Detailed workflow artifacts may expire according to GitHub retention settings. Incident records
 therefore retain immutable run IDs, source commits, artifact digests, observed outcomes, and cleanup
 criteria without committing credentials or large raw logs.
+
+Part 4 Stage 8 formalizes that boundary: three external workflow artifacts are classified as
+expiring, while their four authoritative committed forms remain digest-bound and independently
+verifiable. Raw artifacts are not required for the durable release claim.
