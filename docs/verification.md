@@ -27,6 +27,7 @@ environment that produced it.
 | Part 4 Stage 7 durable closure | `LOCAL_VERIFIED` | Deterministic, schema-bound authentication of the committed Stage 6 workload, recovery, runtime-equivalence, and final read-only clean-inventory authorities; Stage 7 performs no managed workload |
 | Part 4 Stage 8 release integrity | `LOCAL_VERIFIED` | Strict release-readiness receipt, four-authority retention catalog, deterministic source archive, annotated `v0.1.0` tag binding, and continued proof of the unchanged Stage 7 107-file runtime |
 | Part 5 Stage 1 completion contract | `LOCAL_VERIFIED` | Strict contract binding the released Part 4 authorities, frozen runtime, original engineering objectives, final completion gates, and fail-closed non-completion state |
+| Part 5 Stage 2 evidence traceability | `LOCAL_VERIFIED` | Exact objective-to-gate-to-authority mapping, strict status vocabulary, six blocking completion gaps, and two-phase controls/evidence publication bound to successful `main` CI |
 | GitHub OIDC identity | `AWS_VERIFIED` | Current-target short-lived credentials issued to the repository's `main` branch |
 | Organization-shared credit safety | `OWNER_ATTESTED` | Management-account credit balance and unrestricted organization sharing were reviewed; the attestation expires quickly and must be refreshed |
 | IAM and persistent foundation | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) verified exact live IAM parity, hardened persistent resources, budget alerts, lease contention and release, an empty backend, and zero AtlasRetail workload resources |
@@ -82,6 +83,20 @@ cannot be promoted until all Part 5 stages, final CI, operational handoff, runti
 claim boundaries, and critical-defect closure pass. Stage 1 performs no AWS operation and creates
 no new managed claim. The production claim remains false, sustained operation remains
 unestablished, and actual billed cost remains `UNCLAIMED`.
+
+## Part 5 Stage 2 evidence-traceability boundary
+
+Stage 2 starts from the exact Stage 1 contract and preserves its seven objectives and twelve gates.
+Three predecessor receipts are bound by file digest. Six gates backed by immutable authority are
+`PRESERVED_PASS`; the remaining gates are `CURRENT_PASS_RECHECK_REQUIRED`, `PARTIAL`, or `OPEN` and
+have exactly one explicit blocking gap each. A prior managed proof is never promoted into a new AWS
+claim, and incomplete work is never relabelled to obtain a pass.
+
+The controls state is `TRACEABILITY_CONTROLS_READY`. The final `GAP_BASELINE_RECORDED` receipt is
+created only after the controls merge and successful `main` CI, then reconstructed in a separate
+evidence-only pull request. Stage 2 is `LOCAL_VERIFIED` with `aws_execution: false`; project
+completion remains false, sustained operation remains unestablished, and actual billed cost
+remains `UNCLAIMED`.
 
 The runtime-integration job pins the AWS Glue 5 runtime versions: Python 3.11, Spark 3.5.4, and
 the SHA-512-verified Iceberg 1.7.1 runtime. It remains the deterministic local compatibility gate.

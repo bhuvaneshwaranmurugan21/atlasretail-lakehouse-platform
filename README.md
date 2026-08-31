@@ -115,6 +115,7 @@ execution.
 | Part 4 Stage 7 durable closure | `LOCAL_VERIFIED` | A strict deterministic receipt authenticates the Stage 6 workload and recovery authorities, proves the 107-file managed surface remains runtime-equivalent, and binds fresh read-only clean inventory [run 33364428199](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33364428199) without starting another workload |
 | Part 4 Stage 8 release integrity | `LOCAL_VERIFIED` | Version `v0.1.0` uses an isolated strict release contract, durable evidence-retention catalog, deterministic archive recipe, and annotated tag checksum provenance while preserving the Stage 7 107-file runtime digest |
 | Part 5 Stage 1 completion contract | `LOCAL_VERIFIED` | A strict self-digesting contract binds the `v0.1.0` release, managed workload, deterministic recovery, final clean inventory, frozen 107-file runtime, original engineering objectives, and every gate required before final project completion |
+| Part 5 Stage 2 evidence traceability | `LOCAL_VERIFIED` | Strict one-to-one coverage maps all seven objectives and twelve completion gates to predecessor authorities and six explicit blocking gaps; the final receipt is published only after the controls merge and successful `main` CI |
 | Glue 5-compatible Spark transformation and real local Iceberg snapshots | `LOCAL_VERIFIED` | Pinned Glue 5-compatible integration job with isolated Hadoop catalog |
 | GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` in the current target |
 | Current-target IAM and foundation safety baseline | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) proved exact live IAM parity, the hardened persistent foundation, lease safety, budget alerts, an empty backend, and zero workload resources |
@@ -149,6 +150,13 @@ The contract records that Part 5 completion equals project completion, while pro
 until every required Part 5 gate passes. Stage 1 is `LOCAL_VERIFIED` with `aws_execution: false`;
 the production claim remains false, sustained operation remains unestablished, and actual billed
 cost remains `UNCLAIMED`.
+
+Part 5 Stage 2 classifies every frozen objective and completion gate without changing AWS or the
+managed runtime. Immutable predecessor proof is marked `PRESERVED_PASS`; incomplete work remains
+`CURRENT_PASS_RECHECK_REQUIRED`, `PARTIAL`, or `OPEN` with an explicit blocking gap. The controls
+state is `TRACEABILITY_CONTROLS_READY`. The final `GAP_BASELINE_RECORDED` receipt must bind the
+actual controls merge and successful `main` CI in a separate evidence-only change. Project
+completion remains false and actual billed cost remains `UNCLAIMED`.
 
 Verification levels and evidence-handling rules are defined in
 [docs/verification.md](docs/verification.md). Operational history is indexed in

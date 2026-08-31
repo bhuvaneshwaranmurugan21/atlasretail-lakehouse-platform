@@ -374,6 +374,31 @@ completion, while project completion remains false until every later required ga
 The production claim remains false, sustained operation remains unestablished, and actual billed
 cost remains `UNCLAIMED`.
 
+## Part 5 Stage 2 evidence traceability
+
+Stage 2 converts the frozen Stage 1 completion definition into a deterministic authority map and
+blocking gap register. It performs no AWS operation and does not modify the frozen managed surface.
+Execute it in this order:
+
+1. Resolve `origin/main` and require merged Stage 1 commit
+   `9b695751ebc0c44ea187f8ceac442fbdbb12fbad` in the current history.
+2. Revalidate the Stage 1 contract, annotated `v0.1.0` tag, Part 4 receipts, and 107-file runtime.
+3. Require exact coverage of all seven objectives and all twelve completion gates.
+4. Bind every traceability row to the permitted predecessor authorities by file digest.
+5. Require every non-`PRESERVED_PASS` gate to have one stable, blocking gap and explicit closure
+   evidence.
+6. Validate strict schema cardinality, status vocabulary, self-digest, claim boundaries, frozen
+   roots, CI wiring, documentation, and professional naming.
+7. Run adversarial mutations followed by the complete source-exact quality suite.
+8. Merge the controls only after every required CI job passes. This produces
+   `TRACEABILITY_CONTROLS_READY`, not the final Stage 2 receipt.
+9. Require successful `main` CI for the exact controls merge and record both immutable identifiers.
+10. Build `evidence/part5/stage2/completion-gap.json` in a separate evidence-only branch.
+11. Reconstruct and verify that receipt in CI before merging it as `GAP_BASELINE_RECORDED`.
+
+Project completion remains false throughout Stage 2. The production claim remains false,
+sustained operation remains unestablished, and actual billed cost remains `UNCLAIMED`.
+
 ## Expected signals
 
 - Successful transformation and publication end `SUCCEEDED`.
