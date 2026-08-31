@@ -159,7 +159,9 @@ def clone_with_controls(tmp_path: Path) -> tuple[Path, str]:
         check=True,
     )
     subprocess.run(
-        ["git", "commit", "--quiet", "-m", "Add release controls"], cwd=repository, check=True
+        ["git", "commit", "--quiet", "--allow-empty", "-m", "Add release controls"],
+        cwd=repository,
+        check=True,
     )
     return repository, head(repository)
 
