@@ -1,0 +1,253 @@
+{
+  "actual_billed_cost_claim": "UNCLAIMED",
+  "authority_file_sha256": {
+    "part4-closure": "c42df8826a84d4049b81c05cd98ba4ae57aec09e927463751e6953d06b710bbf",
+    "part4-release": "2ee89a81694f02cde135a9e367151271825c004152f8816c53a464443d47e772",
+    "part5-completion-contract": "9e42c22642a7c811a8ba116ab6073fed2478ffa5d5b3dca6018724a2314ea508"
+  },
+  "aws_execution": false,
+  "claim_boundaries": {
+    "production": "NOT_CLAIMED",
+    "settled_billing": "UNCLAIMED",
+    "sustained_operation": "NOT_ESTABLISHED"
+  },
+  "claim_level": "LOCAL_VERIFIED",
+  "controls_authority": {
+    "main_ci_run_id": "33410265488",
+    "merge_commit": "c545b9d528954fe0780c9a4dc494a723744c4300"
+  },
+  "evidence_type": "part5-stage2-completion-gap-baseline",
+  "gaps": [
+    {
+      "blocking": true,
+      "gap_id": "P5-GAP-001",
+      "gate": "all_part5_stages_complete",
+      "required_closure_evidence": "validated completion receipts for every Part 5 stage",
+      "severity": "CRITICAL"
+    },
+    {
+      "blocking": true,
+      "gap_id": "P5-GAP-002",
+      "gate": "final_main_ci_green",
+      "required_closure_evidence": "successful main-branch CI bound to the final project commit",
+      "severity": "HIGH"
+    },
+    {
+      "blocking": true,
+      "gap_id": "P5-GAP-003",
+      "gate": "operational_handoff_verified",
+      "required_closure_evidence": "rehearsed handoff receipt covering operation, recovery, and escalation",
+      "severity": "HIGH"
+    },
+    {
+      "blocking": true,
+      "gap_id": "P5-GAP-004",
+      "gate": "professional_naming_verified",
+      "required_closure_evidence": "repository-wide naming-policy scan at the completion candidate",
+      "severity": "HIGH"
+    },
+    {
+      "blocking": true,
+      "gap_id": "P5-GAP-005",
+      "gate": "repository_quality_gates_green",
+      "required_closure_evidence": "source-exact lint, format, type, test, and control-validation results",
+      "severity": "HIGH"
+    },
+    {
+      "blocking": true,
+      "gap_id": "P5-GAP-006",
+      "gate": "unresolved_critical_defects_absent",
+      "required_closure_evidence": "triaged defect inventory with no unresolved critical finding",
+      "severity": "CRITICAL"
+    }
+  ],
+  "gate_traceability": [
+    {
+      "authority_ids": [],
+      "gap_id": "P5-GAP-001",
+      "gate": "all_part5_stages_complete",
+      "status": "OPEN"
+    },
+    {
+      "authority_ids": [
+        "part5-completion-contract"
+      ],
+      "gap_id": null,
+      "gate": "claim_boundaries_preserved",
+      "status": "PRESERVED_PASS"
+    },
+    {
+      "authority_ids": [
+        "part4-closure"
+      ],
+      "gap_id": null,
+      "gate": "clean_inventory_authority_preserved",
+      "status": "PRESERVED_PASS"
+    },
+    {
+      "authority_ids": [
+        "part4-closure"
+      ],
+      "gap_id": null,
+      "gate": "deterministic_recovery_authority_preserved",
+      "status": "PRESERVED_PASS"
+    },
+    {
+      "authority_ids": [],
+      "gap_id": "P5-GAP-002",
+      "gate": "final_main_ci_green",
+      "status": "OPEN"
+    },
+    {
+      "authority_ids": [
+        "part4-closure",
+        "part5-completion-contract"
+      ],
+      "gap_id": null,
+      "gate": "frozen_runtime_preserved",
+      "status": "PRESERVED_PASS"
+    },
+    {
+      "authority_ids": [
+        "part4-closure"
+      ],
+      "gap_id": null,
+      "gate": "managed_workload_authority_preserved",
+      "status": "PRESERVED_PASS"
+    },
+    {
+      "authority_ids": [
+        "part4-release"
+      ],
+      "gap_id": "P5-GAP-003",
+      "gate": "operational_handoff_verified",
+      "status": "PARTIAL"
+    },
+    {
+      "authority_ids": [
+        "part5-completion-contract"
+      ],
+      "gap_id": "P5-GAP-004",
+      "gate": "professional_naming_verified",
+      "status": "CURRENT_PASS_RECHECK_REQUIRED"
+    },
+    {
+      "authority_ids": [
+        "part4-release",
+        "part5-completion-contract"
+      ],
+      "gap_id": null,
+      "gate": "release_integrity_preserved",
+      "status": "PRESERVED_PASS"
+    },
+    {
+      "authority_ids": [
+        "part5-completion-contract"
+      ],
+      "gap_id": "P5-GAP-005",
+      "gate": "repository_quality_gates_green",
+      "status": "CURRENT_PASS_RECHECK_REQUIRED"
+    },
+    {
+      "authority_ids": [
+        "part5-completion-contract"
+      ],
+      "gap_id": "P5-GAP-006",
+      "gate": "unresolved_critical_defects_absent",
+      "status": "CURRENT_PASS_RECHECK_REQUIRED"
+    }
+  ],
+  "objective_traceability": [
+    {
+      "authority_ids": [
+        "part4-closure"
+      ],
+      "gate_ids": [
+        "managed_workload_authority_preserved"
+      ],
+      "objective": "cross_table_consistency",
+      "status": "PRESERVED_PASS"
+    },
+    {
+      "authority_ids": [
+        "part4-closure"
+      ],
+      "gate_ids": [
+        "deterministic_recovery_authority_preserved"
+      ],
+      "objective": "deterministic_failure_recovery",
+      "status": "PRESERVED_PASS"
+    },
+    {
+      "authority_ids": [
+        "part4-closure",
+        "part4-release",
+        "part5-completion-contract"
+      ],
+      "gate_ids": [
+        "claim_boundaries_preserved",
+        "release_integrity_preserved"
+      ],
+      "objective": "evidence_attribution",
+      "status": "PRESERVED_PASS"
+    },
+    {
+      "authority_ids": [
+        "part4-closure"
+      ],
+      "gate_ids": [
+        "clean_inventory_authority_preserved",
+        "managed_workload_authority_preserved"
+      ],
+      "objective": "managed_aws_validation",
+      "status": "PRESERVED_PASS"
+    },
+    {
+      "authority_ids": [
+        "part4-release"
+      ],
+      "gate_ids": [
+        "operational_handoff_verified"
+      ],
+      "objective": "operational_handoff",
+      "status": "PARTIAL"
+    },
+    {
+      "authority_ids": [
+        "part4-release",
+        "part5-completion-contract"
+      ],
+      "gate_ids": [
+        "frozen_runtime_preserved",
+        "release_integrity_preserved"
+      ],
+      "objective": "release_integrity",
+      "status": "PRESERVED_PASS"
+    },
+    {
+      "authority_ids": [
+        "part5-completion-contract"
+      ],
+      "gate_ids": [
+        "professional_naming_verified",
+        "repository_quality_gates_green",
+        "unresolved_critical_defects_absent"
+      ],
+      "objective": "repository_quality",
+      "status": "CURRENT_PASS_RECHECK_REQUIRED"
+    }
+  ],
+  "part": 5,
+  "project": "AtlasRetail",
+  "project_completion": {
+    "all_part5_stages_complete": false,
+    "project_complete": false,
+    "remaining_work_required": true
+  },
+  "receipt_sha256": "4ac693efb3cc962ed9173445e660114f3b4eef77a7acdb35ac77abdd52a54844",
+  "schema_sha256": "440314d60965705dbc20dbc6b52a753564628178b4db740f8a33763bdeed1e88",
+  "schema_version": "1.0",
+  "stage": 2,
+  "stage1_contract_sha256": "94d32706ff7340accec67a1d48fcd176f2cfb9d75fd6da4724990980be521df0",
+  "state": "GAP_BASELINE_RECORDED"
+}
