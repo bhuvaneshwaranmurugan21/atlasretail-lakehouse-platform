@@ -165,6 +165,7 @@ def validate_layout(repository: Path) -> None:
 def validate_ci(path: Path) -> None:
     rendered = path.read_text(encoding="utf-8")
     required = (
+        "fetch-depth: 0",
         "mypy src release/part4/stage8",
         "release.part4.stage8.validate_controls",
         "part4-stage8-release-readiness",
