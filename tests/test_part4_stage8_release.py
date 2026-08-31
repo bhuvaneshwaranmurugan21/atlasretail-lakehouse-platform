@@ -141,8 +141,26 @@ def test_archive_is_byte_deterministic() -> None:
 def clone_with_controls(tmp_path: Path) -> tuple[Path, str]:
     repository = tmp_path / "repository"
     subprocess.run(
-        ["git", "clone", "--quiet", "--shared", str(ROOT), str(repository)],
+        [
+            "git",
+            "clone",
+            "--quiet",
+            "--shared",
+            "--no-tags",
+            str(ROOT),
+            str(repository),
+        ],
         check=True,
+    )
+    assert (
+        subprocess.run(
+            ["git", "tag", "--list", RELEASE_TAG],
+            cwd=repository,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        == ""
     )
     shutil.copytree(ROOT / "release", repository / "release", dirs_exist_ok=True)
     shutil.copy2(ROOT / ".github/workflows/ci.yml", repository / ".github/workflows/ci.yml")

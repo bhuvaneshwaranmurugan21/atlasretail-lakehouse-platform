@@ -1,0 +1,72 @@
+{
+  "actual_billed_cost_claim": "UNCLAIMED",
+  "aws_execution": false,
+  "claim_boundaries": {
+    "production": "NOT_CLAIMED",
+    "settled_billing": "UNCLAIMED",
+    "sustained_operation": "NOT_ESTABLISHED"
+  },
+  "claim_level": "LOCAL_VERIFIED",
+  "completion_gates": [
+    "all_part5_stages_complete",
+    "claim_boundaries_preserved",
+    "clean_inventory_authority_preserved",
+    "deterministic_recovery_authority_preserved",
+    "final_main_ci_green",
+    "frozen_runtime_preserved",
+    "managed_workload_authority_preserved",
+    "operational_handoff_verified",
+    "professional_naming_verified",
+    "release_integrity_preserved",
+    "repository_quality_gates_green",
+    "unresolved_critical_defects_absent"
+  ],
+  "contract_sha256": "94d32706ff7340accec67a1d48fcd176f2cfb9d75fd6da4724990980be521df0",
+  "evidence_type": "part5-stage1-completion-contract",
+  "original_objectives": [
+    "cross_table_consistency",
+    "deterministic_failure_recovery",
+    "evidence_attribution",
+    "managed_aws_validation",
+    "operational_handoff",
+    "release_integrity",
+    "repository_quality"
+  ],
+  "part": 5,
+  "predecessor": {
+    "archive_sha256": "ab6be34b79bafd70d6c349a374ff8a5afe3053d696a00b93f0a3958992da670a",
+    "clean_inventory_run_id": "33364428199",
+    "post_release_verification_sha256": "f0dfd53d23cef73c100180bd3c4d838fc53b0d09dfb4604644f361ea29e568e8",
+    "recovery_run_id": "33328391707",
+    "release_commit": "e9b3471b727a777d7fe1b62b3997d9aac30d0eac",
+    "release_receipt_file_sha256": "2ee89a81694f02cde135a9e367151271825c004152f8816c53a464443d47e772",
+    "tag": "v0.1.0",
+    "tag_object": "eb7cc385034abb2084bce51745b43d9a51bb37ee",
+    "tag_type": "ANNOTATED",
+    "workload_run_id": "33329861907"
+  },
+  "project": "AtlasRetail",
+  "project_completion": {
+    "all_part5_stages_complete": false,
+    "part5_completion_equals_project_completion": true,
+    "project_complete": false,
+    "remaining_work_required": true,
+    "stage1_completion_claim": "CONTRACT_ONLY"
+  },
+  "runtime_equivalence": {
+    "baseline_source_commit": "08559b0f48708080335282c6d59faa3826635d67",
+    "file_count": 107,
+    "files_sha256": "2e1d10c936c23637929e65589fab324c4a2602b98da283135527733ea26f1e38",
+    "result": "PASS"
+  },
+  "schema_sha256": "d8a62a81701b802b459023c12f86465510924fe15447d79c7615c1f878efb3aa",
+  "schema_version": "1.0",
+  "source_evidence_sha256": {
+    "contracts/part4/stage7-runtime-manifest.json": "94ed80cc4cebe201998f137d8a18b23ff040380dcee5cbf611e4f483e59211b3",
+    "evidence/part4/stage7/completion-receipt.json": "c42df8826a84d4049b81c05cd98ba4ae57aec09e927463751e6953d06b710bbf",
+    "evidence/part4/stage8/release-receipt.json": "2ee89a81694f02cde135a9e367151271825c004152f8816c53a464443d47e772",
+    "release/part4/stage8/evidence-retention.json": "de701134f9fa53508520e97695a682208a656612c5e6ad4d5dfbbb32b3aea426"
+  },
+  "stage": 1,
+  "state": "CONTRACT_FROZEN"
+}

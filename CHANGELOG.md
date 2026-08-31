@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added Part 5 Stage 1 project-completion controls: a strict self-digesting contract bound to the
+  annotated `v0.1.0` release, Part 4 managed workload, recovery and final clean-inventory
+  authorities, unchanged 107-file runtime, original engineering objectives, and twelve mandatory
+  final gates. The state is `CONTRACT_FROZEN`; project completion remains false, no AWS operation
+  occurs, and actual billed cost remains `UNCLAIMED`.
+
 - Added Part 4 Stage 8 release integrity for version `v0.1.0`: an isolated strict release contract,
   deterministic receipt and fixed-header archive tooling, a durable evidence-retention catalog,
   annotated-tag checksum binding, adversarial validation, and CI proof that the Stage 7 107-file

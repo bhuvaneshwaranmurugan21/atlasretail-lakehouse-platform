@@ -16,6 +16,7 @@ establish data-processing correctness.
 | Stage 6 bounded managed execution and exact-state teardown | AWS | `33329861907` | Pass |
 | Independent post-Stage 6 clean inventory, current source | AWS | `33331233341` | Pass |
 | Part 4 Stage 7 deterministic closure | Local and CI | Receipt bound to AWS run `33364428199` | Pass |
+| Part 5 Stage 1 completion contract | Local and CI | Deterministic contract bound to `v0.1.0` | Pass |
 | Partial-apply recovery and exact-state teardown, current target | AWS | `32952618876` | Pass |
 | Previous managed bounded data path and exact-state teardown | AWS | `33167646509` | Pass |
 | Initial partial-apply recovery, legacy target | AWS | `31794022586` and corrected continuation | Resolved |
@@ -91,6 +92,11 @@ establish data-processing correctness.
   release schema, and the four-authority retention catalog. Its state is
   `READY_FOR_ANNOTATED_TAG`; the production claim remains false and actual billed cost remains
   `UNCLAIMED`.
+- `part5/stage1/` contains the deterministic Part 5 Stage 1 completion contract. It binds the
+  published `v0.1.0` release, Stage 6 workload and recovery authorities, Stage 7 clean-inventory
+  authority, unchanged 107-file runtime, original objectives, and final completion gates. Its state
+  is `CONTRACT_FROZEN`; Part 5 completion equals project completion, but project completion remains
+  false and actual billed cost remains `UNCLAIMED`.
 - `incidents/31791499897/terraform-outputs.json` preserves the exact resource identifiers required
   for recovery after partial Terraform state removal.
 - `../docs/incidents/legacy/` preserves the former rescue workflow and its exact authorization

@@ -26,6 +26,7 @@ environment that produced it.
 | Part 4 Stage 6 managed execution and finality | `AWS_VERIFIED` | [Run 33329861907](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33329861907) admitted the exact current-source prerequisite chain, passed all 20 contract domains, finalized after exact teardown and lease release, and was independently followed by clean-inventory run 33331233341 |
 | Part 4 Stage 7 durable closure | `LOCAL_VERIFIED` | Deterministic, schema-bound authentication of the committed Stage 6 workload, recovery, runtime-equivalence, and final read-only clean-inventory authorities; Stage 7 performs no managed workload |
 | Part 4 Stage 8 release integrity | `LOCAL_VERIFIED` | Strict release-readiness receipt, four-authority retention catalog, deterministic source archive, annotated `v0.1.0` tag binding, and continued proof of the unchanged Stage 7 107-file runtime |
+| Part 5 Stage 1 completion contract | `LOCAL_VERIFIED` | Strict contract binding the released Part 4 authorities, frozen runtime, original engineering objectives, final completion gates, and fail-closed non-completion state |
 | GitHub OIDC identity | `AWS_VERIFIED` | Current-target short-lived credentials issued to the repository's `main` branch |
 | Organization-shared credit safety | `OWNER_ATTESTED` | Management-account credit balance and unrestricted organization sharing were reviewed; the attestation expires quickly and must be refreshed |
 | IAM and persistent foundation | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) verified exact live IAM parity, hardened persistent resources, budget alerts, lease contention and release, an empty backend, and zero AtlasRetail workload resources |
@@ -67,6 +68,20 @@ The final annotated tag must bind the exact evidence merge, committed receipt fi
 deterministic archive digest. Because no signing key is configured, cryptographic signature identity
 is not claimed. Stage 8 remains `LOCAL_VERIFIED` with `aws_execution: false`; the production claim
 remains false and actual billed cost remains `UNCLAIMED`.
+
+## Part 5 Stage 1 completion-contract boundary
+
+Stage 1 starts only from the annotated `v0.1.0` Part 4 release. Its self-digesting contract binds the
+release commit and tag object, source archive and receipt digests, post-release verification digest,
+managed workload run `33329861907`, cleanup-only recovery run `33328391707`, final clean-inventory
+run `33364428199`, and the unchanged 107-file runtime digest.
+
+The contract freezes the original engineering objectives and twelve final gates. It states that
+Part 5 completion equals project completion, but project completion remains false at Stage 1 and
+cannot be promoted until all Part 5 stages, final CI, operational handoff, runtime preservation,
+claim boundaries, and critical-defect closure pass. Stage 1 performs no AWS operation and creates
+no new managed claim. The production claim remains false, sustained operation remains
+unestablished, and actual billed cost remains `UNCLAIMED`.
 
 The runtime-integration job pins the AWS Glue 5 runtime versions: Python 3.11, Spark 3.5.4, and
 the SHA-512-verified Iceberg 1.7.1 runtime. It remains the deterministic local compatibility gate.
