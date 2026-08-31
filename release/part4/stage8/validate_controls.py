@@ -171,6 +171,7 @@ def validate_ci(path: Path) -> None:
         "part4-stage8-release-readiness",
         "release.part4.stage8.manage_release verify-receipt",
         "evidence/part4/stage8/release-receipt.json",
+        "run: python -m pytest",
         "verify_part4_stage7_runtime.py",
     )
     missing = [token for token in required if token not in rendered]

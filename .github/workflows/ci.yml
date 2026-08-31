@@ -47,7 +47,7 @@ jobs:
           python -m compileall -q src tests aws release
           bash -n scripts/*.sh
       - name: Tests and coverage
-        run: pytest
+        run: python -m pytest
       - name: Reproduce deterministic Part 4 source provenance
         run: |
           first="${RUNNER_TEMP}/part4-sources-first"
