@@ -1,0 +1,53 @@
+{
+  "actual_billed_cost_claim": "UNCLAIMED",
+  "aws_execution": false,
+  "claim_boundaries": {
+    "production": "NOT_CLAIMED",
+    "settled_billing": "UNCLAIMED",
+    "sustained_operation": "NOT_ESTABLISHED"
+  },
+  "claim_level": "LOCAL_VERIFIED",
+  "controls_commit": "c6a2ba09dc47bdfb5e0610f32393c87f12e5de8a",
+  "errors": [],
+  "evidence_retention": {
+    "catalog_sha256": "de701134f9fa53508520e97695a682208a656612c5e6ad4d5dfbbb32b3aea426",
+    "durable_authority_count": 4,
+    "external_expiring_artifact_count": 3,
+    "raw_artifact_required_count": 0,
+    "result": "PASS"
+  },
+  "evidence_type": "part4-stage8-release-readiness",
+  "predecessor": {
+    "stage7_commit": "9ec723e2fa9cf27c6bc486132fd44100e9d30443",
+    "stage7_receipt_file_sha256": "c42df8826a84d4049b81c05cd98ba4ae57aec09e927463751e6953d06b710bbf",
+    "stage7_receipt_sha256": "70fa1db23d9ea04f7f48a33103592975711ef364d882884a777b506ddde61ba8",
+    "stage7_tree": "0fe8be70a87260aa5717606f32ae9581d7395912"
+  },
+  "production_claim": false,
+  "project": "AtlasRetail",
+  "receipt_sha256": "cdb341d3275912adb511f979d17dba99cb789d5fc0a4cb094da77ee48b7d6553",
+  "release": {
+    "archive_format": "git-archive-tar-fixed-gzip-v1",
+    "package_version": "0.1.0",
+    "signature_claim": "NOT_CLAIMED",
+    "tag": "v0.1.0",
+    "tag_target_state": "PENDING_FINAL_EVIDENCE_MERGE",
+    "tag_type": "ANNOTATED"
+  },
+  "release_state": "READY_FOR_ANNOTATED_TAG",
+  "result": "PASS",
+  "runtime_equivalence": {
+    "baseline_source_commit": "08559b0f48708080335282c6d59faa3826635d67",
+    "file_count": 107,
+    "files_sha256": "2e1d10c936c23637929e65589fab324c4a2602b98da283135527733ea26f1e38",
+    "result": "PASS"
+  },
+  "schema_sha256": "2577c79d6cda60e5c2b6fbb04cc7af0209e90d3860b657be4de872c128c4cb8b",
+  "schema_version": "1.0",
+  "source_evidence_sha256": {
+    "contracts/part4/stage7-runtime-manifest.json": "94ed80cc4cebe201998f137d8a18b23ff040380dcee5cbf611e4f483e59211b3",
+    "evidence/part4/stage7/completion-receipt.json": "c42df8826a84d4049b81c05cd98ba4ae57aec09e927463751e6953d06b710bbf",
+    "release/part4/stage8/evidence-retention.json": "de701134f9fa53508520e97695a682208a656612c5e6ad4d5dfbbb32b3aea426",
+    "release/part4/stage8/release.schema.json": "2577c79d6cda60e5c2b6fbb04cc7af0209e90d3860b657be4de872c128c4cb8b"
+  }
+}
