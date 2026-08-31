@@ -5,13 +5,15 @@ test:
 
 quality:
 	python -m ruff check .
-	python -m mypy src
+	python -m mypy src release/part4/stage8
 	python scripts/validate_part4_contract.py
 	python scripts/validate_part4_sources.py
 	python scripts/validate_part4_admission_controls.py
 	python scripts/validate_part4_stage4_controls.py
 	python scripts/validate_part4_stage5_controls.py
 	python scripts/validate_part4_stage6_controls.py
+	python scripts/verify_part4_stage7_runtime.py
+	python -m release.part4.stage8.validate_controls
 	python -m pytest
 
 evidence:

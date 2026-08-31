@@ -1,0 +1,63 @@
+{
+  "authorities": [
+    {
+      "committed_path": "evidence/aws/bounded/33329861907",
+      "durable_form": "DIGEST_BOUND_SUMMARIES",
+      "external_artifact": {
+        "id": 9737679077,
+        "name": "atlasretail-aws-evidence-33329861907",
+        "retention_days": 30,
+        "sha256": "f9971511d6de33c11d73c7fb64df5fe30c9a1ff7b2e4b802ae6a36b707fd1399",
+        "state": "EXPIRING"
+      },
+      "id": "stage6-managed-workload",
+      "raw_artifact_required": false,
+      "run_id": 33329861907
+    },
+    {
+      "committed_path": "evidence/aws/recovery/33328391707",
+      "durable_form": "DIGEST_BOUND_SUMMARIES",
+      "external_artifact": {
+        "id": 9736932961,
+        "name": "atlasretail-part4-recovery-33328391707-1",
+        "retention_days": 30,
+        "sha256": "a7d2fd35e0494d0b1f44399cc67528802b7abe64e7a8b8f9accae17d8d012d91",
+        "state": "EXPIRING"
+      },
+      "id": "stage6-cleanup-recovery",
+      "raw_artifact_required": false,
+      "run_id": 33328391707
+    },
+    {
+      "committed_path": "evidence/aws/preflight/33364428199",
+      "durable_form": "DIGEST_BOUND_SUMMARIES",
+      "external_artifact": {
+        "id": 9747792043,
+        "name": "atlasretail-read-only-preflight-33364428199",
+        "retention_days": 30,
+        "sha256": "d57a8a55aa4280a91d92d92f776f85771e7193f6f7e65ec6d6f064b4aace2a36",
+        "state": "EXPIRING"
+      },
+      "id": "stage7-final-clean-inventory",
+      "raw_artifact_required": false,
+      "run_id": 33364428199
+    },
+    {
+      "committed_path": "evidence/part4/stage7/completion-receipt.json",
+      "durable_form": "SELF_DIGESTING_RECEIPT",
+      "external_artifact": null,
+      "id": "stage7-project-closure",
+      "raw_artifact_required": false,
+      "run_id": null
+    }
+  ],
+  "evidence_type": "part4-stage8-evidence-retention",
+  "policy": {
+    "credentials_committed": false,
+    "durable_claims_require_raw_artifacts": false,
+    "live_identifiers_committed": false,
+    "raw_artifacts_committed": false
+  },
+  "project": "AtlasRetail",
+  "schema_version": "1.0"
+}

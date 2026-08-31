@@ -113,6 +113,7 @@ execution.
 | Part 4 immutable teardown authority and deterministic recovery | `LOCAL_VERIFIED` | Attempt/source/plan-bound authority, immutable artifact identity, conditional lease state machine, cleanup-only manual recovery, saved destroy-plan integrity, and adversarial CI proof; no Stage 5 AWS run |
 | Part 4 Stage 6 managed execution and finality | `AWS_VERIFIED` | [Run 33329861907](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33329861907) admitted exact current-source prerequisites, passed all 20 contract domains, finalized only after exact teardown and lease release, and was followed by independent clean-state run 33331233341 |
 | Part 4 Stage 7 durable closure | `LOCAL_VERIFIED` | A strict deterministic receipt authenticates the Stage 6 workload and recovery authorities, proves the 107-file managed surface remains runtime-equivalent, and binds fresh read-only clean inventory [run 33364428199](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33364428199) without starting another workload |
+| Part 4 Stage 8 release integrity | `LOCAL_VERIFIED` | Version `v0.1.0` uses an isolated strict release contract, durable evidence-retention catalog, deterministic archive recipe, and annotated tag checksum provenance while preserving the Stage 7 107-file runtime digest |
 | Glue 5-compatible Spark transformation and real local Iceberg snapshots | `LOCAL_VERIFIED` | Pinned Glue 5-compatible integration job with isolated Hadoop catalog |
 | GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` in the current target |
 | Current-target IAM and foundation safety baseline | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) proved exact live IAM parity, the hardened persistent foundation, lease safety, budget alerts, an empty backend, and zero workload resources |
@@ -135,6 +136,12 @@ Part 4 Stage 7 does not re-run or re-claim the managed workload. Run `3332986190
 The Stage 7 closure itself is `LOCAL_VERIFIED` with `aws_execution: false`; the production claim
 remains false and actual billed cost remains `UNCLAIMED`. Its final read-only clean-inventory
 authority is AWS run `33364428199` from corrected controls commit `46361b7`.
+
+Part 4 Stage 8 packages that closure without touching AWS or the frozen managed surface. Its
+committed receipt reaches `READY_FOR_ANNOTATED_TAG` before the final evidence merge is tagged. The
+annotated tag must bind the exact release commit, receipt digest, and deterministic archive digest.
+Stage 8 remains `LOCAL_VERIFIED`; the production claim remains false and actual billed cost remains
+`UNCLAIMED`.
 
 Verification levels and evidence-handling rules are defined in
 [docs/verification.md](docs/verification.md). Operational history is indexed in

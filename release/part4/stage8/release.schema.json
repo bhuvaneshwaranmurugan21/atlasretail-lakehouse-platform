@@ -1,0 +1,132 @@
+{
+  "$id": "https://atlasretail.example/release/part4/stage8/release.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actual_billed_cost_claim": {"const": "UNCLAIMED"},
+    "aws_execution": {"const": false},
+    "claim_boundaries": {
+      "additionalProperties": false,
+      "properties": {
+        "production": {"const": "NOT_CLAIMED"},
+        "settled_billing": {"const": "UNCLAIMED"},
+        "sustained_operation": {"const": "NOT_ESTABLISHED"}
+      },
+      "required": ["production", "settled_billing", "sustained_operation"],
+      "type": "object"
+    },
+    "claim_level": {"const": "LOCAL_VERIFIED"},
+    "controls_commit": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+    "errors": {"maxItems": 0, "type": "array"},
+    "evidence_retention": {
+      "additionalProperties": false,
+      "properties": {
+        "catalog_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "durable_authority_count": {"const": 4},
+        "external_expiring_artifact_count": {"const": 3},
+        "raw_artifact_required_count": {"const": 0},
+        "result": {"const": "PASS"}
+      },
+      "required": [
+        "catalog_sha256",
+        "durable_authority_count",
+        "external_expiring_artifact_count",
+        "raw_artifact_required_count",
+        "result"
+      ],
+      "type": "object"
+    },
+    "evidence_type": {"const": "part4-stage8-release-readiness"},
+    "predecessor": {
+      "additionalProperties": false,
+      "properties": {
+        "stage7_commit": {"const": "9ec723e2fa9cf27c6bc486132fd44100e9d30443"},
+        "stage7_receipt_file_sha256": {
+          "const": "c42df8826a84d4049b81c05cd98ba4ae57aec09e927463751e6953d06b710bbf"
+        },
+        "stage7_receipt_sha256": {
+          "const": "70fa1db23d9ea04f7f48a33103592975711ef364d882884a777b506ddde61ba8"
+        },
+        "stage7_tree": {"const": "0fe8be70a87260aa5717606f32ae9581d7395912"}
+      },
+      "required": [
+        "stage7_commit",
+        "stage7_receipt_file_sha256",
+        "stage7_receipt_sha256",
+        "stage7_tree"
+      ],
+      "type": "object"
+    },
+    "production_claim": {"const": false},
+    "project": {"const": "AtlasRetail"},
+    "receipt_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "release": {
+      "additionalProperties": false,
+      "properties": {
+        "archive_format": {"const": "git-archive-tar-fixed-gzip-v1"},
+        "package_version": {"const": "0.1.0"},
+        "signature_claim": {"const": "NOT_CLAIMED"},
+        "tag": {"const": "v0.1.0"},
+        "tag_target_state": {"const": "PENDING_FINAL_EVIDENCE_MERGE"},
+        "tag_type": {"const": "ANNOTATED"}
+      },
+      "required": [
+        "archive_format",
+        "package_version",
+        "signature_claim",
+        "tag",
+        "tag_target_state",
+        "tag_type"
+      ],
+      "type": "object"
+    },
+    "release_state": {"const": "READY_FOR_ANNOTATED_TAG"},
+    "result": {"const": "PASS"},
+    "runtime_equivalence": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_source_commit": {
+          "const": "08559b0f48708080335282c6d59faa3826635d67"
+        },
+        "file_count": {"const": 107},
+        "files_sha256": {
+          "const": "2e1d10c936c23637929e65589fab324c4a2602b98da283135527733ea26f1e38"
+        },
+        "result": {"const": "PASS"}
+      },
+      "required": ["baseline_source_commit", "file_count", "files_sha256", "result"],
+      "type": "object"
+    },
+    "schema_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "schema_version": {"const": "1.0"},
+    "source_evidence_sha256": {
+      "additionalProperties": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+      "maxProperties": 4,
+      "minProperties": 4,
+      "type": "object"
+    }
+  },
+  "required": [
+    "actual_billed_cost_claim",
+    "aws_execution",
+    "claim_boundaries",
+    "claim_level",
+    "controls_commit",
+    "errors",
+    "evidence_retention",
+    "evidence_type",
+    "predecessor",
+    "production_claim",
+    "project",
+    "receipt_sha256",
+    "release",
+    "release_state",
+    "result",
+    "runtime_equivalence",
+    "schema_sha256",
+    "schema_version",
+    "source_evidence_sha256"
+  ],
+  "title": "AtlasRetail Part 4 Stage 8 release-readiness receipt",
+  "type": "object"
+}
