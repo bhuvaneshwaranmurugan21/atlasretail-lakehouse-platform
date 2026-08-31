@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "gap": {
+      "additionalProperties": false,
+      "properties": {
+        "blocking": {
+          "const": true
+        },
+        "gap_id": {
+          "pattern": "^P5-GAP-[0-9]{3}$",
+          "type": "string"
+        },
+        "gate": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "required_closure_evidence": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "CRITICAL",
+            "HIGH",
+            "MEDIUM",
+            "LOW"
+          ]
+        }
+      },
+      "required": [
+        "blocking",
+        "gap_id",
+        "gate",
+        "required_closure_evidence",
+        "severity"
+      ],
+      "type": "object"
+    },
+    "gate_traceability": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_ids": {
+          "items": {
+            "enum": [
+              "part4-closure",
+              "part4-release",
+              "part5-completion-contract"
+            ]
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "gap_id": {
+          "anyOf": [
+            {
+              "pattern": "^P5-GAP-[0-9]{3}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gate": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "PRESERVED_PASS",
+            "CURRENT_PASS_RECHECK_REQUIRED",
+            "PARTIAL",
+            "OPEN"
+          ]
+        }
+      },
+      "required": [
+        "authority_ids",
+        "gap_id",
+        "gate",
+        "status"
+      ],
+      "type": "object"
+    },
+    "objective_traceability": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_ids": {
+          "items": {
+            "enum": [
+              "part4-closure",
+              "part4-release",
+              "part5-completion-contract"
+            ]
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "gate_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "objective": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "PRESERVED_PASS",
+            "CURRENT_PASS_RECHECK_REQUIRED",
+            "PARTIAL",
+            "OPEN"
+          ]
+        }
+      },
+      "required": [
+        "authority_ids",
+        "gate_ids",
+        "objective",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "actual_billed_cost_claim": {
+      "const": "UNCLAIMED"
+    },
+    "authority_file_sha256": {
+      "additionalProperties": false,
+      "properties": {
+        "part4-closure": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "part4-release": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "part5-completion-contract": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "part4-closure",
+        "part4-release",
+        "part5-completion-contract"
+      ],
+      "type": "object"
+    },
+    "aws_execution": {
+      "const": false
+    },
+    "claim_boundaries": {
+      "additionalProperties": false,
+      "properties": {
+        "production": {
+          "const": "NOT_CLAIMED"
+        },
+        "settled_billing": {
+          "const": "UNCLAIMED"
+        },
+        "sustained_operation": {
+          "const": "NOT_ESTABLISHED"
+        }
+      },
+      "required": [
+        "production",
+        "settled_billing",
+        "sustained_operation"
+      ],
+      "type": "object"
+    },
+    "claim_level": {
+      "const": "LOCAL_VERIFIED"
+    },
+    "controls_authority": {
+      "additionalProperties": false,
+      "properties": {
+        "main_ci_run_id": {
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        },
+        "merge_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "main_ci_run_id",
+        "merge_commit"
+      ],
+      "type": "object"
+    },
+    "evidence_type": {
+      "const": "part5-stage2-completion-gap-baseline"
+    },
+    "gaps": {
+      "items": {
+        "$ref": "#/$defs/gap"
+      },
+      "maxItems": 6,
+      "minItems": 6,
+      "type": "array"
+    },
+    "gate_traceability": {
+      "items": {
+        "$ref": "#/$defs/gate_traceability"
+      },
+      "maxItems": 12,
+      "minItems": 12,
+      "type": "array"
+    },
+    "objective_traceability": {
+      "items": {
+        "$ref": "#/$defs/objective_traceability"
+      },
+      "maxItems": 7,
+      "minItems": 7,
+      "type": "array"
+    },
+    "part": {
+      "const": 5
+    },
+    "project": {
+      "const": "AtlasRetail"
+    },
+    "project_completion": {
+      "additionalProperties": false,
+      "properties": {
+        "all_part5_stages_complete": {
+          "const": false
+        },
+        "project_complete": {
+          "const": false
+        },
+        "remaining_work_required": {
+          "const": true
+        }
+      },
+      "required": [
+        "all_part5_stages_complete",
+        "project_complete",
+        "remaining_work_required"
+      ],
+      "type": "object"
+    },
+    "receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schema_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "stage": {
+      "const": 2
+    },
+    "stage1_contract_sha256": {
+      "const": "94d32706ff7340accec67a1d48fcd176f2cfb9d75fd6da4724990980be521df0"
+    },
+    "state": {
+      "const": "GAP_BASELINE_RECORDED"
+    }
+  },
+  "required": [
+    "actual_billed_cost_claim",
+    "authority_file_sha256",
+    "aws_execution",
+    "claim_boundaries",
+    "claim_level",
+    "controls_authority",
+    "evidence_type",
+    "gaps",
+    "gate_traceability",
+    "objective_traceability",
+    "part",
+    "project",
+    "project_completion",
+    "receipt_sha256",
+    "schema_sha256",
+    "schema_version",
+    "stage",
+    "stage1_contract_sha256",
+    "state"
+  ],
+  "title": "AtlasRetail Part 5 Stage 2 completion-gap baseline",
+  "type": "object"
+}

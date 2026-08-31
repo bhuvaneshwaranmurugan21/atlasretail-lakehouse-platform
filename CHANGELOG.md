@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Added Part 5 Stage 2 evidence-traceability controls: exact coverage for all seven original
+  objectives and twelve completion gates, three digest-bound predecessor authorities, four strict
+  status values, and six explicit blocking gaps with required closure evidence. Controls reach
+  `TRACEABILITY_CONTROLS_READY`; the separate post-merge receipt reaches `GAP_BASELINE_RECORDED`
+  only after binding the controls merge and successful `main` CI. Project completion remains
+  false, no AWS operation occurs, and actual billed cost remains `UNCLAIMED`.
+
 - Added Part 5 Stage 1 project-completion controls: a strict self-digesting contract bound to the
   annotated `v0.1.0` release, Part 4 managed workload, recovery and final clean-inventory
   authorities, unchanged 107-file runtime, original engineering objectives, and twelve mandatory

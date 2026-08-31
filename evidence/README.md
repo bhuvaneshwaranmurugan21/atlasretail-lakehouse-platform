@@ -17,6 +17,7 @@ establish data-processing correctness.
 | Independent post-Stage 6 clean inventory, current source | AWS | `33331233341` | Pass |
 | Part 4 Stage 7 deterministic closure | Local and CI | Receipt bound to AWS run `33364428199` | Pass |
 | Part 5 Stage 1 completion contract | Local and CI | Deterministic contract bound to `v0.1.0` | Pass |
+| Part 5 Stage 2 evidence traceability | Local and CI | Controls merge and successful `main` CI binding required before receipt publication | Controls ready |
 | Partial-apply recovery and exact-state teardown, current target | AWS | `32952618876` | Pass |
 | Previous managed bounded data path and exact-state teardown | AWS | `33167646509` | Pass |
 | Initial partial-apply recovery, legacy target | AWS | `31794022586` and corrected continuation | Resolved |
@@ -97,6 +98,11 @@ establish data-processing correctness.
   authority, unchanged 107-file runtime, original objectives, and final completion gates. Its state
   is `CONTRACT_FROZEN`; Part 5 completion equals project completion, but project completion remains
   false and actual billed cost remains `UNCLAIMED`.
+- Part 5 Stage 2 controls map every frozen objective and gate to digest-bound predecessor authority
+  and record six explicit blocking gaps. The controls state is `TRACEABILITY_CONTROLS_READY`.
+  `part5/stage2/` is populated only after the controls merge and successful `main` CI; its
+  evidence-only receipt state is `GAP_BASELINE_RECORDED`. Stage 2 performs no AWS execution,
+  project completion remains false, and actual billed cost remains `UNCLAIMED`.
 - `incidents/31791499897/terraform-outputs.json` preserves the exact resource identifiers required
   for recovery after partial Terraform state removal.
 - `../docs/incidents/legacy/` preserves the former rescue workflow and its exact authorization
