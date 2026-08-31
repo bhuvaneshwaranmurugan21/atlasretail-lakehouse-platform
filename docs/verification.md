@@ -48,6 +48,8 @@ run `33328391707` as cleanup-only recovery authority. A frozen manifest proves t
 surface remains runtime-equivalent to the 107 files executed by source `08559b0`. After controls
 merge, one read-only `main` preflight must prove empty Terraform state, an absent account lease,
 zero unexpected active resources, and no KMS inspection or alias residue before publication.
+Run `33364428199` supplied that final clean-inventory authority from corrected controls commit
+`46361b7` without applying infrastructure or starting a workload.
 
 The deterministic Stage 7 receipt is `LOCAL_VERIFIED` with `aws_execution: false`. Referenced AWS
 runs retain their independently attributed `AWS_VERIFIED` levels. The production claim remains

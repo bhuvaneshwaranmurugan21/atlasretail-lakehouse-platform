@@ -1,0 +1,77 @@
+{
+  "actual_billed_cost_claim": "UNCLAIMED",
+  "aws_execution": false,
+  "claim_boundaries": {
+    "production": "NOT_CLAIMED",
+    "settled_billing": "UNCLAIMED",
+    "sustained_operation": "NOT_ESTABLISHED"
+  },
+  "claim_level": "LOCAL_VERIFIED",
+  "clean_inventory_authority": {
+    "account_lease_absent": true,
+    "aws_account_id": "857229544428",
+    "aws_region": "ap-southeast-2",
+    "claim_level": "AWS_VERIFIED",
+    "run_id": 33364428199,
+    "source_commit": "46361b7e4be3bb600ff3fad369601c5161572e44",
+    "terraform_state_resource_count": 0,
+    "unexpected_resource_count": 0
+  },
+  "closure_control_commit": "46361b7e4be3bb600ff3fad369601c5161572e44",
+  "errors": [],
+  "evidence_type": "part4-stage7-project-closure",
+  "financial_boundary": {
+    "credit_expiration_date": "2027-08-25",
+    "credit_level_cost_category_restriction": false,
+    "credit_sharing_active": true,
+    "evidence_valid_until": "2026-09-07T23:59:59Z",
+    "owner_observed_at": "2026-08-31T05:32:13Z",
+    "verified_remaining_usd": 119.22
+  },
+  "production_claim": false,
+  "project": "AtlasRetail",
+  "receipt_sha256": "70fa1db23d9ea04f7f48a33103592975711ef364d882884a777b506ddde61ba8",
+  "recovery_authority": {
+    "claim_level": "AWS_VERIFIED",
+    "cleanup_only": true,
+    "lease_released": true,
+    "run_id": 33328391707,
+    "teardown_complete": true,
+    "workload_execution": false
+  },
+  "result": "PASS",
+  "runtime_equivalence": {
+    "baseline_source_commit": "08559b0f48708080335282c6d59faa3826635d67",
+    "file_count": 107,
+    "files_sha256": "2e1d10c936c23637929e65589fab324c4a2602b98da283135527733ea26f1e38",
+    "result": "PASS"
+  },
+  "schema_sha256": "ddab05298ea1a88f94ce901e80a4d9411c99b207b4afda388437ca883973c9a5",
+  "schema_version": "1.0",
+  "source_evidence_sha256": {
+    "contracts/part4/stage7-runtime-manifest.json": "94ed80cc4cebe201998f137d8a18b23ff040380dcee5cbf611e4f483e59211b3",
+    "evidence/aws/bounded/33329861907/failure-isolation.json": "c58cd87798040c183e8cfe6ede8f79491f500683bfd8782eff21626dccb9cb55",
+    "evidence/aws/bounded/33329861907/manifest.json": "cbe2c395d4dbb3a800f70534121832fa7d4b4d5a05680db09ff64c93c44f1df6",
+    "evidence/aws/bounded/33329861907/plan-summary.json": "888c7bff1a016aa39586879b2a0c5ab7cd0e358be838ed8848be81f7d8e87935",
+    "evidence/aws/bounded/33329861907/summary.json": "ee0e97b8b509c4ffae0680351354ef7b592aae7933a09aff668778d61d98d578",
+    "evidence/aws/bounded/33329861907/teardown-summary.json": "1425b4f85190a2cb1824548cbf6b9b651c34f0091dfe97a394c62643acb52d03",
+    "evidence/aws/organization-shared-credit-baseline.json": "cb92c7971256e82fa8588003079c8b7ceff231e41b53ebd962e4586edcf3cdae",
+    "evidence/aws/preflight/33364428199/manifest.json": "c7b6994409b4767559773de39659b50eccb5302c90d2de0771e27aad5eb8aeb4",
+    "evidence/aws/preflight/33364428199/summary.json": "59381887dcff692a797f1e989859d1d9248d80af032bb83ab6b0be8a38cb0b33",
+    "evidence/aws/recovery/33328391707/lease-release-summary.json": "01e1bf4743f4081e2244d4490dfae4f867b663d087c374c381ca86b29c6627b7",
+    "evidence/aws/recovery/33328391707/manifest.json": "a843e4ebe51876ade5ad0bb2975ebe88c1228604502f6c91eb723c3b51c3315c",
+    "evidence/aws/recovery/33328391707/plan-summary.json": "d1b62f2cc4f85cc352d3613015ce831010adb4c2b89fc06ad8ba5fde60780435",
+    "evidence/aws/recovery/33328391707/summary.json": "9699b94a1c55542118fa968254088a590edc48e6fdd01064033ece4f28547328",
+    "evidence/aws/recovery/33328391707/teardown-summary.json": "381e975f4a9abb911884c32bb3a4e9be01d22805e4086ba3be44428164835069"
+  },
+  "workload_authority": {
+    "actual_gross_cents": 4595276,
+    "actual_orders": 500,
+    "claim_level": "AWS_VERIFIED",
+    "contract_domain_count": 20,
+    "glue_job_runs": 6,
+    "run_id": 33329861907,
+    "source_commit": "08559b0f48708080335282c6d59faa3826635d67",
+    "step_functions_executions": 8
+  }
+}

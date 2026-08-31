@@ -26,7 +26,7 @@ def test_repository_stage7_controls_pass_deterministically() -> None:
     assert first["aws_execution"] is False
     assert first["production_claim"] is False
     assert first["actual_billed_cost_claim"] == "UNCLAIMED"
-    assert first["completion_published"] is False
+    assert first["completion_published"] is True
     assert all(first["checks"].values())
 
 

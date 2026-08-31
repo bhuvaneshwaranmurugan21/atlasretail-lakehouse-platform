@@ -31,6 +31,12 @@ publish an artifact. It cannot apply or destroy Terraform, create AWS resources,
 Step Functions, Athena, or Lambda workloads. The second change set commits only its sanitized
 summary and manifest, the deterministic completion receipt, and final evidence references.
 
+The first post-controls preflight exposed a mismatch between the publisher's expected KMS inventory
+shape and the established preflight producer. No completion evidence from that attempt was committed.
+A dedicated closure-control correction then added exact allowed-key and alias-map validation before
+the definitive preflight and evidence-only change set. This preserves source attribution instead of
+binding final evidence to superseded publisher logic.
+
 The Stage 7 completion receipt is repository-only `LOCAL_VERIFIED` evidence with
 `aws_execution: false`. It references, but does not replace or promote, these independent
 authorities:
