@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlasretail.example/contracts/part4/stage7-closure.schema.json",
+  "title": "AtlasRetail Part 4 Stage 7 closure receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "actual_billed_cost_claim",
+    "aws_execution",
+    "claim_boundaries",
+    "claim_level",
+    "clean_inventory_authority",
+    "closure_control_commit",
+    "errors",
+    "evidence_type",
+    "financial_boundary",
+    "production_claim",
+    "project",
+    "receipt_sha256",
+    "recovery_authority",
+    "result",
+    "runtime_equivalence",
+    "schema_sha256",
+    "schema_version",
+    "source_evidence_sha256",
+    "workload_authority"
+  ],
+  "properties": {
+    "actual_billed_cost_claim": {"const": "UNCLAIMED"},
+    "aws_execution": {"const": false},
+    "claim_boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["production", "settled_billing", "sustained_operation"],
+      "properties": {
+        "production": {"const": "NOT_CLAIMED"},
+        "settled_billing": {"const": "UNCLAIMED"},
+        "sustained_operation": {"const": "NOT_ESTABLISHED"}
+      }
+    },
+    "claim_level": {"const": "LOCAL_VERIFIED"},
+    "clean_inventory_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "account_lease_absent",
+        "aws_account_id",
+        "aws_region",
+        "claim_level",
+        "run_id",
+        "source_commit",
+        "terraform_state_resource_count",
+        "unexpected_resource_count"
+      ],
+      "properties": {
+        "account_lease_absent": {"const": true},
+        "aws_account_id": {"const": "857229544428"},
+        "aws_region": {"const": "ap-southeast-2"},
+        "claim_level": {"const": "AWS_VERIFIED"},
+        "run_id": {"type": "integer", "minimum": 1},
+        "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "terraform_state_resource_count": {"const": 0},
+        "unexpected_resource_count": {"const": 0}
+      }
+    },
+    "closure_control_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "errors": {"type": "array", "maxItems": 0},
+    "evidence_type": {"const": "part4-stage7-project-closure"},
+    "financial_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "credit_expiration_date",
+        "credit_level_cost_category_restriction",
+        "credit_sharing_active",
+        "evidence_valid_until",
+        "owner_observed_at",
+        "verified_remaining_usd"
+      ],
+      "properties": {
+        "credit_expiration_date": {"type": "string", "format": "date"},
+        "credit_level_cost_category_restriction": {"const": false},
+        "credit_sharing_active": {"const": true},
+        "evidence_valid_until": {"type": "string", "format": "date-time"},
+        "owner_observed_at": {"type": "string", "format": "date-time"},
+        "verified_remaining_usd": {"type": "number", "minimum": 5}
+      }
+    },
+    "production_claim": {"const": false},
+    "project": {"const": "AtlasRetail"},
+    "receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "recovery_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_level", "cleanup_only", "lease_released", "run_id", "teardown_complete", "workload_execution"],
+      "properties": {
+        "claim_level": {"const": "AWS_VERIFIED"},
+        "cleanup_only": {"const": true},
+        "lease_released": {"const": true},
+        "run_id": {"const": 33328391707},
+        "teardown_complete": {"const": true},
+        "workload_execution": {"const": false}
+      }
+    },
+    "result": {"const": "PASS"},
+    "runtime_equivalence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline_source_commit", "file_count", "files_sha256", "result"],
+      "properties": {
+        "baseline_source_commit": {"const": "08559b0f48708080335282c6d59faa3826635d67"},
+        "file_count": {"const": 107},
+        "files_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "result": {"const": "PASS"}
+      }
+    },
+    "schema_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "schema_version": {"const": "1.0"},
+    "source_evidence_sha256": {
+      "type": "object",
+      "minProperties": 14,
+      "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    },
+    "workload_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actual_gross_cents",
+        "actual_orders",
+        "claim_level",
+        "contract_domain_count",
+        "glue_job_runs",
+        "run_id",
+        "source_commit",
+        "step_functions_executions"
+      ],
+      "properties": {
+        "actual_gross_cents": {"const": 4595276},
+        "actual_orders": {"const": 500},
+        "claim_level": {"const": "AWS_VERIFIED"},
+        "contract_domain_count": {"const": 20},
+        "glue_job_runs": {"const": 6},
+        "run_id": {"const": 33329861907},
+        "source_commit": {"const": "08559b0f48708080335282c6d59faa3826635d67"},
+        "step_functions_executions": {"const": 8}
+      }
+    }
+  }
+}

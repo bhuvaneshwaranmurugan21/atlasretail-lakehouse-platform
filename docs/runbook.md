@@ -304,6 +304,30 @@ in run `33328391707`, passed all 20 cleanup checks, and released the recovery-bo
 making a workload claim. See
 [`part4-stage6-provider-lock-recovery.md`](incidents/part4-stage6-provider-lock-recovery.md).
 
+### Part 4 Stage 7 durable closure
+
+Stage 7 closes Part 4 without another bounded workload. Run `33329861907` remains the sole
+`AWS_VERIFIED` managed execution authority, and run `33328391707` remains cleanup-only recovery
+evidence. The closure sequence is:
+
+1. Validate the strict closure schema and the exact closure-only file allowlist.
+2. Prove all 107 managed runtime files are runtime-equivalent to Stage 6 source `08559b0`.
+3. Reconstruct the readiness and runtime receipts twice in CI and compare exact bytes.
+4. Merge the controls change only after every CI job passes.
+5. Dispatch exactly one `AWS read-only preflight` from the merged `main` commit.
+6. Reject dirty Terraform state, an active account lease, unexpected resources, KMS inspection
+   errors, pending-deletion aliases, stale credit evidence, or source/target mismatch.
+7. Publish only a sanitized preflight summary and digest manifest; do not commit raw AWS responses
+   or live identifiers.
+8. Build the self-digesting completion receipt from the committed Stage 6 workload, recovery,
+   final-preflight, runtime-manifest, and credit sources.
+9. Merge the evidence-only change after CI independently reconstructs the same receipt.
+
+Stage 7 itself is repository-only `LOCAL_VERIFIED` with `aws_execution: false`. The production
+claim remains false, actual billed cost remains `UNCLAIMED`, and sustained operation is not
+established. Do not dispatch the bounded lab, Glue probe, plan-only proof, controlled deployment,
+or recovery workflows for Stage 7 closure.
+
 ## Expected signals
 
 - Successful transformation and publication end `SUCCEEDED`.

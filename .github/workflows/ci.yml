@@ -35,6 +35,10 @@ jobs:
             "${RUNNER_TEMP}/part4-stage5-teardown-authority.json"
           python scripts/validate_part4_stage6_controls.py \
             "${RUNNER_TEMP}/part4-stage6-managed-execution-readiness.json"
+          python scripts/validate_part4_stage7_controls.py \
+            "${RUNNER_TEMP}/part4-stage7-closure-readiness.json"
+          python scripts/verify_part4_stage7_runtime.py \
+            "${RUNNER_TEMP}/part4-stage7-runtime.json"
           cfn-lint infra/foundation/template.yml --regions ap-southeast-2
           python -m compileall -q src tests aws
           bash -n scripts/*.sh
@@ -85,6 +89,22 @@ jobs:
           diff -u \
             "${RUNNER_TEMP}/part4-stage6-managed-execution-readiness.json" \
             "${RUNNER_TEMP}/part4-stage6-managed-execution-readiness-second.json"
+      - name: Reproduce deterministic Stage 7 closure controls
+        run: |
+          python scripts/validate_part4_stage7_controls.py \
+            "${RUNNER_TEMP}/part4-stage7-closure-readiness-second.json"
+          python scripts/verify_part4_stage7_runtime.py \
+            "${RUNNER_TEMP}/part4-stage7-runtime-second.json"
+          diff -u \
+            "${RUNNER_TEMP}/part4-stage7-closure-readiness.json" \
+            "${RUNNER_TEMP}/part4-stage7-closure-readiness-second.json"
+          diff -u \
+            "${RUNNER_TEMP}/part4-stage7-runtime.json" \
+            "${RUNNER_TEMP}/part4-stage7-runtime-second.json"
+          if test -f evidence/part4/stage7/completion-receipt.json; then
+            python scripts/publish_part4_stage7_closure.py verify \
+              --receipt evidence/part4/stage7/completion-receipt.json
+          fi
       - name: Upload Stage 2 source-provenance evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -121,6 +141,15 @@ jobs:
         with:
           name: part4-stage6-managed-execution-readiness-${{ github.run_id }}
           path: ${{ runner.temp }}/part4-stage6-managed-execution-readiness.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload Stage 7 closure readiness evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: part4-stage7-closure-readiness-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/part4-stage7-closure-readiness.json
+            ${{ runner.temp }}/part4-stage7-runtime.json
           if-no-files-found: error
           retention-days: 30
 

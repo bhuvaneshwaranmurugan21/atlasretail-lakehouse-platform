@@ -1,0 +1,38 @@
+{
+  "baseline_source_commit": "08559b0f48708080335282c6d59faa3826635d67",
+  "digest_scheme": "canonical-path-sha256-map-v1",
+  "evidence_type": "part4-stage7-frozen-runtime-surface",
+  "expected_file_count": 107,
+  "expected_files_sha256": "2e1d10c936c23637929e65589fab324c4a2602b98da283135527733ea26f1e38",
+  "project": "AtlasRetail",
+  "schema_version": "1.0",
+  "selection": {
+    "exact_files": [
+      ".github/workflows/aws-bounded-lab-lease-recovery.yml",
+      ".github/workflows/aws-bounded-lab-recovery.yml",
+      ".github/workflows/aws-bounded-lab.yml",
+      ".github/workflows/aws-controlled-deployment-recovery.yml",
+      ".github/workflows/aws-controlled-deployment.yml",
+      ".github/workflows/aws-glue-service-probe.yml",
+      ".github/workflows/aws-iam-baseline.yml",
+      ".github/workflows/aws-oidc-identity.yml",
+      ".github/workflows/aws-plan-only.yml",
+      ".github/workflows/aws-read-only-preflight.yml"
+    ],
+    "roots": [
+      "aws",
+      "contracts",
+      "infra",
+      "scripts",
+      "src"
+    ]
+  },
+  "stage7_only_allowlist": [
+    "contracts/part4/stage7-closure.schema.json",
+    "contracts/part4/stage7-runtime-manifest.json",
+    "scripts/publish_part4_stage7_closure.py",
+    "scripts/validate_part4_stage7_controls.py",
+    "scripts/verify_part4_stage7_runtime.py",
+    "src/atlasretail/part4_stage7_closure.py"
+  ]
+}
