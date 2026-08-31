@@ -112,6 +112,7 @@ execution.
 | Part 4 contract-complete evidence readiness | `LOCAL_VERIFIED` | Two-phase semantic checkpoint/finalizer, all 20 contract domains and 18 provenance fields, session isolation, adversarial mutation tests, teardown and consistent-read lease finality |
 | Part 4 immutable teardown authority and deterministic recovery | `LOCAL_VERIFIED` | Attempt/source/plan-bound authority, immutable artifact identity, conditional lease state machine, cleanup-only manual recovery, saved destroy-plan integrity, and adversarial CI proof; no Stage 5 AWS run |
 | Part 4 Stage 6 managed execution and finality | `AWS_VERIFIED` | [Run 33329861907](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33329861907) admitted exact current-source prerequisites, passed all 20 contract domains, finalized only after exact teardown and lease release, and was followed by independent clean-state run 33331233341 |
+| Part 4 Stage 7 durable closure | `LOCAL_VERIFIED` | A strict deterministic receipt authenticates the Stage 6 workload and recovery authorities, proves the 107-file managed surface remains runtime-equivalent, and requires a fresh read-only clean inventory without starting another workload |
 | Glue 5-compatible Spark transformation and real local Iceberg snapshots | `LOCAL_VERIFIED` | Pinned Glue 5-compatible integration job with isolated Hadoop catalog |
 | GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` in the current target |
 | Current-target IAM and foundation safety baseline | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) proved exact live IAM parity, the hardened persistent foundation, lease safety, budget alerts, an empty backend, and zero workload resources |
@@ -128,6 +129,11 @@ execution.
 | Controlled-deployment runtime and budget envelope | `AWS_VERIFIED` | Run 33255708391 measured 351 seconds from apply start to evidence collection and verified a $5 gross-cost ceiling against $19.551 budget headroom before deployment, after deployment, and after teardown; actual billed cost remains `UNCLAIMED` |
 | Bounded workload runtime, metered usage, and immediate cost estimate | `AWS_VERIFIED` | Run 33329861907 measured 1,646.816 seconds from execution start to finality, 1,323 Glue DPU-seconds, 2,192 Athena bytes scanned, and a $0.161805 partial estimate; this is not a settled invoice or production-scale benchmark |
 | Sustained production operation | `OUT_OF_SCOPE` | No long-running workload or operational-tenure claim |
+
+Part 4 Stage 7 does not re-run or re-claim the managed workload. Run `33329861907` remains the
+`AWS_VERIFIED` workload authority and run `33328391707` remains cleanup-only recovery evidence.
+The Stage 7 closure itself is `LOCAL_VERIFIED` with `aws_execution: false`; the production claim
+remains false and actual billed cost remains `UNCLAIMED`.
 
 Verification levels and evidence-handling rules are defined in
 [docs/verification.md](docs/verification.md). Operational history is indexed in

@@ -24,6 +24,7 @@ environment that produced it.
 | Part 4 contract-complete evidence readiness | `LOCAL_VERIFIED` | Execution checkpoint cannot claim final verification; the sole finalizer requires all 20 domains, 18 provenance fields, clean teardown, post-teardown budget proof, and consistent-read lease absence |
 | Part 4 immutable teardown authority and deterministic recovery | `LOCAL_VERIFIED` | Exact run/attempt/source/plan authority, immutable artifact and lease binding, cleanup-only recovery, saved destroy-plan integrity, inventory proof and adversarial CI validation; Stage 5 performs no AWS operation |
 | Part 4 Stage 6 managed execution and finality | `AWS_VERIFIED` | [Run 33329861907](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/33329861907) admitted the exact current-source prerequisite chain, passed all 20 contract domains, finalized after exact teardown and lease release, and was independently followed by clean-inventory run 33331233341 |
+| Part 4 Stage 7 durable closure | `LOCAL_VERIFIED` | Deterministic, schema-bound authentication of the committed Stage 6 workload, recovery, runtime-equivalence, and final read-only clean-inventory authorities; Stage 7 performs no managed workload |
 | GitHub OIDC identity | `AWS_VERIFIED` | Current-target short-lived credentials issued to the repository's `main` branch |
 | Organization-shared credit safety | `OWNER_ATTESTED` | Management-account credit balance and unrestricted organization sharing were reviewed; the attestation expires quickly and must be refreshed |
 | IAM and persistent foundation | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) verified exact live IAM parity, hardened persistent resources, budget alerts, lease contention and release, an empty backend, and zero AtlasRetail workload resources |
@@ -39,6 +40,18 @@ environment that produced it.
 | Controlled-deployment runtime and budget envelope | `AWS_VERIFIED` | Run 33255708391 measured 351 seconds from apply start to evidence collection and verified a $5 gross-cost ceiling against $19.551 budget headroom before deployment, after deployment, and after teardown; actual billed cost is `UNCLAIMED` |
 | Bounded workload runtime, Athena scan, and workload cost estimate | `AWS_VERIFIED` | Run 33329861907 measured 1,646.816 seconds from execution start to finality, 1,323 Glue DPU-seconds, two Athena queries scanning 2,192 bytes, and a $0.161805 Glue-plus-Athena estimate; minor charges and settled billing remain outside the claim |
 | Sustained production operation | Not established | No continuous workload or operational-history evidence |
+
+## Part 4 Stage 7 closure boundary
+
+Part 4 Stage 7 preserves run `33329861907` as the sole managed workload and finality authority and
+run `33328391707` as cleanup-only recovery authority. A frozen manifest proves the current managed
+surface remains runtime-equivalent to the 107 files executed by source `08559b0`. After controls
+merge, one read-only `main` preflight must prove empty Terraform state, an absent account lease,
+zero unexpected active resources, and no KMS inspection or alias residue before publication.
+
+The deterministic Stage 7 receipt is `LOCAL_VERIFIED` with `aws_execution: false`. Referenced AWS
+runs retain their independently attributed `AWS_VERIFIED` levels. The production claim remains
+false, actual billed cost remains `UNCLAIMED`, and sustained operation remains not established.
 
 The runtime-integration job pins the AWS Glue 5 runtime versions: Python 3.11, Spark 3.5.4, and
 the SHA-512-verified Iceberg 1.7.1 runtime. It remains the deterministic local compatibility gate.

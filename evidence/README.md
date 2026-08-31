@@ -15,6 +15,7 @@ establish data-processing correctness.
 | Stage 6 cleanup-only deterministic recovery | AWS | `33328391707` | Pass |
 | Stage 6 bounded managed execution and exact-state teardown | AWS | `33329861907` | Pass |
 | Independent post-Stage 6 clean inventory, current source | AWS | `33331233341` | Pass |
+| Part 4 Stage 7 deterministic closure | Local and CI | Reproducible after final read-only preflight | Pending final evidence |
 | Partial-apply recovery and exact-state teardown, current target | AWS | `32952618876` | Pass |
 | Previous managed bounded data path and exact-state teardown | AWS | `33167646509` | Pass |
 | Initial partial-apply recovery, legacy target | AWS | `31794022586` and corrected continuation | Resolved |
@@ -76,6 +77,11 @@ establish data-processing correctness.
 - `aws/preflight/33331233341/` preserves the independent post-Stage 6 clean-inventory summary and
   artifact digest. Pending-deletion KMS identifiers are replaced with counts; caller identity stays
   in the expiring workflow artifact.
+- `part4/stage7/` is reserved for the deterministic Stage 7 completion receipt. Once published, it
+  authenticates the committed Stage 6 managed run `33329861907`, cleanup-only recovery
+  `33328391707`, the final read-only clean inventory, and the runtime-equivalent 107-file surface.
+  The receipt is `LOCAL_VERIFIED` with no Stage 7 workload: the production claim remains false and
+  actual billed cost remains `UNCLAIMED`.
 - `incidents/31791499897/terraform-outputs.json` preserves the exact resource identifiers required
   for recovery after partial Terraform state removal.
 - `../docs/incidents/legacy/` preserves the former rescue workflow and its exact authorization

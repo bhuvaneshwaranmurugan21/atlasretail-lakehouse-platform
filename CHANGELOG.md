@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added Part 4 Stage 7 closure controls: a strict self-digesting completion receipt, a frozen
+  107-file Stage 6 runtime surface, an exact closure-only allowlist, sanitized final-preflight
+  publication, deterministic reconstruction, adversarial drift checks, refreshed owner-attested
+  organization credit evidence, and a fail-closed two-change-set completion state. Stage 7 remains
+  repository-only `LOCAL_VERIFIED`; Stage 6 retains the managed `AWS_VERIFIED` authority.
+
 - Completed Part 4 Stage 6 managed execution and finality for source `08559b0`: exact-source
   preflight, Glue capability and 40-resource plan prerequisites; all 20 bounded execution contract
   domains; six Glue runs; eight Step Functions outcomes; generation-pinned Athena results;
