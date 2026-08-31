@@ -350,6 +350,30 @@ The release receipt state is `READY_FOR_ANNOTATED_TAG`; tag existence is proved 
 evidence merge. A correction after publication requires a new version. Stage 8 is
 `LOCAL_VERIFIED`, the production claim remains false, and actual billed cost remains `UNCLAIMED`.
 
+## Part 5 Stage 1 completion contract
+
+Stage 1 establishes the final project-completion boundary from the exact published `v0.1.0` tag.
+It performs no AWS operation and does not modify the frozen 107-file managed surface. Execute it in
+this order:
+
+1. Resolve `origin/main`, the annotated tag object, and its peeled commit independently.
+2. Require the tag to resolve to Part 4 release commit
+   `e9b3471b727a777d7fe1b62b3997d9aac30d0eac`.
+3. Revalidate the Part 4 release receipt, evidence-retention authorities, and runtime digest.
+4. Freeze the exact managed workload, deterministic recovery, and final clean-inventory run IDs.
+5. Freeze the original engineering objectives and every gate required for final completion.
+6. Record `project_complete: false`, `aws_execution: false`, and the unchanged claim boundaries.
+7. Validate the strict schema, exact evidence digests, self-digest, repository layout, CI wiring,
+   documentation, and professional naming policy.
+8. Reconstruct the Stage 1 control result twice and compare exact bytes.
+9. Run focused adversarial tests followed by the complete source-exact quality suite.
+10. Merge only after every required CI job passes.
+
+The accepted state is `CONTRACT_FROZEN`. The contract states that Part 5 completion equals project
+completion, while project completion remains false until every later required gate is satisfied.
+The production claim remains false, sustained operation remains unestablished, and actual billed
+cost remains `UNCLAIMED`.
+
 ## Expected signals
 
 - Successful transformation and publication end `SUCCEEDED`.

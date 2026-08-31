@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlasretail.example/schemas/part5-stage1-completion-contract.schema.json",
+  "title": "AtlasRetail Part 5 Stage 1 completion contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "actual_billed_cost_claim",
+    "aws_execution",
+    "claim_boundaries",
+    "claim_level",
+    "completion_gates",
+    "contract_sha256",
+    "evidence_type",
+    "original_objectives",
+    "part",
+    "predecessor",
+    "project",
+    "project_completion",
+    "runtime_equivalence",
+    "schema_sha256",
+    "schema_version",
+    "source_evidence_sha256",
+    "stage",
+    "state"
+  ],
+  "properties": {
+    "actual_billed_cost_claim": { "const": "UNCLAIMED" },
+    "aws_execution": { "const": false },
+    "claim_boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["production", "settled_billing", "sustained_operation"],
+      "properties": {
+        "production": { "const": "NOT_CLAIMED" },
+        "settled_billing": { "const": "UNCLAIMED" },
+        "sustained_operation": { "const": "NOT_ESTABLISHED" }
+      }
+    },
+    "claim_level": { "const": "LOCAL_VERIFIED" },
+    "completion_gates": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": { "type": "string" }
+    },
+    "contract_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "evidence_type": { "const": "part5-stage1-completion-contract" },
+    "original_objectives": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": { "type": "string" }
+    },
+    "part": { "const": 5 },
+    "predecessor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "archive_sha256",
+        "clean_inventory_run_id",
+        "post_release_verification_sha256",
+        "recovery_run_id",
+        "release_commit",
+        "release_receipt_file_sha256",
+        "tag",
+        "tag_object",
+        "tag_type",
+        "workload_run_id"
+      ],
+      "properties": {
+        "archive_sha256": { "const": "ab6be34b79bafd70d6c349a374ff8a5afe3053d696a00b93f0a3958992da670a" },
+        "clean_inventory_run_id": { "const": "33364428199" },
+        "post_release_verification_sha256": { "const": "f0dfd53d23cef73c100180bd3c4d838fc53b0d09dfb4604644f361ea29e568e8" },
+        "recovery_run_id": { "const": "33328391707" },
+        "release_commit": { "const": "e9b3471b727a777d7fe1b62b3997d9aac30d0eac" },
+        "release_receipt_file_sha256": { "const": "2ee89a81694f02cde135a9e367151271825c004152f8816c53a464443d47e772" },
+        "tag": { "const": "v0.1.0" },
+        "tag_object": { "const": "eb7cc385034abb2084bce51745b43d9a51bb37ee" },
+        "tag_type": { "const": "ANNOTATED" },
+        "workload_run_id": { "const": "33329861907" }
+      }
+    },
+    "project": { "const": "AtlasRetail" },
+    "project_completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_part5_stages_complete",
+        "part5_completion_equals_project_completion",
+        "project_complete",
+        "remaining_work_required",
+        "stage1_completion_claim"
+      ],
+      "properties": {
+        "all_part5_stages_complete": { "const": false },
+        "part5_completion_equals_project_completion": { "const": true },
+        "project_complete": { "const": false },
+        "remaining_work_required": { "const": true },
+        "stage1_completion_claim": { "const": "CONTRACT_ONLY" }
+      }
+    },
+    "runtime_equivalence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline_source_commit", "file_count", "files_sha256", "result"],
+      "properties": {
+        "baseline_source_commit": { "const": "08559b0f48708080335282c6d59faa3826635d67" },
+        "file_count": { "const": 107 },
+        "files_sha256": { "const": "2e1d10c936c23637929e65589fab324c4a2602b98da283135527733ea26f1e38" },
+        "result": { "const": "PASS" }
+      }
+    },
+    "schema_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "schema_version": { "const": "1.0" },
+    "source_evidence_sha256": {
+      "type": "object",
+      "minProperties": 4,
+      "maxProperties": 4,
+      "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+    },
+    "stage": { "const": 1 },
+    "state": { "const": "CONTRACT_FROZEN" }
+  }
+}
