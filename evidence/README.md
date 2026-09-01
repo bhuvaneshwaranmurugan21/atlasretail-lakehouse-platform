@@ -19,6 +19,7 @@ establish data-processing correctness.
 | Part 5 Stage 1 completion contract | Local and CI | Deterministic contract bound to `v0.1.0` | Pass |
 | Part 5 Stage 2 evidence traceability | Local and CI | Controls merge and successful `main` CI binding required before receipt publication | Controls ready |
 | Part 5 Stage 3 operational handoff | Local and CI | Four deterministic operation, recovery, and escalation rehearsals; receipt requires controls merge and successful `main` CI | Controls ready |
+| Part 5 Stage 4 completion candidate | Local and CI | Full naming, source-exact quality, and twelve-domain defect audit; receipt requires controls merge and successful `main` CI | Controls ready |
 | Partial-apply recovery and exact-state teardown, current target | AWS | `32952618876` | Pass |
 | Previous managed bounded data path and exact-state teardown | AWS | `33167646509` | Pass |
 | Initial partial-apply recovery, legacy target | AWS | `31794022586` and corrected continuation | Resolved |
@@ -111,6 +112,13 @@ establish data-processing correctness.
   `OPERATIONAL_HANDOFF_VERIFIED`. Only `P5-GAP-003` closes, five gaps remain blocking, Stage 3
   performs no AWS operation, project completion remains false, and actual billed cost remains
   `UNCLAIMED`.
+- Part 5 Stage 4 controls audit the exact completion-candidate tree, post-policy commit subjects,
+  sixteen CI quality checks, twelve defect domains, and immutable external action references. The
+  controls state is `COMPLETION_CANDIDATE_CONTROLS_READY`. `part5/stage4/` is populated only after
+  the controls merge and successful `main` CI; its evidence-only receipt state is
+  `COMPLETION_CANDIDATE_VERIFIED`. Stage 4 closes `P5-GAP-004`, `P5-GAP-005`, and `P5-GAP-006`;
+  `P5-GAP-001` and `P5-GAP-002` remain blocking. Stage 4 performs no AWS operation, project
+  completion remains false, and actual billed cost remains `UNCLAIMED`.
 - `incidents/31791499897/terraform-outputs.json` preserves the exact resource identifiers required
   for recovery after partial Terraform state removal.
 - `../docs/incidents/legacy/` preserves the former rescue workflow and its exact authorization

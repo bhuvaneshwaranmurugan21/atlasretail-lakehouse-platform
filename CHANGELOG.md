@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Added Part 5 Stage 4 completion-candidate controls: full tracked-path and UTF-8-content naming
+  coverage, post-policy commit-subject validation, sixteen source-exact CI quality checks, twelve
+  defect-audit domains, immutable external action references, strict gap partitioning, and
+  two-phase evidence publication. Controls reach `COMPLETION_CANDIDATE_CONTROLS_READY`; the final
+  `COMPLETION_CANDIDATE_VERIFIED` receipt closes only `P5-GAP-004`, `P5-GAP-005`, and `P5-GAP-006`
+  after binding the controls merge and successful `main` CI. `P5-GAP-001` and `P5-GAP-002` remain
+  blocking, no AWS operation occurs, project completion remains false, and actual billed cost
+  remains `UNCLAIMED`.
+
 - Added Part 5 Stage 3 operational-handoff controls: deterministic normal operation,
   authority-bound recovery, lease-only recovery, and stop-and-escalate rehearsals with strict
   authority binding, prohibited-action enforcement, adversarial mutation checks, and two-phase

@@ -1,0 +1,247 @@
+{
+  "$defs": {
+    "claim_boundaries": {
+      "additionalProperties": false,
+      "properties": {
+        "production": {"const": "NOT_CLAIMED"},
+        "settled_billing": {"const": "UNCLAIMED"},
+        "sustained_operation": {"const": "NOT_ESTABLISHED"}
+      },
+      "required": ["production", "settled_billing", "sustained_operation"],
+      "type": "object"
+    },
+    "controls_authority": {
+      "additionalProperties": false,
+      "properties": {
+        "main_ci_run_id": {"pattern": "^[1-9][0-9]*$", "type": "string"},
+        "merge_commit": {"pattern": "^[0-9a-f]{40}$", "type": "string"}
+      },
+      "required": ["main_ci_run_id", "merge_commit"],
+      "type": "object"
+    },
+    "defect_audit": {
+      "additionalProperties": false,
+      "properties": {
+        "domain_results": {
+          "items": {"$ref": "#/$defs/domain_result"},
+          "maxItems": 12,
+          "minItems": 12,
+          "type": "array"
+        },
+        "findings": {"items": {"$ref": "#/$defs/finding"}, "type": "array"},
+        "result": {"const": "PASS"},
+        "unresolved_critical_count": {"const": 0},
+        "unresolved_high_count": {"const": 0}
+      },
+      "required": [
+        "domain_results",
+        "findings",
+        "result",
+        "unresolved_critical_count",
+        "unresolved_high_count"
+      ],
+      "type": "object"
+    },
+    "domain_result": {
+      "additionalProperties": false,
+      "properties": {
+        "domain_id": {"minLength": 1, "type": "string"},
+        "evidence_check_ids": {
+          "items": {"minLength": 1, "type": "string"},
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "finding_ids": {
+          "items": {"pattern": "^P5-LIMIT-[0-9]{3}$", "type": "string"},
+          "type": "array",
+          "uniqueItems": true
+        },
+        "result": {"const": "PASS"}
+      },
+      "required": ["domain_id", "evidence_check_ids", "finding_ids", "result"],
+      "type": "object"
+    },
+    "finding": {
+      "additionalProperties": false,
+      "properties": {
+        "domain_id": {"minLength": 1, "type": "string"},
+        "finding_id": {"pattern": "^P5-LIMIT-[0-9]{3}$", "type": "string"},
+        "rationale": {"minLength": 1, "type": "string"},
+        "severity": {"enum": ["LOW", "MEDIUM"]},
+        "status": {"const": "ACCEPTED_LIMITATION"}
+      },
+      "required": ["domain_id", "finding_id", "rationale", "severity", "status"],
+      "type": "object"
+    },
+    "naming_audit": {
+      "additionalProperties": false,
+      "properties": {
+        "binary_content_skipped_count": {"minimum": 0, "type": "integer"},
+        "post_policy_commit_count": {"minimum": 1, "type": "integer"},
+        "result": {"const": "PASS"},
+        "scope": {
+          "items": {"minLength": 1, "type": "string"},
+          "minItems": 3,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "tracked_file_count": {"minimum": 1, "type": "integer"},
+        "utf8_content_scanned_count": {"minimum": 1, "type": "integer"}
+      },
+      "required": [
+        "binary_content_skipped_count",
+        "post_policy_commit_count",
+        "result",
+        "scope",
+        "tracked_file_count",
+        "utf8_content_scanned_count"
+      ],
+      "type": "object"
+    },
+    "project_completion": {
+      "additionalProperties": false,
+      "properties": {
+        "all_part5_stages_complete": {"const": false},
+        "project_complete": {"const": false},
+        "remaining_work_required": {"const": true}
+      },
+      "required": ["all_part5_stages_complete", "project_complete", "remaining_work_required"],
+      "type": "object"
+    },
+    "quality_audit": {
+      "additionalProperties": false,
+      "properties": {
+        "checks": {
+          "items": {"$ref": "#/$defs/quality_check"},
+          "minItems": 15,
+          "type": "array"
+        },
+        "result": {"const": "PASS"}
+      },
+      "required": ["checks", "result"],
+      "type": "object"
+    },
+    "quality_check": {
+      "additionalProperties": false,
+      "properties": {
+        "check_id": {"minLength": 1, "type": "string"},
+        "result": {"const": "PASS"}
+      },
+      "required": ["check_id", "result"],
+      "type": "object"
+    },
+    "runtime_equivalence": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_source_commit": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "file_count": {"const": 107},
+        "files_sha256": {
+          "const": "2e1d10c936c23637929e65589fab324c4a2602b98da283135527733ea26f1e38"
+        },
+        "result": {"const": "PASS"}
+      },
+      "required": ["baseline_source_commit", "file_count", "files_sha256", "result"],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actual_billed_cost_claim": {"const": "UNCLAIMED"},
+    "authority_file_sha256": {
+      "additionalProperties": false,
+      "properties": {
+        "part4-closure": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "part4-release": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "part5-completion-contract": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "part5-gap-baseline": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "part5-operational-handoff": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "quality-policy": {"pattern": "^[0-9a-f]{64}$", "type": "string"}
+      },
+      "required": [
+        "part4-closure",
+        "part4-release",
+        "part5-completion-contract",
+        "part5-gap-baseline",
+        "part5-operational-handoff",
+        "quality-policy"
+      ],
+      "type": "object"
+    },
+    "aws_execution": {"const": false},
+    "claim_boundaries": {"$ref": "#/$defs/claim_boundaries"},
+    "claim_level": {"const": "LOCAL_VERIFIED"},
+    "controls_authority": {"$ref": "#/$defs/controls_authority"},
+    "defect_audit": {"$ref": "#/$defs/defect_audit"},
+    "evidence_type": {"const": "part5-stage4-completion-candidate"},
+    "naming_audit": {"$ref": "#/$defs/naming_audit"},
+    "newly_closed_gap_ids": {
+      "items": {"enum": ["P5-GAP-004", "P5-GAP-005", "P5-GAP-006"]},
+      "maxItems": 3,
+      "minItems": 3,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "part": {"const": 5},
+    "policy_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "predecessor_closed_gap_ids": {
+      "items": {"const": "P5-GAP-003"},
+      "maxItems": 1,
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "project": {"const": "AtlasRetail"},
+    "project_completion": {"$ref": "#/$defs/project_completion"},
+    "quality_audit": {"$ref": "#/$defs/quality_audit"},
+    "receipt_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "remaining_gap_ids": {
+      "items": {"enum": ["P5-GAP-001", "P5-GAP-002"]},
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "runtime_equivalence": {"$ref": "#/$defs/runtime_equivalence"},
+    "schema_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "schema_version": {"const": "1.0"},
+    "stage": {"const": 4},
+    "stage1_contract_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "stage2_receipt_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "stage3_receipt_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "state": {"const": "COMPLETION_CANDIDATE_VERIFIED"},
+    "tracked_tree_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"}
+  },
+  "required": [
+    "actual_billed_cost_claim",
+    "authority_file_sha256",
+    "aws_execution",
+    "claim_boundaries",
+    "claim_level",
+    "controls_authority",
+    "defect_audit",
+    "evidence_type",
+    "naming_audit",
+    "newly_closed_gap_ids",
+    "part",
+    "policy_sha256",
+    "predecessor_closed_gap_ids",
+    "project",
+    "project_completion",
+    "quality_audit",
+    "receipt_sha256",
+    "remaining_gap_ids",
+    "runtime_equivalence",
+    "schema_sha256",
+    "schema_version",
+    "stage",
+    "stage1_contract_sha256",
+    "stage2_receipt_sha256",
+    "stage3_receipt_sha256",
+    "state",
+    "tracked_tree_sha256"
+  ],
+  "title": "AtlasRetail Part 5 Stage 4 completion-candidate receipt",
+  "type": "object"
+}
