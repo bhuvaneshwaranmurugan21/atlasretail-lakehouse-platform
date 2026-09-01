@@ -116,6 +116,7 @@ execution.
 | Part 4 Stage 8 release integrity | `LOCAL_VERIFIED` | Version `v0.1.0` uses an isolated strict release contract, durable evidence-retention catalog, deterministic archive recipe, and annotated tag checksum provenance while preserving the Stage 7 107-file runtime digest |
 | Part 5 Stage 1 completion contract | `LOCAL_VERIFIED` | A strict self-digesting contract binds the `v0.1.0` release, managed workload, deterministic recovery, final clean inventory, frozen 107-file runtime, original engineering objectives, and every gate required before final project completion |
 | Part 5 Stage 2 evidence traceability | `LOCAL_VERIFIED` | Strict one-to-one coverage maps all seven objectives and twelve completion gates to predecessor authorities and six explicit blocking gaps; the final receipt is published only after the controls merge and successful `main` CI |
+| Part 5 Stage 3 operational handoff | `LOCAL_VERIFIED` | Deterministic normal operation, authority-bound recovery, lease-only recovery, and stop-and-escalate rehearsals close only `P5-GAP-003`; final-candidate and all-stages gaps remain blocking |
 | Glue 5-compatible Spark transformation and real local Iceberg snapshots | `LOCAL_VERIFIED` | Pinned Glue 5-compatible integration job with isolated Hadoop catalog |
 | GitHub-to-AWS keyless identity | `AWS_VERIFIED` | Identity-only workflow on `main` in the current target |
 | Current-target IAM and foundation safety baseline | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) proved exact live IAM parity, the hardened persistent foundation, lease safety, budget alerts, an empty backend, and zero workload resources |
@@ -157,6 +158,13 @@ managed runtime. Immutable predecessor proof is marked `PRESERVED_PASS`; incompl
 state is `TRACEABILITY_CONTROLS_READY`. The final `GAP_BASELINE_RECORDED` receipt must bind the
 actual controls merge and successful `main` CI in a separate evidence-only change. Project
 completion remains false and actual billed cost remains `UNCLAIMED`.
+
+Part 5 Stage 3 converts the existing runbook, workflow, incident, recovery, and release authorities
+into deterministic normal operation, authority-bound recovery, lease-only recovery, and stop and
+escalate rehearsals. The controls state is `HANDOFF_CONTROLS_READY`; the separate
+`OPERATIONAL_HANDOFF_VERIFIED` receipt must bind the controls merge and successful `main` CI.
+Stage 3 closes only `P5-GAP-003`, performs no AWS operation, and preserves five blocking gaps.
+Project completion remains false and actual billed cost remains `UNCLAIMED`.
 
 Verification levels and evidence-handling rules are defined in
 [docs/verification.md](docs/verification.md). Operational history is indexed in

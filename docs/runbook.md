@@ -399,6 +399,30 @@ Execute it in this order:
 Project completion remains false throughout Stage 2. The production claim remains false,
 sustained operation remains unestablished, and actual billed cost remains `UNCLAIMED`.
 
+## Part 5 Stage 3 operational handoff
+
+Stage 3 closes only `P5-GAP-003` by rehearsing normal operation, authority-bound recovery,
+lease-only recovery, and stop and escalate against the exact repository authorities. It performs
+no AWS operation and does not modify the frozen managed surface. Execute it in this order:
+
+1. Require the merged Stage 2 receipt and its successful post-merge `main` CI authority.
+2. Revalidate the Stage 1 contract, Stage 2 gap baseline, Part 4 closure and release receipts,
+   evidence-retention catalog, annotated tag, and 107-file runtime.
+3. Validate the strict handoff schema and exact four-scenario catalogue.
+4. Rehearse current-source preflight, Glue probe, plan, bounded-run, and teardown prerequisites.
+5. Rehearse exact-authority cleanup using failed run `33326519783` and cleanup-only recovery
+   authority `33328391707`.
+6. Rehearse lease-only recovery and require no teardown authority, empty state, and empty inventory.
+7. Rehearse every stop condition and prohibit automatic retry, manual deletion, and claim promotion.
+8. Run adversarial mutations and the complete source-exact quality suite.
+9. Merge controls only after all CI jobs pass, producing `HANDOFF_CONTROLS_READY`.
+10. Bind the controls merge and successful `main` CI in a separate evidence-only receipt.
+11. Reconstruct and verify the receipt before accepting `OPERATIONAL_HANDOFF_VERIFIED`.
+
+Stage 3 closes only `P5-GAP-003`; five completion gaps remain blocking. Project completion remains
+false, the production and sustained-operation claims remain absent, and actual billed cost remains
+`UNCLAIMED`.
+
 ## Expected signals
 
 - Successful transformation and publication end `SUCCEEDED`.

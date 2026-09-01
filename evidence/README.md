@@ -18,6 +18,7 @@ establish data-processing correctness.
 | Part 4 Stage 7 deterministic closure | Local and CI | Receipt bound to AWS run `33364428199` | Pass |
 | Part 5 Stage 1 completion contract | Local and CI | Deterministic contract bound to `v0.1.0` | Pass |
 | Part 5 Stage 2 evidence traceability | Local and CI | Controls merge and successful `main` CI binding required before receipt publication | Controls ready |
+| Part 5 Stage 3 operational handoff | Local and CI | Four deterministic operation, recovery, and escalation rehearsals; receipt requires controls merge and successful `main` CI | Controls ready |
 | Partial-apply recovery and exact-state teardown, current target | AWS | `32952618876` | Pass |
 | Previous managed bounded data path and exact-state teardown | AWS | `33167646509` | Pass |
 | Initial partial-apply recovery, legacy target | AWS | `31794022586` and corrected continuation | Resolved |
@@ -103,6 +104,13 @@ establish data-processing correctness.
   `part5/stage2/` is populated only after the controls merge and successful `main` CI; its
   evidence-only receipt state is `GAP_BASELINE_RECORDED`. Stage 2 performs no AWS execution,
   project completion remains false, and actual billed cost remains `UNCLAIMED`.
+- Part 5 Stage 3 controls rehearse normal operation, authority-bound recovery, lease-only recovery,
+  and stop and escalate against the exact runbook, workflows, incident history, and predecessor
+  authorities. The controls state is `HANDOFF_CONTROLS_READY`. `part5/stage3/` is populated only
+  after the controls merge and successful `main` CI; its evidence-only receipt state is
+  `OPERATIONAL_HANDOFF_VERIFIED`. Only `P5-GAP-003` closes, five gaps remain blocking, Stage 3
+  performs no AWS operation, project completion remains false, and actual billed cost remains
+  `UNCLAIMED`.
 - `incidents/31791499897/terraform-outputs.json` preserves the exact resource identifiers required
   for recovery after partial Terraform state removal.
 - `../docs/incidents/legacy/` preserves the former rescue workflow and its exact authorization

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Added Part 5 Stage 3 operational-handoff controls: deterministic normal operation,
+  authority-bound recovery, lease-only recovery, and stop-and-escalate rehearsals with strict
+  authority binding, prohibited-action enforcement, adversarial mutation checks, and two-phase
+  evidence publication. Controls reach `HANDOFF_CONTROLS_READY`; the separate receipt reaches
+  `OPERATIONAL_HANDOFF_VERIFIED` only after binding the controls merge and successful `main` CI.
+  Only `P5-GAP-003` closes, five gaps remain blocking, no AWS operation occurs, project completion
+  remains false, and actual billed cost remains `UNCLAIMED`.
+
 - Added Part 5 Stage 2 evidence-traceability controls: exact coverage for all seven original
   objectives and twelve completion gates, three digest-bound predecessor authorities, four strict
   status values, and six explicit blocking gaps with required closure evidence. Controls reach
