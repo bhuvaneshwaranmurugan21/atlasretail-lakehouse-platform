@@ -5,7 +5,7 @@ test:
 
 quality:
 	python -m ruff check .
-	python -m mypy src release/part4/stage8 release/part5/stage1 release/part5/stage2 release/part5/stage3 release/part5/stage4
+	python -m mypy src release/part4/stage8 release/part5/stage1 release/part5/stage2 release/part5/stage3 release/part5/stage4 release/part5/stage5
 	python scripts/validate_part4_contract.py
 	python scripts/validate_part4_sources.py
 	python scripts/validate_part4_admission_controls.py
@@ -18,6 +18,7 @@ quality:
 	python -m release.part5.stage2.validate_controls
 	python -m release.part5.stage3.validate_controls
 	python -m release.part5.stage4.validate_controls
+	python -m release.part5.stage5.validate_controls
 	python -m pytest
 
 evidence:

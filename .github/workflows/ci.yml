@@ -26,7 +26,7 @@ jobs:
         run: |
           ruff check .
           ruff format --check .
-          mypy src release/part4/stage8 release/part5/stage1 release/part5/stage2 release/part5/stage3 release/part5/stage4
+          mypy src release/part4/stage8 release/part5/stage1 release/part5/stage2 release/part5/stage3 release/part5/stage4 release/part5/stage5
           python scripts/validate_part4_contract.py
           python scripts/validate_part4_sources.py
           python scripts/validate_part4_admission_controls.py \
@@ -51,6 +51,8 @@ jobs:
             "${RUNNER_TEMP}/part5-stage3-operational-handoff-controls.json"
           python -m release.part5.stage4.validate_controls \
             "${RUNNER_TEMP}/part5-stage4-completion-candidate-controls.json"
+          python -m release.part5.stage5.validate_controls \
+            "${RUNNER_TEMP}/part5-stage5-project-completion-controls.json"
           cfn-lint infra/foundation/template.yml --regions ap-southeast-2
           python -m compileall -q src tests aws release
           bash -n scripts/*.sh
@@ -168,6 +170,13 @@ jobs:
             python -m release.part5.stage4.completion_candidate verify \
               --receipt evidence/part5/stage4/completion-candidate.json
           fi
+      - name: Reproduce deterministic Part 5 Stage 5 project-completion controls
+        run: |
+          python -m release.part5.stage5.validate_controls \
+            "${RUNNER_TEMP}/part5-stage5-project-completion-controls-second.json"
+          diff -u \
+            "${RUNNER_TEMP}/part5-stage5-project-completion-controls.json" \
+            "${RUNNER_TEMP}/part5-stage5-project-completion-controls-second.json"
       - name: Upload Stage 2 source-provenance evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -250,6 +259,13 @@ jobs:
           path: ${{ runner.temp }}/part5-stage4-completion-candidate-controls.json
           if-no-files-found: error
           retention-days: 30
+      - name: Upload Part 5 Stage 5 project-completion controls
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: part5-stage5-project-completion-controls-${{ github.run_id }}
+          path: ${{ runner.temp }}/part5-stage5-project-completion-controls.json
+          if-no-files-found: error
+          retention-days: 30
 
   glue-runtime-integration:
     runs-on: ubuntu-24.04
@@ -292,3 +308,49 @@ jobs:
         run: |
           terraform -chdir=infra/atlas init -backend=false
           terraform -chdir=infra/atlas validate
+
+  project-completion-readiness:
+    needs: [correctness, glue-runtime-integration, terraform]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install exact development dependencies
+        run: python -m pip install --disable-pip-version-check -e '.[dev]'
+      - name: Revalidate project-completion controls
+        run: |
+          python -m release.part5.stage5.validate_controls \
+            "${RUNNER_TEMP}/part5-stage5-controls-first.json"
+          python -m release.part5.stage5.validate_controls \
+            "${RUNNER_TEMP}/part5-stage5-controls-second.json"
+          diff -u \
+            "${RUNNER_TEMP}/part5-stage5-controls-first.json" \
+            "${RUNNER_TEMP}/part5-stage5-controls-second.json"
+      - name: Build non-completion final-attestation readiness
+        run: |
+          python -m release.part5.stage5.project_completion readiness \
+            --final-commit "${GITHUB_SHA}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --output "${RUNNER_TEMP}/part5-stage5-readiness-first.json"
+          python -m release.part5.stage5.project_completion readiness \
+            --final-commit "${GITHUB_SHA}" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            --output "${RUNNER_TEMP}/part5-stage5-readiness-second.json"
+          diff -u \
+            "${RUNNER_TEMP}/part5-stage5-readiness-first.json" \
+            "${RUNNER_TEMP}/part5-stage5-readiness-second.json"
+      - name: Upload project-completion readiness
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: part5-stage5-project-completion-readiness-${{ github.run_id }}
+          path: ${{ runner.temp }}/part5-stage5-readiness-first.json
+          if-no-files-found: error
+          retention-days: 30

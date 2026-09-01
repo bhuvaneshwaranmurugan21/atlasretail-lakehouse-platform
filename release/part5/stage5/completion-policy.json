@@ -1,0 +1,67 @@
+{
+  "claim_boundaries": {
+    "production": "NOT_CLAIMED",
+    "settled_billing": "UNCLAIMED",
+    "sustained_operation": "NOT_ESTABLISHED"
+  },
+  "closed_gap_ids": [
+    "P5-GAP-001",
+    "P5-GAP-002",
+    "P5-GAP-003",
+    "P5-GAP-004",
+    "P5-GAP-005",
+    "P5-GAP-006"
+  ],
+  "completion_gates": [
+    "all_part5_stages_complete",
+    "claim_boundaries_preserved",
+    "clean_inventory_authority_preserved",
+    "deterministic_recovery_authority_preserved",
+    "final_main_ci_green",
+    "frozen_runtime_preserved",
+    "managed_workload_authority_preserved",
+    "operational_handoff_verified",
+    "professional_naming_verified",
+    "release_integrity_preserved",
+    "repository_quality_gates_green",
+    "unresolved_critical_defects_absent"
+  ],
+  "completion_tag": {
+    "archive_format": "git-archive-tar-fixed-gzip-v1",
+    "completion_version": "0.2.0",
+    "signature_claim": "NOT_CLAIMED",
+    "tag": "v0.2.0",
+    "tag_type": "ANNOTATED"
+  },
+  "gap_closure_stage": {
+    "P5-GAP-001": 5,
+    "P5-GAP-002": 5,
+    "P5-GAP-003": 3,
+    "P5-GAP-004": 4,
+    "P5-GAP-005": 4,
+    "P5-GAP-006": 4
+  },
+  "original_objectives": [
+    "cross_table_consistency",
+    "deterministic_failure_recovery",
+    "evidence_attribution",
+    "managed_aws_validation",
+    "operational_handoff",
+    "release_integrity",
+    "repository_quality"
+  ],
+  "required_ci_jobs": [
+    "correctness",
+    "glue-runtime-integration",
+    "project-completion-readiness",
+    "terraform"
+  ],
+  "schema_version": "1.0",
+  "stage_states": [
+    {"stage": 1, "state": "CONTRACT_FROZEN"},
+    {"stage": 2, "state": "GAP_BASELINE_RECORDED"},
+    {"stage": 3, "state": "OPERATIONAL_HANDOFF_VERIFIED"},
+    {"stage": 4, "state": "COMPLETION_CANDIDATE_VERIFIED"},
+    {"stage": 5, "state": "PROJECT_COMPLETION_VERIFIED"}
+  ]
+}

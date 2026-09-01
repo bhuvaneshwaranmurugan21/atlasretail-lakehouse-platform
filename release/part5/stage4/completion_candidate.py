@@ -7,6 +7,9 @@ import hashlib
 import json
 import re
 import subprocess
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, NoReturn, cast
 
@@ -493,8 +496,10 @@ def validate_completion_candidate(receipt: dict[str, Any], repository: Path = RO
 def validate_publication_authority(receipt: dict[str, Any], repository: Path = ROOT) -> None:
     """Require the recorded controls merge in this Stage 4 evidence history."""
 
-    validate_completion_candidate(receipt, repository)
-    merge_commit = receipt["controls_authority"]["merge_commit"]
+    controls = receipt.get("controls_authority")
+    if not isinstance(controls, dict) or not isinstance(controls.get("merge_commit"), str):
+        fail("controls merge commit is absent")
+    merge_commit = cast(str, controls["merge_commit"])
     exists = subprocess.run(
         ["git", "cat-file", "-e", f"{merge_commit}^{{commit}}"],
         cwd=repository,
@@ -505,6 +510,8 @@ def validate_publication_authority(receipt: dict[str, Any], repository: Path = R
         fail("controls merge commit is absent from repository history")
     if merge_commit == STAGE3_EVIDENCE_MERGE_COMMIT:
         fail("controls merge commit does not identify the Stage 4 controls merge")
+    with historical_worktree(repository, merge_commit) as historical:
+        validate_completion_candidate(receipt, historical)
     for ancestor, descendant, message in (
         (
             STAGE3_EVIDENCE_MERGE_COMMIT,
@@ -521,6 +528,32 @@ def validate_publication_authority(receipt: dict[str, Any], repository: Path = R
         )
         if completed.returncode != 0:
             fail(message)
+
+
+@contextmanager
+def historical_worktree(repository: Path, commit: str) -> Iterator[Path]:
+    """Expose one exact historical tree for non-self-invalidating receipt verification."""
+
+    with tempfile.TemporaryDirectory(prefix="atlasretail-stage4-") as directory:
+        path = Path(directory) / "repository"
+        added = False
+        try:
+            subprocess.run(
+                ["git", "worktree", "add", "--detach", "--quiet", str(path), commit],
+                cwd=repository,
+                check=True,
+                capture_output=True,
+            )
+            added = True
+            yield path
+        finally:
+            if added:
+                subprocess.run(
+                    ["git", "worktree", "remove", "--force", str(path)],
+                    cwd=repository,
+                    check=True,
+                    capture_output=True,
+                )
 
 
 def write_candidate(path: Path, receipt: dict[str, Any]) -> None:
