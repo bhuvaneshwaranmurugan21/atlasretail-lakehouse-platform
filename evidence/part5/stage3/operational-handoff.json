@@ -1,0 +1,146 @@
+{
+  "actual_billed_cost_claim": "UNCLAIMED",
+  "authority_file_sha256": {
+    "evidence-retention": "de701134f9fa53508520e97695a682208a656612c5e6ad4d5dfbbb32b3aea426",
+    "handoff-scenarios": "82b4bfa1901a55a457440572b02074b63b6840d117b2532bd69d74b3f74720db",
+    "part4-closure": "c42df8826a84d4049b81c05cd98ba4ae57aec09e927463751e6953d06b710bbf",
+    "part4-release": "2ee89a81694f02cde135a9e367151271825c004152f8816c53a464443d47e772",
+    "part5-completion-contract": "9e42c22642a7c811a8ba116ab6073fed2478ffa5d5b3dca6018724a2314ea508",
+    "part5-gap-baseline": "652e168f9b3bd4c436d8ca23906315f220a6aad265cd7206a52e610fddb86c0b",
+    "provider-lock-incident": "48f946a0d2cb68654300c9623ae17c14ca6d3d02d078fe506fda2d77e5161755",
+    "runbook": "897a2c620d54e77f8c4ab3f43c1cf2600fc98112bfb0f2a142e9c44aaa924619"
+  },
+  "aws_execution": false,
+  "claim_boundaries": {
+    "production": "NOT_CLAIMED",
+    "settled_billing": "UNCLAIMED",
+    "sustained_operation": "NOT_ESTABLISHED"
+  },
+  "claim_level": "LOCAL_VERIFIED",
+  "closed_gap_ids": [
+    "P5-GAP-003"
+  ],
+  "controls_authority": {
+    "main_ci_run_id": "33465930033",
+    "merge_commit": "30fc09d379eb006544bc1d89d51908d775eb0b75"
+  },
+  "evidence_type": "part5-stage3-operational-handoff",
+  "part": 5,
+  "project": "AtlasRetail",
+  "project_completion": {
+    "all_part5_stages_complete": false,
+    "project_complete": false,
+    "remaining_work_required": true
+  },
+  "receipt_sha256": "2f07be12c2926277adc355cea58fc9f6f2c683d9d5e0bca0bac541fcfb0328ab",
+  "rehearsals": [
+    {
+      "authority_file_sha256": {
+        ".github/workflows/aws-bounded-lab.yml": "5c18ba4cc3fbeb1c0adc8c53fa325ca7cb90408ac85da3eb8614f32dc5580471",
+        ".github/workflows/aws-glue-service-probe.yml": "ac031c0d6f4a2f376da6773f13b3f71acde61bb4e9a7f67485528d6f34c7d2d3",
+        ".github/workflows/aws-plan-only.yml": "36c15e18b2a3e7ae78be9f580ad99fbdff76baa55265a47677bc191ec9695984",
+        ".github/workflows/aws-read-only-preflight.yml": "abebc535c8d10c1603228b28843a25c81e6559629675b5e5023fdf5c105f5216"
+      },
+      "category": "OPERATION",
+      "decision": "READY_WITH_EXACT_PREREQUISITES",
+      "expected_evidence": [
+        "exact-source preflight",
+        "definition-only Glue capability and cleanup",
+        "create-only plan proof",
+        "contract-complete workload and teardown summary"
+      ],
+      "prohibited_actions": [
+        "dispatch from a non-main ref",
+        "reuse stale prerequisite evidence",
+        "execute without teardown confirmation",
+        "accept unreadable or non-empty baseline state"
+      ],
+      "result": "PASS",
+      "scenario_id": "normal-operation"
+    },
+    {
+      "authority_file_sha256": {
+        ".github/workflows/aws-bounded-lab-recovery.yml": "302f0ba7c79b629489013533c580b1f8e8ba24a28a4752a0db851bb2949152c1",
+        "docs/incidents/part4-stage6-provider-lock-recovery.md": "48f946a0d2cb68654300c9623ae17c14ca6d3d02d078fe506fda2d77e5161755"
+      },
+      "category": "RECOVERY",
+      "decision": "RECOVER_EXACT_AUTHORITY_CLEANUP_ONLY",
+      "expected_evidence": [
+        "failed run, attempt and source binding",
+        "immutable teardown authority",
+        "destroy-only plan",
+        "clean inventory and lease release"
+      ],
+      "prohibited_actions": [
+        "delete resources manually",
+        "edit or replace the account lease",
+        "reuse another run authority",
+        "promote cleanup evidence into a workload claim"
+      ],
+      "result": "PASS",
+      "scenario_id": "authority-bound-recovery"
+    },
+    {
+      "authority_file_sha256": {
+        ".github/workflows/aws-bounded-lab-lease-recovery.yml": "57b8219ec52d32037708419536364ed80269680c73bb9fb7581952ca56dbffa9",
+        "docs/runbook.md": "897a2c620d54e77f8c4ab3f43c1cf2600fc98112bfb0f2a142e9c44aaa924619"
+      },
+      "category": "RECOVERY",
+      "decision": "RELEASE_EXACT_PREAUTHORITY_LEASE_ONLY",
+      "expected_evidence": [
+        "exact failed admission",
+        "exact acquired lease",
+        "empty Terraform state",
+        "empty AWS inventory"
+      ],
+      "prohibited_actions": [
+        "release a lease when state is non-empty",
+        "release a lease when resources exist",
+        "perform infrastructure cleanup in the lease-only path",
+        "rely on lease expiry"
+      ],
+      "result": "PASS",
+      "scenario_id": "lease-only-recovery"
+    },
+    {
+      "authority_file_sha256": {
+        "docs/runbook.md": "897a2c620d54e77f8c4ab3f43c1cf2600fc98112bfb0f2a142e9c44aaa924619"
+      },
+      "category": "ESCALATION",
+      "decision": "STOP_PRESERVE_AND_ESCALATE",
+      "expected_evidence": [
+        "source, run and attempt identity",
+        "failed control and error classification",
+        "lease, state and resource inventory",
+        "teardown and evidence authority status"
+      ],
+      "prohibited_actions": [
+        "retry automatically",
+        "suppress the failed validation",
+        "release an unverified lease",
+        "claim success with failed or skipped teardown"
+      ],
+      "result": "PASS",
+      "scenario_id": "stop-and-escalate"
+    }
+  ],
+  "remaining_gap_ids": [
+    "P5-GAP-001",
+    "P5-GAP-002",
+    "P5-GAP-004",
+    "P5-GAP-005",
+    "P5-GAP-006"
+  ],
+  "runtime_equivalence": {
+    "baseline_source_commit": "08559b0f48708080335282c6d59faa3826635d67",
+    "file_count": 107,
+    "files_sha256": "2e1d10c936c23637929e65589fab324c4a2602b98da283135527733ea26f1e38",
+    "result": "PASS"
+  },
+  "schema_sha256": "011af6f43419bc1c5883d9daec9e45fbd8ff744fbafb541afc9f79eb0e90f703",
+  "schema_version": "1.0",
+  "stage": 3,
+  "stage1_contract_sha256": "94d32706ff7340accec67a1d48fcd176f2cfb9d75fd6da4724990980be521df0",
+  "stage2_receipt_sha256": "4ac693efb3cc962ed9173445e660114f3b4eef77a7acdb35ac77abdd52a54844",
+  "state": "OPERATIONAL_HANDOFF_VERIFIED"
+}
