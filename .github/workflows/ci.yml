@@ -26,7 +26,7 @@ jobs:
         run: |
           ruff check .
           ruff format --check .
-          mypy src release/part4/stage8 release/part5/stage1 release/part5/stage2
+          mypy src release/part4/stage8 release/part5/stage1 release/part5/stage2 release/part5/stage3
           python scripts/validate_part4_contract.py
           python scripts/validate_part4_sources.py
           python scripts/validate_part4_admission_controls.py \
@@ -47,6 +47,8 @@ jobs:
             "${RUNNER_TEMP}/part5-stage1-completion-contract.json"
           python -m release.part5.stage2.validate_controls \
             "${RUNNER_TEMP}/part5-stage2-traceability-controls.json"
+          python -m release.part5.stage3.validate_controls \
+            "${RUNNER_TEMP}/part5-stage3-operational-handoff-controls.json"
           cfn-lint infra/foundation/template.yml --regions ap-southeast-2
           python -m compileall -q src tests aws release
           bash -n scripts/*.sh
@@ -142,6 +144,17 @@ jobs:
             python -m release.part5.stage2.evidence_traceability verify \
               --receipt evidence/part5/stage2/completion-gap.json
           fi
+      - name: Reproduce deterministic Part 5 Stage 3 operational-handoff controls
+        run: |
+          python -m release.part5.stage3.validate_controls \
+            "${RUNNER_TEMP}/part5-stage3-operational-handoff-controls-second.json"
+          diff -u \
+            "${RUNNER_TEMP}/part5-stage3-operational-handoff-controls.json" \
+            "${RUNNER_TEMP}/part5-stage3-operational-handoff-controls-second.json"
+          if test -f evidence/part5/stage3/operational-handoff.json; then
+            python -m release.part5.stage3.operational_handoff verify \
+              --receipt evidence/part5/stage3/operational-handoff.json
+          fi
       - name: Upload Stage 2 source-provenance evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -208,6 +221,13 @@ jobs:
         with:
           name: part5-stage2-traceability-controls-${{ github.run_id }}
           path: ${{ runner.temp }}/part5-stage2-traceability-controls.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload Part 5 Stage 3 operational-handoff controls
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: part5-stage3-operational-handoff-controls-${{ github.run_id }}
+          path: ${{ runner.temp }}/part5-stage3-operational-handoff-controls.json
           if-no-files-found: error
           retention-days: 30
 

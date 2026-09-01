@@ -1,0 +1,167 @@
+{
+  "schema_version": "1.0",
+  "scenarios": [
+    {
+      "authority_checks": [
+        {
+          "path": ".github/workflows/aws-read-only-preflight.yml",
+          "required_tokens": [
+            "workflow_dispatch:",
+            "id-token: write",
+            "verify_preflight.py"
+          ]
+        },
+        {
+          "path": ".github/workflows/aws-glue-service-probe.yml",
+          "required_tokens": [
+            "confirm_probe:",
+            "PROBE_GLUE_CREATE_DELETE",
+            "probe_glue_capability.py"
+          ]
+        },
+        {
+          "path": ".github/workflows/aws-plan-only.yml",
+          "required_tokens": [
+            "workflow_dispatch:",
+            "verify_account_plan.py",
+            "verify_budget.py"
+          ]
+        },
+        {
+          "path": ".github/workflows/aws-bounded-lab.yml",
+          "required_tokens": [
+            "order_count:",
+            "EXECUTE_ATLASRETAIL_PART4",
+            "confirm_destroy:",
+            "preflight_run_id:",
+            "glue_probe_run_id:",
+            "plan_run_id:"
+          ]
+        }
+      ],
+      "category": "OPERATION",
+      "decision": "READY_WITH_EXACT_PREREQUISITES",
+      "expected_evidence": [
+        "exact-source preflight",
+        "definition-only Glue capability and cleanup",
+        "create-only plan proof",
+        "contract-complete workload and teardown summary"
+      ],
+      "prohibited_actions": [
+        "dispatch from a non-main ref",
+        "reuse stale prerequisite evidence",
+        "execute without teardown confirmation",
+        "accept unreadable or non-empty baseline state"
+      ],
+      "scenario_id": "normal-operation"
+    },
+    {
+      "authority_checks": [
+        {
+          "path": ".github/workflows/aws-bounded-lab-recovery.yml",
+          "required_tokens": [
+            "failed_run_id:",
+            "failed_run_attempt:",
+            "failed_source_commit:",
+            "RECOVER_ATLASRETAIL_PART4",
+            "Recover only the exact failed attempt authority"
+          ]
+        },
+        {
+          "path": "docs/incidents/part4-stage6-provider-lock-recovery.md",
+          "required_tokens": [
+            "33326519783",
+            "33328391707",
+            "cleanup-only",
+            "UNCLAIMED"
+          ]
+        }
+      ],
+      "category": "RECOVERY",
+      "decision": "RECOVER_EXACT_AUTHORITY_CLEANUP_ONLY",
+      "expected_evidence": [
+        "failed run, attempt and source binding",
+        "immutable teardown authority",
+        "destroy-only plan",
+        "clean inventory and lease release"
+      ],
+      "prohibited_actions": [
+        "delete resources manually",
+        "edit or replace the account lease",
+        "reuse another run authority",
+        "promote cleanup evidence into a workload claim"
+      ],
+      "scenario_id": "authority-bound-recovery"
+    },
+    {
+      "authority_checks": [
+        {
+          "path": ".github/workflows/aws-bounded-lab-lease-recovery.yml",
+          "required_tokens": [
+            "failed_run_id:",
+            "failed_run_attempt:",
+            "failed_source_commit:",
+            "RELEASE_ATLASRETAIL_PART4_PREAUTHORITY_LEASE",
+            "Validate failed admission and lease acquisition before AWS access"
+          ]
+        },
+        {
+          "path": "docs/runbook.md",
+          "required_tokens": [
+            "failed before immutable teardown authority was persisted",
+            "exact live `ACQUIRED` lease with no authority",
+            "If state or resources exist, stop"
+          ]
+        }
+      ],
+      "category": "RECOVERY",
+      "decision": "RELEASE_EXACT_PREAUTHORITY_LEASE_ONLY",
+      "expected_evidence": [
+        "exact failed admission",
+        "exact acquired lease",
+        "empty Terraform state",
+        "empty AWS inventory"
+      ],
+      "prohibited_actions": [
+        "release a lease when state is non-empty",
+        "release a lease when resources exist",
+        "perform infrastructure cleanup in the lease-only path",
+        "rely on lease expiry"
+      ],
+      "scenario_id": "lease-only-recovery"
+    },
+    {
+      "authority_checks": [
+        {
+          "path": "docs/runbook.md",
+          "required_tokens": [
+            "Do not retry automatically",
+            "Account-plan or service-access denial",
+            "IAM authorization failure",
+            "Terraform state or tagged-resource residue",
+            "Manifest or business-validation failure",
+            "Missing service history or evidence file",
+            "Failed or skipped teardown check",
+            "preserve the run and source identifiers",
+            "run a new read-only preflight before another deployment"
+          ]
+        }
+      ],
+      "category": "ESCALATION",
+      "decision": "STOP_PRESERVE_AND_ESCALATE",
+      "expected_evidence": [
+        "source, run and attempt identity",
+        "failed control and error classification",
+        "lease, state and resource inventory",
+        "teardown and evidence authority status"
+      ],
+      "prohibited_actions": [
+        "retry automatically",
+        "suppress the failed validation",
+        "release an unverified lease",
+        "claim success with failed or skipped teardown"
+      ],
+      "scenario_id": "stop-and-escalate"
+    }
+  ]
+}
