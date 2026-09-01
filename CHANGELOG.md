@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Added Part 5 Stage 5 project-completion controls for `v0.2.0`: strict Stage 1-4 authority
+  reconstruction, exact final `main` CI and four-job binding, complete six-gap and objective/gate
+  coverage, deterministic fixed-header source archives, annotated tag checksum provenance, and
+  adversarial verification. Corrected Stage 4 receipt validation to reconstruct its exact
+  historical controls-merge tree so later completion files cannot invalidate prior evidence.
+  Pull-request state is `FINAL_ATTESTATION_READY`; project completion
+  remains false until the final merged commit and release are independently verified. Stage 5
+  performs no AWS operation and actual billed cost remains `UNCLAIMED`.
+
 - Added Part 5 Stage 4 completion-candidate controls: full tracked-path and UTF-8-content naming
   coverage, post-policy commit-subject validation, sixteen source-exact CI quality checks, twelve
   defect-audit domains, immutable external action references, strict gap partitioning, and

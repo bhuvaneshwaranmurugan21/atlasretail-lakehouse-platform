@@ -30,6 +30,7 @@ environment that produced it.
 | Part 5 Stage 2 evidence traceability | `LOCAL_VERIFIED` | Exact objective-to-gate-to-authority mapping, strict status vocabulary, six blocking completion gaps, and two-phase controls/evidence publication bound to successful `main` CI |
 | Part 5 Stage 3 operational handoff | `LOCAL_VERIFIED` | Four deterministic operation, recovery, and escalation rehearsals bind the exact runbook, workflows, incident history, and predecessor receipts while closing only `P5-GAP-003` |
 | Part 5 Stage 4 completion candidate | `LOCAL_VERIFIED` | Candidate-tree naming, sixteen source-exact quality checks, twelve defect-audit domains, immutable action references, and closure of only `P5-GAP-004` through `P5-GAP-006` |
+| Part 5 Stage 5 project-completion controls | `LOCAL_VERIFIED` | Deterministic predecessor reconstruction, exact final-main four-job authority, complete gate and gap closure, annotated `v0.2.0` tag, and reproducible source-archive verification; readiness does not itself claim completion |
 | GitHub OIDC identity | `AWS_VERIFIED` | Current-target short-lived credentials issued to the repository's `main` branch |
 | Organization-shared credit safety | `OWNER_ATTESTED` | Management-account credit balance and unrestricted organization sharing were reviewed; the attestation expires quickly and must be refreshed |
 | IAM and persistent foundation | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) verified exact live IAM parity, hardened persistent resources, budget alerts, lease contention and release, an empty backend, and zero AtlasRetail workload resources |
@@ -127,6 +128,20 @@ Controls reach `COMPLETION_CANDIDATE_CONTROLS_READY`. The final
 `P5-GAP-005`, and `P5-GAP-006`; `P5-GAP-001` and `P5-GAP-002` remain blocking. It performs no AWS
 operation, project completion remains false, sustained operation remains unestablished, and actual
 billed cost remains `UNCLAIMED`.
+
+## Part 5 Stage 5 project-completion boundary
+
+Stage 5 revalidates every immutable Stage 1-4 authority and prepares the terminal completion
+attestation. Pull-request and in-progress CI emit `FINAL_ATTESTATION_READY`; project completion
+remains false and `P5-GAP-001` plus `P5-GAP-002` remain open at that boundary. Stage 5 performs no
+AWS operation and actual billed cost remains `UNCLAIMED`.
+
+The final receipt may reach `PROJECT_COMPLETION_VERIFIED` only after the exact merged commit passes
+the completed successful final `main` CI run with exactly four successful required jobs. The
+receipt closes all six Part 5 gaps and is then bound into the `v0.2.0` annotated tag with checksum
+provenance for the receipt, deterministic source archive, final commit, final-main run, and Stage 4
+receipt. Lightweight tags, altered archives, incomplete runs, job-set drift, and later commits are
+rejected.
 
 The runtime-integration job pins the AWS Glue 5 runtime versions: Python 3.11, Spark 3.5.4, and
 the SHA-512-verified Iceberg 1.7.1 runtime. It remains the deterministic local compatibility gate.

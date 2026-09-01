@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actual_billed_cost_claim": {"const": "UNCLAIMED"},
+    "aws_execution": {"const": false},
+    "claim_boundaries": {
+      "additionalProperties": false,
+      "properties": {
+        "production": {"const": "NOT_CLAIMED"},
+        "settled_billing": {"const": "UNCLAIMED"},
+        "sustained_operation": {"const": "NOT_ESTABLISHED"}
+      },
+      "required": ["production", "settled_billing", "sustained_operation"],
+      "type": "object"
+    },
+    "claim_level": {"const": "LOCAL_VERIFIED"},
+    "closed_gap_ids": {
+      "items": {"pattern": "^P5-GAP-[0-9]{3}$", "type": "string"},
+      "maxItems": 6,
+      "minItems": 6,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "completion_tag": {
+      "additionalProperties": false,
+      "properties": {
+        "archive_format": {"const": "git-archive-tar-fixed-gzip-v1"},
+        "archive_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "completion_version": {"const": "0.2.0"},
+        "signature_claim": {"const": "NOT_CLAIMED"},
+        "tag": {"const": "v0.2.0"},
+        "tag_target_commit": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "tag_type": {"const": "ANNOTATED"}
+      },
+      "required": [
+        "archive_format",
+        "archive_sha256",
+        "completion_version",
+        "signature_claim",
+        "tag",
+        "tag_target_commit",
+        "tag_type"
+      ],
+      "type": "object"
+    },
+    "evidence_type": {"const": "part5-stage5-project-completion"},
+    "final_source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "main_ci": {
+          "additionalProperties": false,
+          "properties": {
+            "conclusion": {"const": "success"},
+            "event": {"const": "push"},
+            "head_branch": {"const": "main"},
+            "head_sha": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+            "run_attempt": {"minimum": 1, "type": "integer"},
+            "run_id": {"minimum": 1, "type": "integer"},
+            "status": {"const": "completed"},
+            "url": {"pattern": "^https://github.com/.+/actions/runs/[0-9]+$", "type": "string"}
+          },
+          "required": [
+            "conclusion",
+            "event",
+            "head_branch",
+            "head_sha",
+            "run_attempt",
+            "run_id",
+            "status",
+            "url"
+          ],
+          "type": "object"
+        },
+        "tracked_tree_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+        "tree": {"pattern": "^[0-9a-f]{40}$", "type": "string"}
+      },
+      "required": ["commit", "main_ci", "tracked_tree_sha256", "tree"],
+      "type": "object"
+    },
+    "gate_results": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "authority_ids": {"items": {"type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+          "gate": {"type": "string"},
+          "result": {"const": "PASS"}
+        },
+        "required": ["authority_ids", "gate", "result"],
+        "type": "object"
+      },
+      "maxItems": 12,
+      "minItems": 12,
+      "type": "array"
+    },
+    "objective_results": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "authority_ids": {"items": {"type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+          "objective": {"type": "string"},
+          "result": {"const": "PASS"}
+        },
+        "required": ["authority_ids", "objective", "result"],
+        "type": "object"
+      },
+      "maxItems": 7,
+      "minItems": 7,
+      "type": "array"
+    },
+    "part": {"const": 5},
+    "predecessor_authority_sha256": {
+      "additionalProperties": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+      "minProperties": 4,
+      "type": "object"
+    },
+    "project": {"const": "AtlasRetail"},
+    "project_completion": {
+      "additionalProperties": false,
+      "properties": {
+        "all_part5_stages_complete": {"const": true},
+        "project_complete": {"const": true},
+        "remaining_work_required": {"const": false}
+      },
+      "required": ["all_part5_stages_complete", "project_complete", "remaining_work_required"],
+      "type": "object"
+    },
+    "receipt_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "required_job_results": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "conclusion": {"const": "success"},
+          "id": {"minimum": 1, "type": "integer"},
+          "name": {"type": "string"},
+          "status": {"const": "completed"}
+        },
+        "required": ["conclusion", "id", "name", "status"],
+        "type": "object"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "type": "array"
+    },
+    "runtime_equivalence": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_source_commit": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "file_count": {"const": 107},
+        "files_sha256": {"const": "2e1d10c936c23637929e65589fab324c4a2602b98da283135527733ea26f1e38"},
+        "result": {"const": "PASS"}
+      },
+      "required": ["baseline_source_commit", "file_count", "files_sha256", "result"],
+      "type": "object"
+    },
+    "schema_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "schema_version": {"const": "1.0"},
+    "stage": {"const": 5},
+    "stage_results": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "stage": {"maximum": 5, "minimum": 1, "type": "integer"},
+          "state": {"type": "string"}
+        },
+        "required": ["stage", "state"],
+        "type": "object"
+      },
+      "maxItems": 5,
+      "minItems": 5,
+      "type": "array"
+    },
+    "state": {"const": "PROJECT_COMPLETION_VERIFIED"}
+  },
+  "required": [
+    "actual_billed_cost_claim",
+    "aws_execution",
+    "claim_boundaries",
+    "claim_level",
+    "closed_gap_ids",
+    "completion_tag",
+    "evidence_type",
+    "final_source",
+    "gate_results",
+    "objective_results",
+    "part",
+    "predecessor_authority_sha256",
+    "project",
+    "project_completion",
+    "receipt_sha256",
+    "required_job_results",
+    "runtime_equivalence",
+    "schema_sha256",
+    "schema_version",
+    "stage",
+    "stage_results",
+    "state"
+  ],
+  "type": "object"
+}

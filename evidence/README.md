@@ -119,6 +119,13 @@ establish data-processing correctness.
   `COMPLETION_CANDIDATE_VERIFIED`. Stage 4 closes `P5-GAP-004`, `P5-GAP-005`, and `P5-GAP-006`;
   `P5-GAP-001` and `P5-GAP-002` remain blocking. Stage 4 performs no AWS operation, project
   completion remains false, and actual billed cost remains `UNCLAIMED`.
+- Part 5 Stage 5 controls revalidate all predecessor authorities, freeze the six-gap closure model,
+  and require exact completed final `main` CI plus the four named jobs before completion can be
+  attested. CI emits only `FINAL_ATTESTATION_READY`; project completion remains false,
+  `P5-GAP-001` and `P5-GAP-002` remain open, and Stage 5 performs no AWS operation. The external
+  `PROJECT_COMPLETION_VERIFIED` receipt, deterministic archive, post-completion verification, and
+  checksum manifest belong to the `v0.2.0` annotated tag release. Actual billed cost remains
+  `UNCLAIMED`.
 - `incidents/31791499897/terraform-outputs.json` preserves the exact resource identifiers required
   for recovery after partial Terraform state removal.
 - `../docs/incidents/legacy/` preserves the former rescue workflow and its exact authorization
