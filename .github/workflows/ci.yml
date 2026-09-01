@@ -26,7 +26,7 @@ jobs:
         run: |
           ruff check .
           ruff format --check .
-          mypy src release/part4/stage8 release/part5/stage1 release/part5/stage2 release/part5/stage3
+          mypy src release/part4/stage8 release/part5/stage1 release/part5/stage2 release/part5/stage3 release/part5/stage4
           python scripts/validate_part4_contract.py
           python scripts/validate_part4_sources.py
           python scripts/validate_part4_admission_controls.py \
@@ -49,11 +49,13 @@ jobs:
             "${RUNNER_TEMP}/part5-stage2-traceability-controls.json"
           python -m release.part5.stage3.validate_controls \
             "${RUNNER_TEMP}/part5-stage3-operational-handoff-controls.json"
+          python -m release.part5.stage4.validate_controls \
+            "${RUNNER_TEMP}/part5-stage4-completion-candidate-controls.json"
           cfn-lint infra/foundation/template.yml --regions ap-southeast-2
           python -m compileall -q src tests aws release
           bash -n scripts/*.sh
       - name: Tests and coverage
-        run: python -m pytest
+        run: python -m pytest --cov-fail-under=85
       - name: Reproduce deterministic Part 4 source provenance
         run: |
           first="${RUNNER_TEMP}/part4-sources-first"
@@ -155,6 +157,17 @@ jobs:
             python -m release.part5.stage3.operational_handoff verify \
               --receipt evidence/part5/stage3/operational-handoff.json
           fi
+      - name: Reproduce deterministic Part 5 Stage 4 completion-candidate controls
+        run: |
+          python -m release.part5.stage4.validate_controls \
+            "${RUNNER_TEMP}/part5-stage4-completion-candidate-controls-second.json"
+          diff -u \
+            "${RUNNER_TEMP}/part5-stage4-completion-candidate-controls.json" \
+            "${RUNNER_TEMP}/part5-stage4-completion-candidate-controls-second.json"
+          if test -f evidence/part5/stage4/completion-candidate.json; then
+            python -m release.part5.stage4.completion_candidate verify \
+              --receipt evidence/part5/stage4/completion-candidate.json
+          fi
       - name: Upload Stage 2 source-provenance evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -228,6 +241,13 @@ jobs:
         with:
           name: part5-stage3-operational-handoff-controls-${{ github.run_id }}
           path: ${{ runner.temp }}/part5-stage3-operational-handoff-controls.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload Part 5 Stage 4 completion-candidate controls
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: part5-stage4-completion-candidate-controls-${{ github.run_id }}
+          path: ${{ runner.temp }}/part5-stage4-completion-candidate-controls.json
           if-no-files-found: error
           retention-days: 30
 

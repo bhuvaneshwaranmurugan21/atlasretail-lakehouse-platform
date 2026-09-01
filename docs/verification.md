@@ -29,6 +29,7 @@ environment that produced it.
 | Part 5 Stage 1 completion contract | `LOCAL_VERIFIED` | Strict contract binding the released Part 4 authorities, frozen runtime, original engineering objectives, final completion gates, and fail-closed non-completion state |
 | Part 5 Stage 2 evidence traceability | `LOCAL_VERIFIED` | Exact objective-to-gate-to-authority mapping, strict status vocabulary, six blocking completion gaps, and two-phase controls/evidence publication bound to successful `main` CI |
 | Part 5 Stage 3 operational handoff | `LOCAL_VERIFIED` | Four deterministic operation, recovery, and escalation rehearsals bind the exact runbook, workflows, incident history, and predecessor receipts while closing only `P5-GAP-003` |
+| Part 5 Stage 4 completion candidate | `LOCAL_VERIFIED` | Candidate-tree naming, sixteen source-exact quality checks, twelve defect-audit domains, immutable action references, and closure of only `P5-GAP-004` through `P5-GAP-006` |
 | GitHub OIDC identity | `AWS_VERIFIED` | Current-target short-lived credentials issued to the repository's `main` branch |
 | Organization-shared credit safety | `OWNER_ATTESTED` | Management-account credit balance and unrestricted organization sharing were reviewed; the attestation expires quickly and must be refreshed |
 | IAM and persistent foundation | `AWS_VERIFIED` | [Run 32926893305](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/runs/32926893305) verified exact live IAM parity, hardened persistent resources, budget alerts, lease contention and release, an empty backend, and zero AtlasRetail workload resources |
@@ -112,6 +113,20 @@ only after the controls merge and successful `main` CI, then verified in a separ
 change. Stage 3 closes only `P5-GAP-003`; five gaps remain blocking. It performs no AWS operation,
 project completion remains false, sustained operation remains unestablished, and actual billed
 cost remains `UNCLAIMED`.
+
+## Part 5 Stage 4 completion-candidate boundary
+
+Stage 4 preserves the verified Stage 3 handoff and audits one exact repository candidate. It scans
+all candidate tracked paths and UTF-8 content plus post-policy commit subjects, binds sixteen CI
+quality checks, audits twelve defect domains, and rejects unresolved critical or high findings.
+The predecessor, newly closed, and remaining gaps must partition the complete six-gap baseline.
+
+Controls reach `COMPLETION_CANDIDATE_CONTROLS_READY`. The final
+`COMPLETION_CANDIDATE_VERIFIED` receipt is created only after the controls merge and successful
+`main` CI, then verified in a separate evidence-only change. Stage 4 closes `P5-GAP-004`,
+`P5-GAP-005`, and `P5-GAP-006`; `P5-GAP-001` and `P5-GAP-002` remain blocking. It performs no AWS
+operation, project completion remains false, sustained operation remains unestablished, and actual
+billed cost remains `UNCLAIMED`.
 
 The runtime-integration job pins the AWS Glue 5 runtime versions: Python 3.11, Spark 3.5.4, and
 the SHA-512-verified Iceberg 1.7.1 runtime. It remains the deterministic local compatibility gate.

@@ -1,0 +1,140 @@
+{
+  "accepted_limitations": [
+    {
+      "domain_id": "managed-runtime",
+      "finding_id": "P5-LIMIT-001",
+      "rationale": "The bounded managed proof does not establish production scale or sustained operation.",
+      "severity": "MEDIUM",
+      "status": "ACCEPTED_LIMITATION"
+    },
+    {
+      "domain_id": "evidence-provenance",
+      "finding_id": "P5-LIMIT-002",
+      "rationale": "Actual settled billing remains outside the available durable evidence.",
+      "severity": "LOW",
+      "status": "ACCEPTED_LIMITATION"
+    }
+  ],
+  "audit_domains": [
+    {
+      "domain_id": "contract-schema",
+      "evidence_check_ids": ["part4-contract", "part5-controls"]
+    },
+    {
+      "domain_id": "transformation-correctness",
+      "evidence_check_ids": ["full-test-suite", "glue-runtime-integration"]
+    },
+    {
+      "domain_id": "data-quality",
+      "evidence_check_ids": ["full-test-suite", "deterministic-source-provenance"]
+    },
+    {
+      "domain_id": "publication-consistency",
+      "evidence_check_ids": ["full-test-suite", "glue-runtime-integration"]
+    },
+    {
+      "domain_id": "recovery-teardown",
+      "evidence_check_ids": ["part4-controls", "frozen-runtime"]
+    },
+    {
+      "domain_id": "infrastructure-iam",
+      "evidence_check_ids": ["cloudformation-lint", "terraform-validation"]
+    },
+    {
+      "domain_id": "ci-reproducibility",
+      "evidence_check_ids": ["deterministic-controls", "action-pinning"]
+    },
+    {
+      "domain_id": "evidence-provenance",
+      "evidence_check_ids": ["deterministic-source-provenance", "part5-controls"]
+    },
+    {
+      "domain_id": "claim-boundaries",
+      "evidence_check_ids": ["part5-controls", "frozen-runtime"]
+    },
+    {
+      "domain_id": "documentation-naming",
+      "evidence_check_ids": ["professional-naming", "part5-controls"]
+    },
+    {
+      "domain_id": "repository-hygiene",
+      "evidence_check_ids": ["static-analysis", "python-compilation", "shell-syntax", "sensitive-material-scan"]
+    },
+    {
+      "domain_id": "managed-runtime",
+      "evidence_check_ids": ["glue-runtime-integration", "terraform-validation"]
+    }
+  ],
+  "naming_scope": [
+    "tracked-paths",
+    "tracked-utf8-content",
+    "post-policy-commit-subjects"
+  ],
+  "quality_checks": [
+    {
+      "check_id": "static-analysis",
+      "ci_tokens": ["ruff check .", "ruff format --check .", "mypy src"]
+    },
+    {
+      "check_id": "full-test-suite",
+      "ci_tokens": ["run: python -m pytest", "--cov-fail-under=85"]
+    },
+    {
+      "check_id": "part4-contract",
+      "ci_tokens": ["python scripts/validate_part4_contract.py", "python scripts/validate_part4_sources.py"]
+    },
+    {
+      "check_id": "part4-controls",
+      "ci_tokens": ["validate_part4_admission_controls.py", "validate_part4_stage7_controls.py", "release.part4.stage8.validate_controls"]
+    },
+    {
+      "check_id": "part5-controls",
+      "ci_tokens": ["release.part5.stage1.validate_controls", "release.part5.stage4.validate_controls"]
+    },
+    {
+      "check_id": "frozen-runtime",
+      "ci_tokens": ["verify_part4_stage7_runtime.py"]
+    },
+    {
+      "check_id": "cloudformation-lint",
+      "ci_tokens": ["cfn-lint infra/foundation/template.yml --regions ap-southeast-2"]
+    },
+    {
+      "check_id": "python-compilation",
+      "ci_tokens": ["python -m compileall -q src tests aws release"]
+    },
+    {
+      "check_id": "shell-syntax",
+      "ci_tokens": ["bash -n scripts/*.sh"]
+    },
+    {
+      "check_id": "deterministic-source-provenance",
+      "ci_tokens": ["Reproduce deterministic Part 4 source provenance", "diff -ru"]
+    },
+    {
+      "check_id": "deterministic-controls",
+      "ci_tokens": ["Reproduce deterministic Part 5 Stage 4 completion-candidate controls", "part5-stage4-completion-candidate-controls-second.json"]
+    },
+    {
+      "check_id": "professional-naming",
+      "ci_tokens": ["release.part5.stage4.validate_controls"]
+    },
+    {
+      "check_id": "action-pinning",
+      "ci_tokens": ["release.part5.stage4.validate_controls"]
+    },
+    {
+      "check_id": "sensitive-material-scan",
+      "ci_tokens": ["release.part5.stage4.validate_controls"]
+    },
+    {
+      "check_id": "glue-runtime-integration",
+      "ci_tokens": ["pyspark==3.5.4", "test_glue_spark_iceberg.py"]
+    },
+    {
+      "check_id": "terraform-validation",
+      "ci_tokens": ["terraform fmt -diff -check -recursive infra", "terraform -chdir=infra/atlas validate"]
+    }
+  ],
+  "schema_version": "1.0"
+}
