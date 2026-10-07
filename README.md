@@ -3,9 +3,18 @@
 **A generation-consistent retail lakehouse for publishing one coherent business state across
 orders, payments, returns, inventory, and product dimensions.**
 
-[![CI](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/ci.yml)
-[![OIDC identity](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/aws-oidc-identity.yml/badge.svg)](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/aws-oidc-identity.yml)
-[![AWS plan-only proof](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/aws-plan-only.yml/badge.svg)](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/aws-plan-only.yml)
+[![CI](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/ci.yml)
+[![AWS foundation](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/foundation.yml/badge.svg?branch=main)](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/foundation.yml)
+[![AWS plan-only proof](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/aws-plan-only.yml/badge.svg?branch=main)](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/aws-plan-only.yml)
+[![AWS bounded lab](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/aws-bounded-lab.yml/badge.svg?branch=main)](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/aws-bounded-lab.yml)
+[![AWS deployment canary](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/aws-controlled-deployment.yml/badge.svg?branch=main)](https://github.com/bhuvaneshwaranmurugan21/atlasretail-lakehouse-platform/actions/workflows/aws-controlled-deployment.yml)
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![Spark](https://img.shields.io/badge/Spark-3.5.4-E25A1C?logo=apachespark&logoColor=white)
+![AWS Glue](https://img.shields.io/badge/AWS%20Glue-5.0-232F3E)
+![Iceberg](https://img.shields.io/badge/Apache%20Iceberg-1.7.1-2896D2)
+![Terraform](https://img.shields.io/badge/Terraform-IaC-844FBA?logo=terraform&logoColor=white)
+![AWS](https://img.shields.io/badge/Cloud-AWS-232F3E?logo=amazonwebservices&logoColor=white)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 AtlasRetail separates generation construction from publication. Six independently valid Iceberg
 table commits can still represent an inconsistent retail state; the platform therefore builds an
