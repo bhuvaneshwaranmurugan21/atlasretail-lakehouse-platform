@@ -77,7 +77,7 @@ def _receipt(repository: Path = ROOT) -> dict[str, object]:
 def _clone(tmp_path: Path) -> Path:
     repository = tmp_path / "repository"
     subprocess.run(
-        ["git", "clone", "--quiet", "--no-local", str(ROOT), str(repository)],
+        ["git", "clone", "--quiet", "--no-local", "--no-tags", str(ROOT), str(repository)],
         check=True,
     )
     subprocess.run(
